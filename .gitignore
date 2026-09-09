@@ -1,0 +1,19 @@
+.lexverse/
+data/*
+__pycache__/
+*.py[cod]
+.DS_Store
+*.egg-info/
+build/
+dist/
+
+data.zip
+
+# Exclude tests and data contents
+tests/
+!data/.gitkeep
+
+.git.backup/
+tests/
+data/*
+!data/.gitkeep

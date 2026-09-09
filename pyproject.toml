@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lexverse"
+version = "0.1.0"
+description = "A callable legal data environment for legal agents"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp"]
+
+[project.scripts]
+lexverse-env = "lexverse_env.cli:main"
+lexverse-mcp = "lexverse_env.mcp_server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lexverse_env", "lexverse_env.*"]
