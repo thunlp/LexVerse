@@ -316,3 +316,8 @@ LexVerse/
 ## License
 
 Dataset licenses and usage restrictions remain governed by the original sources; preserve `provenance` when using records.
+
+## Contact Us
+
+For technical issues and feature requests, please use GitHub Issues.
+If you have any questions, feedback, or would like to get in touch, please feel free to reach out to us via email at xieh@tsinghua.edu.cn.
