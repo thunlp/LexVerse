@@ -200,30 +200,38 @@ get_manifest
 
 #### Pkulaw MCP
 
-Pkulaw is an optional external Provider. Configure it in an external MCP client or secret manager, then inject a synchronous bridge:
+Pkulaw is an optional external Provider. Set its token and use the environment's semantic APIs; the HTTP/SSE bridge, service routing, official tool names, and parameter conversion are built in:
 
 ```python
-from lexverse_env import CorpusEnv, PkulawMcpProvider
+import os
+from lexverse_env import CorpusEnv
 
-pkulaw = PkulawMcpProvider(
-    call_tool=my_synchronous_mcp_bridge,
-    service_id="verified-service-id",
-    search_tool="verified-search-tool",
-    get_tool="verified-get-tool",
-    map_search=my_search_mapper,
-    map_get=my_get_mapper,
-)
+os.environ["PKULAW_TOKEN"] = "Bearer <your-token>"
 
-with CorpusEnv.open("data", ".lexverse", pkulaw_provider=pkulaw) as env:
+with CorpusEnv.open("data", ".lexverse") as env:
     page = env.search_records(
         collection="legal_laws",
         provider="pkulaw",
         query="劳动合同解除",
         limit=5,
     )
+
+    cases = env.search_records(
+        collection="legal_cases",
+        provider="pkulaw",
+        query="房屋租赁到期后拒退押金",
+        limit=3,
+    )
 ```
 
-Verify the remote tool names and schemas with `tools/list` before configuring the Provider. Keep credentials outside the repository.
+The default search mode is semantic. Select the documented keyword services with `filters={"search_mode": "keyword"}`. The built-in registry routes record searches across four Pkulaw endpoints:
+
+| Environment operation | Pkulaw tools |
+| --- | --- |
+| `search_records("legal_laws", ...)` | `search_article` / `get_law_list` |
+| `search_records("legal_cases", ...)` | `search_case` / `get_case_list` |
+
+Every registered endpoint has a `PKULAW_<SERVICE>_MCP_ENDPOINT` override, such as `PKULAW_CASE_SEMANTIC_MCP_ENDPOINT`. The original `PKULAW_LAW_MCP_ENDPOINT` remains an alias for the semantic law endpoint. Applications may alternatively pass `pkulaw_endpoints`, `pkulaw_call_tool`, or a complete `pkulaw_provider` to `CorpusEnv.open`. Keep credentials outside the repository.
 
 ## Extending LexVerse
 

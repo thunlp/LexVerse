@@ -46,6 +46,10 @@ class CorpusEnv:
              pkulaw_call_tool: Callable[..., Any] | None = None,
              pkulaw_provider: PkulawMcpProvider | None = None,
              pkulaw_service_id: str | None = None,
+             pkulaw_token: str | None = None,
+             pkulaw_endpoint: str | None = None,
+             pkulaw_endpoints: dict[str, str] | None = None,
+             pkulaw_timeout_seconds: float = 30.0,
              build_if_missing: bool = False, max_limit: int = 50,
              max_record_bytes: int = 12 * 1024 * 1024,
              max_part_chars: int = 200_000,
@@ -104,11 +108,28 @@ class CorpusEnv:
                 max_part_record_bytes=max_part_record_bytes,
             )
             local = LocalProvider(query, store)
-            external = pkulaw_provider or PkulawMcpProvider(
-                pkulaw_call_tool,
-                service_id=pkulaw_service_id
-                or os.environ.get("LEXVERSE_PKULAW_SERVICE_ID"),
+            service_id = (
+                pkulaw_service_id
+                or os.environ.get("LEXVERSE_PKULAW_SERVICE_ID")
             )
+            if pkulaw_provider is not None:
+                external = pkulaw_provider
+            elif pkulaw_call_tool is not None:
+                external = PkulawMcpProvider.standard(
+                    call_tool=pkulaw_call_tool,
+                    service_id=service_id,
+                    endpoint=pkulaw_endpoint,
+                    endpoints=pkulaw_endpoints,
+                    timeout_seconds=pkulaw_timeout_seconds,
+                )
+            else:
+                external = PkulawMcpProvider.from_env(
+                    token=pkulaw_token,
+                    endpoint=pkulaw_endpoint,
+                    endpoints=pkulaw_endpoints,
+                    service_id=service_id,
+                    timeout_seconds=pkulaw_timeout_seconds,
+                )
             return cls(
                 data_dir=data_path,
                 state_dir=state_path,
@@ -147,7 +168,13 @@ class CorpusEnv:
             details = manifest_collections.get(collection, {})
             providers = list(details.get("providers", ["local"]))
             for provider in self.router.available_names():
-                if provider != "local" and provider not in providers:
+                adapter = self.router.get(provider)
+                supports = getattr(adapter, "supports_collection", None)
+                if (
+                    provider != "local"
+                    and provider not in providers
+                    and (supports is None or supports(collection))
+                ):
                     providers.append(provider)
             collections.append({
                 "name": collection,
@@ -180,9 +207,12 @@ class CorpusEnv:
         }.get(collection, [])
         capabilities = list(details.get("capabilities", ["search", "get", "read_part"]))
         if provider != "local":
-            capabilities = ["search", "get"]
-            fields = []
-            search_fields = []
+            adapter = self.router.get(provider)
+            describe = getattr(adapter, "describe_collection", None)
+            remote = describe(collection) if describe else {}
+            capabilities = list(remote.get("capabilities", ["search", "get"]))
+            fields = list(remote.get("filter_fields", []))
+            search_fields = list(remote.get("search_fields", []))
         return {
             "collection": collection,
             "provider": provider,

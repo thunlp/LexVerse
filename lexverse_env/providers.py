@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import json
+import os
+import re
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Callable, Protocol
+from urllib.request import Request, urlopen
 
 from .errors import (
     InvalidArgumentError,
@@ -16,6 +21,93 @@ from .errors import (
 )
 from .query import SearchRequest
 from .utils import short_value
+
+
+PKULAW_SERVICE_ENDPOINTS = {
+    "law_semantic": "https://apim-gateway.pkulaw.com/mcp-law-search-service",
+    "law_keyword": "https://apim-gateway.pkulaw.com/mcp-law",
+    "case_semantic": "https://apim-gateway.pkulaw.com/mcp-case-search-service",
+    "case_keyword": "https://apim-gateway.pkulaw.com/mcp-case",
+}
+PKULAW_SERVICE_ENV_VARS = {
+    name: f"PKULAW_{name.upper()}_MCP_ENDPOINT"
+    for name in PKULAW_SERVICE_ENDPOINTS
+}
+DEFAULT_PKULAW_ENDPOINT = PKULAW_SERVICE_ENDPOINTS["law_semantic"]
+DEFAULT_PKULAW_SERVICE_ID = "mcp-law-search-service"
+DEFAULT_PKULAW_SEARCH_TOOL = "search_article"
+DEFAULT_PKULAW_GET_TOOL = "get_article"
+_PKULAW_COLLECTIONS = {"legal_laws", "legal_cases"}
+_REMOTE_URL_ID = re.compile(r"/(?:chl|lar|pfnl)/([^/?#]+)\.html", re.I)
+
+
+def parse_pkulaw_mcp_response(raw: str) -> dict[str, Any]:
+    """Parse a JSON or server-sent-events response from the Pkulaw gateway."""
+
+    for line in raw.splitlines():
+        if line.startswith("data:"):
+            message = json.loads(line[5:].lstrip())
+            if isinstance(message, dict) and (
+                "result" in message or "error" in message
+            ):
+                return message
+    result = json.loads(raw)
+    if not isinstance(result, dict):
+        raise RuntimeError("北大法宝 MCP 返回的不是 JSON 对象")
+    return result
+
+
+def call_pkulaw_mcp_tool(
+    tool_name: str,
+    arguments: dict[str, Any],
+    timeout_seconds: float = 30,
+    *,
+    token: str | None = None,
+    endpoint: str | None = None,
+) -> dict[str, Any]:
+    """Synchronously call a tool on the Pkulaw HTTP MCP gateway."""
+
+    authorization = token or os.environ.get("PKULAW_TOKEN")
+    if not authorization:
+        raise ProviderUnavailableError(
+            "缺少 PKULAW_TOKEN；请配置北大法宝访问令牌",
+            details={"provider": "pkulaw"},
+        )
+    gateway = endpoint or os.environ.get(
+        "PKULAW_LAW_MCP_ENDPOINT", DEFAULT_PKULAW_ENDPOINT
+    )
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": tool_name, "arguments": arguments},
+    }
+    request = Request(
+        gateway,
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Authorization": authorization,
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        },
+        method="POST",
+    )
+    with urlopen(request, timeout=timeout_seconds) as response:
+        result = parse_pkulaw_mcp_response(response.read().decode("utf-8"))
+    if result.get("error"):
+        raise ProviderUnavailableError(
+            "北大法宝 MCP 调用失败",
+            details={"provider": "pkulaw", "tool": tool_name},
+        )
+    return result
+
+
+def _map_pkulaw_search(request: SearchRequest) -> dict[str, Any]:
+    return {"text": request.query or "", "size": request.limit}
+
+
+def _map_pkulaw_get(remote_id: str) -> dict[str, Any]:
+    return {"gid": remote_id}
 
 
 class Provider(Protocol):
@@ -61,7 +153,10 @@ def _safe_remote_key_fields(value: Any) -> dict[str, Any]:
     allowed = {
         "title", "law_name", "article", "case_number", "case_cause", "court",
         "stage", "category", "effective_from", "source", "year",
-        "template_type", "case_type", "term", "question", "theme",
+        "template_type", "case_type", "term", "question", "theme", "doc_type",
+        "case_grade", "decision_date", "cause_of_action", "timeliness",
+        "effectiveness", "issue_department", "issue_date", "implementation_date",
+        "doc_no", "url",
     }
     result: dict[str, Any] = {}
     for key, item in value.items():
@@ -75,7 +170,7 @@ def _safe_remote_key_fields(value: Any) -> dict[str, Any]:
 
 
 class PkulawMcpProvider:
-    """Optional adapter for a caller-supplied 北大法宝 MCP bridge."""
+    """Adapter for Pkulaw's collection search and legal-text MCP services."""
 
     name = "pkulaw"
 
@@ -93,6 +188,9 @@ class PkulawMcpProvider:
         self.get_tool = get_tool
         self.map_search = map_search
         self.map_get = map_get
+        self._service_endpoints: dict[str, str] = {}
+        self._authorization: str | None = None
+        self._record_cache: dict[str, Any] = {}
         if (
             isinstance(timeout_seconds, bool)
             or not isinstance(timeout_seconds, (int, float))
@@ -107,6 +205,95 @@ class PkulawMcpProvider:
         ):
             raise InvalidArgumentError("max_response_bytes 必须是正整数")
         self.max_response_bytes = max_response_bytes
+
+    @classmethod
+    def standard(
+        cls,
+        *,
+        call_tool: Callable[..., Any] | None = None,
+        token: str | None = None,
+        endpoint: str | None = None,
+        endpoints: dict[str, str] | None = None,
+        service_id: str | None = None,
+        timeout_seconds: float = 30.0,
+        max_response_bytes: int = 12 * 1024 * 1024,
+    ) -> "PkulawMcpProvider":
+        """Build the standard multi-service Pkulaw adapter.
+
+        A supplied bridge receives the documented tool names. Without one, the
+        provider sends HTTP MCP calls to the service endpoint selected for the
+        requested collection or legal-text operation.
+        """
+
+        authorization = token or os.environ.get("PKULAW_TOKEN")
+        configured_endpoints = dict(PKULAW_SERVICE_ENDPOINTS)
+        for name, variable in PKULAW_SERVICE_ENV_VARS.items():
+            configured_endpoints[name] = os.environ.get(
+                variable, configured_endpoints[name]
+            )
+        # Preserve the endpoint variable and argument introduced for the
+        # original law-semantic-only adapter.
+        configured_endpoints["law_semantic"] = (
+            endpoint
+            or os.environ.get("PKULAW_LAW_MCP_ENDPOINT")
+            or configured_endpoints["law_semantic"]
+        )
+        if endpoints is not None and not isinstance(endpoints, dict):
+            raise InvalidArgumentError("pkulaw_endpoints 必须是对象")
+        if endpoints:
+            unknown = set(endpoints) - set(PKULAW_SERVICE_ENDPOINTS)
+            if unknown:
+                raise InvalidArgumentError(
+                    f"未知北大法宝服务 endpoint: {sorted(unknown)[0]}"
+                )
+            for name, value in endpoints.items():
+                if not isinstance(value, str) or not value:
+                    raise InvalidArgumentError(
+                        f"北大法宝服务 endpoint 必须是非空字符串: {name}"
+                    )
+            configured_endpoints.update(endpoints)
+        bridge = call_tool
+        if bridge is None and authorization:
+            bridge = partial(
+                call_pkulaw_mcp_tool,
+                token=authorization,
+                endpoint=configured_endpoints["law_semantic"],
+            )
+        provider = cls(
+            bridge,
+            service_id=service_id or DEFAULT_PKULAW_SERVICE_ID,
+            search_tool=DEFAULT_PKULAW_SEARCH_TOOL,
+            get_tool=DEFAULT_PKULAW_GET_TOOL,
+            map_search=_map_pkulaw_search,
+            map_get=_map_pkulaw_get,
+            timeout_seconds=timeout_seconds,
+            max_response_bytes=max_response_bytes,
+        )
+        provider._service_endpoints = configured_endpoints
+        provider._authorization = authorization if call_tool is None else None
+        return provider
+
+    @classmethod
+    def from_env(
+        cls,
+        *,
+        token: str | None = None,
+        endpoint: str | None = None,
+        endpoints: dict[str, str] | None = None,
+        service_id: str | None = None,
+        timeout_seconds: float = 30.0,
+        max_response_bytes: int = 12 * 1024 * 1024,
+    ) -> "PkulawMcpProvider":
+        """Build the standard adapter from arguments and environment."""
+
+        return cls.standard(
+            token=token,
+            endpoint=endpoint,
+            endpoints=endpoints,
+            service_id=service_id,
+            timeout_seconds=timeout_seconds,
+            max_response_bytes=max_response_bytes,
+        )
 
     @property
     def id_prefix(self) -> str:
@@ -125,13 +312,19 @@ class PkulawMcpProvider:
             raise ProviderUnavailableError("北大法宝 Provider 未配置 MCP 连接", details={"provider": self.name})
         return self.call_tool
 
-    def _call(self, tool_name: str | None, arguments: dict[str, Any]) -> Any:
+    def _call(
+        self,
+        tool_name: str | None,
+        arguments: dict[str, Any],
+        *,
+        bridge: Callable[..., Any] | None = None,
+    ) -> Any:
         if not tool_name:
             raise ProviderUnavailableError(
                 "北大法宝 Provider 未配置已验证的工具名",
                 details={"provider": self.name},
             )
-        call_tool = self._ensure_available()
+        call_tool = bridge or self._ensure_available()
         try:
             try:
                 parameters = inspect.signature(call_tool).parameters.values()
@@ -180,6 +373,23 @@ class PkulawMcpProvider:
                     )
                 if isinstance(rpc_result, dict) and "structuredContent" in rpc_result:
                     result = rpc_result["structuredContent"]
+                elif isinstance(rpc_result, dict) and isinstance(
+                    rpc_result.get("content"), list
+                ):
+                    text_parts = [
+                        item.get("text")
+                        for item in rpc_result["content"]
+                        if isinstance(item, dict)
+                        and item.get("type") == "text"
+                        and isinstance(item.get("text"), str)
+                    ]
+                    if len(text_parts) == 1:
+                        try:
+                            result = json.loads(text_parts[0])
+                        except json.JSONDecodeError:
+                            result = text_parts[0]
+                    else:
+                        result = rpc_result
                 elif isinstance(rpc_result, dict):
                     result = rpc_result
             return result
@@ -190,42 +400,275 @@ class PkulawMcpProvider:
         except Exception as exc:
             raise ProviderUnavailableError("北大法宝 MCP 调用失败", details={"provider": self.name, "tool": tool_name}) from exc
 
+    def _call_service(
+        self, service: str, tool_name: str, arguments: dict[str, Any]
+    ) -> Any:
+        if service not in PKULAW_SERVICE_ENDPOINTS:
+            raise InvalidArgumentError(f"未知北大法宝服务: {service}")
+        if self._authorization:
+            endpoint = self._service_endpoints[service]
+            bridge = partial(
+                call_pkulaw_mcp_tool,
+                token=self._authorization,
+                endpoint=endpoint,
+            )
+            return self._call(tool_name, arguments, bridge=bridge)
+        return self._call(tool_name, arguments)
+
     def _remote_id(self, record_id: str) -> str:
-        if not isinstance(record_id, str) or not record_id.startswith(self.id_prefix):
+        if not isinstance(record_id, str):
             raise InvalidArgumentError("不是当前北大法宝 Provider 的记录 id")
-        remote_id = record_id[len(self.id_prefix):]
+        if record_id.startswith(self.id_prefix):
+            remote_id = record_id[len(self.id_prefix):]
+        elif self._service_endpoints and record_id.startswith("lv:external:pkulaw:"):
+            parts = record_id.split(":", 4)
+            if len(parts) != 5 or parts[3] not in self._service_endpoints:
+                raise InvalidArgumentError("不是当前北大法宝 Provider 的记录 id")
+            remote_id = parts[4]
+        else:
+            raise InvalidArgumentError("不是当前北大法宝 Provider 的记录 id")
         if not remote_id:
             raise InvalidArgumentError("外部记录 id 为空")
         return remote_id
 
-    def _public_id(self, remote_id: Any) -> str:
+    def _public_id(self, remote_id: Any, *, namespace: str | None = None) -> str:
         if remote_id in (None, ""):
             raise ProviderUnavailableError("北大法宝结果缺少记录 id", details={"provider": self.name})
-        return f"{self.id_prefix}{remote_id}"
+        prefix = (
+            f"lv:external:pkulaw:{namespace}:" if namespace else self.id_prefix
+        )
+        return f"{prefix}{remote_id}"
 
     @staticmethod
     def _items(payload: Any) -> tuple[list[Any], Any]:
         if isinstance(payload, dict):
             items = payload.get(
                 "items",
-                payload.get("results", payload.get("data", payload.get("result", []))),
+                payload.get(
+                    "results",
+                    payload.get(
+                        "data",
+                        payload.get("Data", payload.get("result", [])),
+                    ),
+                ),
             )
             cursor = payload.get("next_cursor", payload.get("nextCursor"))
             if isinstance(items, dict):
-                items = items.get("items", items.get("results", items.get("data", [])))
+                items = items.get(
+                    "items",
+                    items.get(
+                        "results", items.get("data", items.get("Data", []))
+                    ),
+                )
             return (items if isinstance(items, list) else [], cursor)
         return (payload if isinstance(payload, list) else [], None)
 
-    def search(self, request: SearchRequest) -> dict[str, Any]:
-        arguments = self.map_search(request) if self.map_search else {
-            "collection": request.collection,
-            "query": request.query,
-            "filters": request.filters or {},
-            "sort": request.sort,
-            "limit": request.limit,
-            **({"cursor": request.cursor} if request.cursor else {}),
+    @staticmethod
+    def _normalized_fields(raw: dict[str, Any]) -> dict[str, Any]:
+        aliases = {
+            "Title": "title",
+            "Gid": "gid",
+            "CaseFlag": "case_number",
+            "Court": "court",
+            "Category": "category",
+            "CaseGrade": "case_grade",
+            "DocumentAttr": "doc_type",
+            "CaseClassName": "case_type",
+            "LastInstanceDate": "decision_date",
+            "IssueDate": "issue_date",
+            "ImplementDate": "implementation_date",
+            "TimelinessDic": "timeliness",
+            "EffectivenessDic": "effectiveness",
+            "DocumentNO": "doc_no",
+            "FullText": "article",
+            "Url": "url",
         }
-        payload = self._call(self.search_tool, arguments)
+        return {aliases.get(key, key): value for key, value in raw.items()}
+
+    @staticmethod
+    def _remote_key(raw: dict[str, Any], fields: dict[str, Any]) -> Any:
+        for key in ("id", "record_id", "key", "gid", "Gid"):
+            if raw.get(key) not in (None, ""):
+                return raw[key]
+        for key in ("case_number", "CaseFlag"):
+            if fields.get(key) not in (None, ""):
+                return fields[key]
+        url = fields.get("url") or fields.get("Url")
+        if isinstance(url, str):
+            match = _REMOTE_URL_ID.search(url)
+            if match:
+                return match.group(1)
+        return None
+
+    @staticmethod
+    def _validated_filters(
+        request: SearchRequest, allowed: set[str]
+    ) -> dict[str, Any]:
+        filters = dict(request.filters or {})
+        unknown = set(filters) - allowed - {"search_mode"}
+        if unknown:
+            raise InvalidArgumentError(
+                f"北大法宝不支持过滤字段: {sorted(unknown)[0]}"
+            )
+        return filters
+
+    def supports_collection(self, collection: str) -> bool:
+        return collection in _PKULAW_COLLECTIONS
+
+    def describe_collection(self, collection: str) -> dict[str, Any]:
+        if collection == "legal_laws":
+            return {
+                "filter_fields": [
+                    "search_mode", "lib", "timeliness", "issue_department",
+                    "implement_date_start", "implement_date_end", "title",
+                    "fulltext", "effectiveness",
+                ],
+                "search_fields": ["title", "article"],
+                "capabilities": ["search", "get"],
+            }
+        if collection == "legal_cases":
+            return {
+                "filter_fields": [
+                    "search_mode", "case_type", "doc_type", "courthouse_name",
+                    "courthouse_province", "decision_date_start",
+                    "decision_date_end", "title", "fulltext", "case_grade",
+                    "court",
+                ],
+                "search_fields": ["title", "case_number", "facts"],
+                "capabilities": ["search", "get"],
+            }
+        raise InvalidArgumentError(f"北大法宝不支持集合: {collection}")
+
+    def _standard_search(self, request: SearchRequest) -> tuple[str, str, dict[str, Any]]:
+        if request.collection == "legal_laws":
+            allowed = {
+                "lib", "timeliness", "issue_department", "implement_date_start",
+                "implement_date_end", "title", "fulltext", "effectiveness",
+            }
+            filters = self._validated_filters(request, allowed)
+            mode = filters.pop("search_mode", "semantic")
+            if mode == "semantic":
+                incompatible = set(filters) - {
+                    "lib", "timeliness", "issue_department",
+                    "implement_date_start", "implement_date_end",
+                }
+                if incompatible:
+                    raise InvalidArgumentError(
+                        f"法规语义检索不支持过滤字段: {sorted(incompatible)[0]}"
+                    )
+                arguments = {"text": request.query or "", "size": request.limit}
+                arguments.update({
+                    key: filters[key]
+                    for key in (
+                        "lib", "timeliness", "issue_department",
+                        "implement_date_start", "implement_date_end",
+                    )
+                    if key in filters
+                })
+                return "law_semantic", "search_article", arguments
+            if mode == "keyword":
+                incompatible = set(filters) - {
+                    "title", "fulltext", "implement_date_start",
+                    "implement_date_end", "timeliness", "effectiveness",
+                }
+                if incompatible:
+                    raise InvalidArgumentError(
+                        f"法规关键词检索不支持过滤字段: {sorted(incompatible)[0]}"
+                    )
+                arguments: dict[str, Any] = {}
+                aliases = {
+                    "title": "title", "fulltext": "fulltext",
+                    "implement_date_start": "startImplementDate",
+                    "implement_date_end": "endImplementDate",
+                    "timeliness": "timeliness", "effectiveness": "effectiveness",
+                }
+                for key, remote_key in aliases.items():
+                    if key in filters:
+                        arguments[remote_key] = filters[key]
+                if request.query and "title" not in arguments and "fulltext" not in arguments:
+                    arguments["title"] = request.query
+                if "title" not in arguments and "fulltext" not in arguments:
+                    raise InvalidArgumentError(
+                        "北大法宝关键词法规检索需要 query、title 或 fulltext"
+                    )
+                return "law_keyword", "get_law_list", arguments
+        elif request.collection == "legal_cases":
+            allowed = {
+                "case_type", "doc_type", "courthouse_name",
+                "courthouse_province", "decision_date_start", "decision_date_end",
+                "title", "fulltext", "case_grade", "court",
+            }
+            filters = self._validated_filters(request, allowed)
+            mode = filters.pop("search_mode", "semantic")
+            if mode == "semantic":
+                incompatible = set(filters) - {
+                    "case_type", "doc_type", "courthouse_name",
+                    "courthouse_province", "decision_date_start",
+                    "decision_date_end",
+                }
+                if incompatible:
+                    raise InvalidArgumentError(
+                        f"案例语义检索不支持过滤字段: {sorted(incompatible)[0]}"
+                    )
+                arguments = {"text": request.query or "", "size": request.limit}
+                arguments.update({
+                    key: filters[key]
+                    for key in (
+                        "case_type", "doc_type", "courthouse_name",
+                        "courthouse_province", "decision_date_start",
+                        "decision_date_end",
+                    )
+                    if key in filters
+                })
+                return "case_semantic", "search_case", arguments
+            if mode == "keyword":
+                incompatible = set(filters) - {
+                    "title", "fulltext", "case_grade", "case_type",
+                    "doc_type", "court", "decision_date_start",
+                    "decision_date_end",
+                }
+                if incompatible:
+                    raise InvalidArgumentError(
+                        f"案例关键词检索不支持过滤字段: {sorted(incompatible)[0]}"
+                    )
+                arguments: dict[str, Any] = {}
+                aliases = {
+                    "title": "title", "fulltext": "fulltext",
+                    "case_grade": "caseGrade", "case_type": "caseClassName",
+                    "doc_type": "documentAttr", "court": "court",
+                    "decision_date_start": "startLastInstanceDate",
+                    "decision_date_end": "endLastInstanceDate",
+                }
+                for key, remote_key in aliases.items():
+                    if key in filters:
+                        arguments[remote_key] = filters[key]
+                if request.query and "title" not in arguments and "fulltext" not in arguments:
+                    arguments["title"] = request.query
+                if "title" not in arguments and "fulltext" not in arguments:
+                    raise InvalidArgumentError(
+                        "北大法宝关键词案例检索需要 query、title 或 fulltext"
+                    )
+                return "case_keyword", "get_case_list", arguments
+        else:
+            raise InvalidArgumentError(f"北大法宝不支持集合: {request.collection}")
+        raise InvalidArgumentError("search_mode 只能是 semantic 或 keyword")
+
+    def search(self, request: SearchRequest) -> dict[str, Any]:
+        selected_service: str | None = None
+        if self._service_endpoints:
+            service, tool, arguments = self._standard_search(request)
+            selected_service = service
+            payload = self._call_service(service, tool, arguments)
+        else:
+            arguments = self.map_search(request) if self.map_search else {
+                "collection": request.collection,
+                "query": request.query,
+                "filters": request.filters or {},
+                "sort": request.sort,
+                "limit": request.limit,
+                **({"cursor": request.cursor} if request.cursor else {}),
+            }
+            payload = self._call(self.search_tool, arguments)
         raw_items, next_cursor = self._items(payload)
         if next_cursor is not None and not isinstance(next_cursor, str):
             raise ProviderUnavailableError(
@@ -235,21 +678,51 @@ class PkulawMcpProvider:
         items: list[dict[str, Any]] = []
         for raw in raw_items[: request.limit]:
             if isinstance(raw, dict):
-                remote_id = raw.get(
-                    "id", raw.get("record_id", raw.get("key", raw.get("gid")))
+                raw_fields = raw.get("key_fields", raw.get("metadata", raw))
+                fields = self._normalized_fields(
+                    raw_fields if isinstance(raw_fields, dict) else raw
                 )
-                fields = raw.get("key_fields", raw.get("metadata", raw))
+                remote_id = self._remote_key(raw, fields)
+                if (
+                    selected_service == "law_semantic"
+                    and remote_id not in (None, "")
+                    and isinstance(fields.get("article"), str)
+                ):
+                    article_key = hashlib.sha256(
+                        fields["article"].encode("utf-8")
+                    ).hexdigest()[:12]
+                    remote_id = f"{remote_id}~{article_key}"
             else:
                 remote_id, fields = raw, {}
-            item: dict[str, Any] = {"id": self._public_id(remote_id)}
+            item: dict[str, Any] = {
+                "id": self._public_id(remote_id, namespace=selected_service)
+            }
             key_fields = _safe_remote_key_fields(fields)
             if key_fields:
                 item["key_fields"] = key_fields
             items.append(item)
+            if isinstance(raw, dict) and self._service_endpoints:
+                self._record_cache[item["id"]] = (selected_service, raw)
         return {"items": items, "next_cursor": next_cursor}
 
     def get(self, record_id: str) -> dict[str, Any]:
         remote_id = self._remote_id(record_id)
+        if record_id in self._record_cache:
+            service, cached_record = self._record_cache[record_id]
+            return {
+                "id": record_id,
+                "record": cached_record,
+                "provenance": {
+                    "provider": self.name,
+                    "service_id": service,
+                    "remote_id": remote_id,
+                },
+            }
+        if self._service_endpoints:
+            raise ProviderUnavailableError(
+                "北大法宝记录不在当前环境缓存中；请先重新搜索该记录",
+                details={"provider": self.name},
+            )
         arguments = self.map_get(remote_id) if self.map_get else {"id": remote_id}
         payload = self._call(self.get_tool, arguments)
         if isinstance(payload, dict) and "record" in payload:
