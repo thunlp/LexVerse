@@ -7,7 +7,7 @@ name = "lexverse"
 version = "0.1.0"
 description = "A callable legal data environment for legal agents"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["pydantic>=2.0.0",]
 
 [project.optional-dependencies]
 mcp = ["mcp"]
