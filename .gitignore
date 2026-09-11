@@ -1,5 +1,6 @@
 .lexverse/
 data/*
+user_data/
 __pycache__/
 *.py[cod]
 .DS_Store
