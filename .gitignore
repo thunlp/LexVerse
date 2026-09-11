@@ -1,19 +1,20 @@
+# Runtime data
 .lexverse/
+user_data/
 data/*
+!data/.gitkeep
+data.zip
+
+# Python artifacts
 __pycache__/
 *.py[cod]
-.DS_Store
 *.egg-info/
 build/
 dist/
 
-data.zip
-
-# Exclude tests and data contents
+# Tests
 tests/
-!data/.gitkeep
 
+# Local metadata and backups
+.DS_Store
 .git.backup/
-tests/
-data/*
-!data/.gitkeep
