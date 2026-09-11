@@ -7,6 +7,9 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Iterator
 
+from pydantic import ValidationError
+
+from .errors import InvalidArgumentError
 from .types import LoadedRecord, ProjectionResult, RecordContext, Projection
 from .utils import safe_path
 
@@ -180,7 +183,21 @@ def _loaded(
     context: RecordContext,
     projection: Projection,
 ) -> LoadedRecord:
-    projected: ProjectionResult = projection(record, context)
+    try:
+        projected: ProjectionResult = projection(record, context)
+    except ValidationError as exc:
+        raise InvalidArgumentError(
+            "数据记录无法映射到索引 schema",
+            details={
+                "source": context.source,
+                "relative_file": context.relative_file,
+                "ordinal": context.ordinal,
+                "validation_errors": [
+                    {"location": list(error["loc"]), "type": error["type"]}
+                    for error in exc.errors(include_input=False)
+                ],
+            },
+        ) from exc
     return LoadedRecord(
         collection=context.collection,
         source=context.source,

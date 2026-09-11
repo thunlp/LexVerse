@@ -4,8 +4,29 @@ Pydantic schemas for LexVerse data collections.
 """
 
 import re
-from typing import Optional, Any, Dict
-from pydantic import BaseModel, Field, AliasChoices
+from typing import Annotated, Optional
+
+from pydantic import AliasChoices, BaseModel, BeforeValidator, Field
+
+from .utils import flatten_text
+
+
+def _text_or_empty(value):
+    if value is None:
+        return ""
+    if isinstance(value, (str, int, float, bool)):
+        return str(value)
+    if isinstance(value, (dict, list, tuple)):
+        return flatten_text(value)
+    return str(value)
+
+
+def _optional_text(value):
+    return None if value is None else _text_or_empty(value)
+
+
+TextValue = Annotated[str, BeforeValidator(_text_or_empty)]
+OptionalTextValue = Annotated[Optional[str], BeforeValidator(_optional_text)]
 
 
 def _clean_dict(data: dict) -> dict:
@@ -26,11 +47,11 @@ class BaseRecordModel(BaseModel):
     ctx_object_key: Optional[str] = Field(default=None, exclude=True)
     
     # 共用字段别名映射
-    dataset: Optional[str] = Field(default=None, validation_alias=AliasChoices("dataset", "数据集", "来源"))
-    category: Optional[str] = Field(default=None, validation_alias=AliasChoices("category", "类别", "分类"))
+    dataset: OptionalTextValue = Field(default=None, validation_alias=AliasChoices("dataset", "数据集", "来源"))
+    category: OptionalTextValue = Field(default=None, validation_alias=AliasChoices("category", "类别", "分类"))
     
     # 统一接收可能包含年份信息的杂乱字段
-    raw_date: Optional[str] = Field(
+    raw_date: OptionalTextValue = Field(
         default=None, 
         validation_alias=AliasChoices("effective_from", "effective_to", "发布时间", "published_at", "date", "判决日期", "裁判日期", "生效日期"),
         exclude=True
@@ -62,10 +83,10 @@ class BaseRecordModel(BaseModel):
 class LegalLawModel(BaseRecordModel):
     """法律法规集合 (legal_laws)"""
     
-    law_name: str = Field(default="", validation_alias=AliasChoices("law_name", "法律名称", "name"))
-    article: str = Field(default="", validation_alias=AliasChoices("article", "article_number", "条文", "条号"))
-    effective_from: str = Field(default="", validation_alias=AliasChoices("effective_from", "生效日期"))
-    text: str = Field(default="", validation_alias=AliasChoices("text", "content", "正文"))
+    law_name: TextValue = Field(default="", validation_alias=AliasChoices("law_name", "法律名称", "name"))
+    article: TextValue = Field(default="", validation_alias=AliasChoices("article", "article_number", "条文", "条号"))
+    effective_from: TextValue = Field(default="", validation_alias=AliasChoices("effective_from", "生效日期"))
+    text: TextValue = Field(default="", validation_alias=AliasChoices("text", "content", "正文"))
 
     def export_source_key(self) -> str:
         if self.ctx_object_key:
@@ -99,12 +120,12 @@ class LegalLawModel(BaseRecordModel):
 class LegalCaseModel(BaseRecordModel):
     """法律案件集合 (legal_cases)"""
     
-    case_id: str = Field(default="", validation_alias=AliasChoices("id", "caseID", "CaseId", "case_id", "pid", "text_id", "uid", "uniqid"))
-    title: str = Field(default="", validation_alias=AliasChoices("title", "案件名", "case_name", "name"))
-    case_number: str = Field(default="", validation_alias=AliasChoices("case_number", "案号", "裁判文书案号"))
-    case_cause: str = Field(default="", validation_alias=AliasChoices("case_cause", "案由", "纠纷类型", "类别", "case_type"))
-    court: str = Field(default="", validation_alias=AliasChoices("court", "法院", "审理法院"))
-    stage: str = Field(default="", validation_alias=AliasChoices("stage", "审理程序", "审级"))
+    case_id: TextValue = Field(default="", validation_alias=AliasChoices("id", "caseID", "CaseId", "case_id", "pid", "text_id", "uid", "uniqid"))
+    title: TextValue = Field(default="", validation_alias=AliasChoices("title", "案件名", "case_name", "name"))
+    case_number: TextValue = Field(default="", validation_alias=AliasChoices("case_number", "案号", "裁判文书案号"))
+    case_cause: TextValue = Field(default="", validation_alias=AliasChoices("case_cause", "案由", "纠纷类型", "类别", "case_type"))
+    court: TextValue = Field(default="", validation_alias=AliasChoices("court", "法院", "审理法院"))
+    stage: TextValue = Field(default="", validation_alias=AliasChoices("stage", "审理程序", "审级"))
 
     def export_source_key(self) -> str:
         if self.ctx_object_key:
@@ -144,10 +165,10 @@ class LegalCaseModel(BaseRecordModel):
 class LegalQaModel(BaseRecordModel):
     """法律问答集合 (legal_qa)"""
     
-    qa_id: str = Field(default="", validation_alias=AliasChoices("id", "question", "topic", "theme"))
-    question: str = Field(default="", validation_alias=AliasChoices("question", "topic", "opening"))
-    theme: str = Field(default="", validation_alias=AliasChoices("theme", "topic_name", "category"))
-    content: str = Field(default="", validation_alias=AliasChoices("content", "answer"))
+    qa_id: TextValue = Field(default="", validation_alias=AliasChoices("id", "question", "topic", "theme"))
+    question: TextValue = Field(default="", validation_alias=AliasChoices("question", "topic", "opening"))
+    theme: TextValue = Field(default="", validation_alias=AliasChoices("theme", "topic_name", "category"))
+    content: TextValue = Field(default="", validation_alias=AliasChoices("content", "answer"))
 
     def export_source_key(self) -> str:
         if self.ctx_object_key:
@@ -182,10 +203,10 @@ class LegalQaModel(BaseRecordModel):
 class LegalConceptModel(BaseRecordModel):
     """法律概念集合 (legal_concepts)"""
     
-    term: str = Field(default="", validation_alias=AliasChoices("term", "entity_name", "name"))
-    description: str = Field(default="", validation_alias=AliasChoices("concept", "description"))
-    facts: str = Field(default="", validation_alias=AliasChoices("facts", "attributes", "labels"))
-    concept_domain: str = Field(default="", validation_alias=AliasChoices("category", "domain"))
+    term: TextValue = Field(default="", validation_alias=AliasChoices("term", "entity_name", "name"))
+    description: TextValue = Field(default="", validation_alias=AliasChoices("concept", "description"))
+    facts: TextValue = Field(default="", validation_alias=AliasChoices("facts", "attributes", "labels"))
+    concept_domain: TextValue = Field(default="", validation_alias=AliasChoices("category", "domain"))
 
     def export_source_key(self) -> str:
         if self.ctx_object_key:
@@ -219,10 +240,10 @@ class LegalConceptModel(BaseRecordModel):
 class LegalTemplateModel(BaseRecordModel):
     """文书模板集合 (legal_templates)"""
     
-    title: str = Field(default="", validation_alias=AliasChoices("file_path", "title", "name"))
-    template_type: str = Field(default="", validation_alias=AliasChoices("template_type", "类型"))
-    case_type: str = Field(default="", validation_alias=AliasChoices("case_type", "案由"))
-    content: str = Field(default="", validation_alias=AliasChoices("content", "description"))
+    title: TextValue = Field(default="", validation_alias=AliasChoices("file_path", "title", "name"))
+    template_type: TextValue = Field(default="", validation_alias=AliasChoices("template_type", "类型"))
+    case_type: TextValue = Field(default="", validation_alias=AliasChoices("case_type", "案由"))
+    content: TextValue = Field(default="", validation_alias=AliasChoices("content", "description"))
 
     def export_source_key(self) -> str:
         if self.ctx_object_key:
