@@ -11,7 +11,7 @@ from typing import Any
 
 from .env import CorpusEnv
 from .errors import EnvironmentNotReadyError, LexVerseError, error_response
-from .index import IndexBuilder
+from .index import IndexBuilder, summarize_file_manifest
 from .registry import SourceRegistry
 
 
@@ -22,6 +22,11 @@ def _json_dump(value: Any) -> None:
 def _path_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--data-dir", required=True, type=Path)
     parser.add_argument("--state-dir", required=True, type=Path)
+
+
+def _user_path_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--user-data-dir", type=Path, default=None)
+    parser.add_argument("--user-state-dir", type=Path, default=None)
 
 
 def _top_level_type(path: Path) -> str:
@@ -104,26 +109,56 @@ def command_inventory(args: argparse.Namespace) -> int:
 
 def command_build_index(args: argparse.Namespace) -> int:
     result = IndexBuilder(args.data_dir, args.state_dir, registry=SourceRegistry.default()).build(
-        max_records=args.max_records, progress=args.progress
+        source_type=args.source_type,
+        hf_repo_id=args.hf_repo_id,
+        huggingface_commit_sha=args.huggingface_commit_sha,
+        dataset_id=args.dataset_id,
+        dataset_revision=args.dataset_revision,
+        max_records=args.max_records,
+        progress=args.progress,
     )
+    file_manifest = result.get("file_manifest")
+    if isinstance(file_manifest, dict):
+        result["file_manifest"] = summarize_file_manifest(file_manifest)
     _json_dump(result)
     return 0
 
 
 def command_doctor(args: argparse.Namespace) -> int:
-    env = CorpusEnv.open(args.data_dir, args.state_dir, max_limit=args.max_limit)
+    env = CorpusEnv.open(
+        args.data_dir,
+        args.state_dir,
+        user_data_dir=args.user_data_dir,
+        user_state_dir=args.user_state_dir,
+        max_limit=args.max_limit,
+        verify_data=args.verify_data,
+    )
     try:
         manifest = env.get_manifest()
         collections = env.list_collections()
         checks: dict[str, Any] = {
             "data_dir": "data",
             "state_dir": ".lexverse",
-            "snapshot_id": manifest.get("snapshot_id"),
-            "index_generation": manifest.get("index_generation"),
+            "data_verified": args.verify_data,
             "collection_count": len(collections.get("collections", [])),
             "providers": list(env.router.available_names()),
             "ok": True,
         }
+        if manifest.get("layout") == "layered":
+            checks["layers"] = {
+                name: {
+                    "snapshot_id": layer.get("snapshot_id"),
+                    "data_source": layer.get("data_source"),
+                    "index_generation": layer.get("index_generation"),
+                }
+                for name, layer in manifest.get("layers", {}).items()
+            }
+        else:
+            checks.update({
+                "snapshot_id": manifest.get("snapshot_id"),
+                "data_source": manifest.get("data_source"),
+                "index_generation": manifest.get("index_generation"),
+            })
         for item in collections.get("collections", []):
             if item.get("record_count", 0):
                 page = env.search_records(item["name"], sort="stable", limit=1)
@@ -140,7 +175,13 @@ def command_doctor(args: argparse.Namespace) -> int:
 
 
 def command_search(args: argparse.Namespace) -> int:
-    env = CorpusEnv.open(args.data_dir, args.state_dir, max_limit=args.max_limit)
+    env = CorpusEnv.open(
+        args.data_dir,
+        args.state_dir,
+        user_data_dir=args.user_data_dir,
+        user_state_dir=args.user_state_dir,
+        max_limit=args.max_limit,
+    )
     try:
         filters = json.loads(args.filters) if args.filters else None
         _json_dump(env.search_records(collection=args.collection, provider=args.provider,
@@ -152,7 +193,13 @@ def command_search(args: argparse.Namespace) -> int:
 
 
 def command_get(args: argparse.Namespace) -> int:
-    env = CorpusEnv.open(args.data_dir, args.state_dir, max_limit=args.max_limit)
+    env = CorpusEnv.open(
+        args.data_dir,
+        args.state_dir,
+        user_data_dir=args.user_data_dir,
+        user_state_dir=args.user_state_dir,
+        max_limit=args.max_limit,
+    )
     try:
         if args.asset:
             result = env.get_asset(args.identifier, mode=args.mode)
@@ -178,17 +225,42 @@ def build_parser() -> argparse.ArgumentParser:
 
     build = subparsers.add_parser("build-index", help="构建只读 SQLite/FTS 索引")
     _path_args(build)
+    build.add_argument(
+        "--source-type",
+        choices=("local", "huggingface"),
+        default="local",
+        help="数据来源类型（默认: local）",
+    )
+    build.add_argument("--hf-repo-id", default=None, help="Hugging Face 数据集仓库 ID")
+    build.add_argument(
+        "--huggingface-commit-sha",
+        default=None,
+        help="数据下载所对应的 40 位 Hugging Face commit SHA",
+    )
+    build.add_argument("--dataset-id", default=None, help="本地数据集标识")
+    build.add_argument(
+        "--dataset-revision",
+        default=None,
+        help="数据集 revision；本地数据省略时根据内容生成",
+    )
     build.add_argument("--max-records", type=int, default=None)
     build.add_argument("--progress", action="store_true")
     build.set_defaults(handler=command_build_index)
 
     doctor = subparsers.add_parser("doctor", help="检查索引和环境")
     _path_args(doctor)
+    _user_path_args(doctor)
     doctor.add_argument("--max-limit", type=int, default=50)
+    doctor.add_argument(
+        "--verify-data",
+        action="store_true",
+        help="重新计算所有数据文件的 SHA-256",
+    )
     doctor.set_defaults(handler=command_doctor)
 
     search = subparsers.add_parser("search", help="搜索记录引用")
     _path_args(search)
+    _user_path_args(search)
     search.add_argument("--collection", required=True)
     search.add_argument("--provider", default="local")
     search.add_argument("--query", default=None)
@@ -201,6 +273,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     get = subparsers.add_parser("get", help="读取记录、片段或资产")
     _path_args(get)
+    _user_path_args(get)
     get.add_argument("identifier")
     get.add_argument("--part", default=None, help="JSON Pointer")
     get.add_argument("--offset", type=int, default=0)

@@ -4,6 +4,7 @@ from .env import CorpusEnv
 from .errors import LexVerseError, error_response
 from .index import IndexBuilder
 from .providers import (
+    LayeredLocalProvider,
     LocalProvider,
     PKULAW_SERVICE_ENDPOINTS,
     PkulawMcpProvider,
@@ -18,6 +19,7 @@ __all__ = [
     "CorpusEnv",
     "IndexBuilder",
     "LexVerseError",
+    "LayeredLocalProvider",
     "LocalProvider",
     "PKULAW_SERVICE_ENDPOINTS",
     "PkulawMcpProvider",

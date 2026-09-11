@@ -22,6 +22,8 @@ def _environment() -> CorpusEnv:
     return CorpusEnv.open(
         os.environ.get("LEXVERSE_DATA_DIR", "data"),
         os.environ.get("LEXVERSE_STATE_DIR", ".lexverse"),
+        user_data_dir=os.environ.get("LEXVERSE_USER_DATA_DIR"),
+        user_state_dir=os.environ.get("LEXVERSE_USER_STATE_DIR"),
     )
 
 
