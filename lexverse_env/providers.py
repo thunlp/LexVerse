@@ -14,13 +14,15 @@ from urllib.request import Request, urlopen
 
 from .errors import (
     InvalidArgumentError,
+    InvalidCursorError,
     ProviderTimeoutError,
     ProviderUnavailableError,
+    RecordNotFoundError,
     ReadLimitExceededError,
     UnknownProviderError,
 )
 from .query import SearchRequest
-from .utils import short_value
+from .utils import decode_cursor, encode_cursor, short_value, stable_hash
 
 
 PKULAW_SERVICE_ENDPOINTS = {
@@ -143,6 +145,143 @@ class LocalProvider:
 
     def get_asset(self, asset_id: str, mode: str = "metadata") -> dict[str, Any]:
         return self.record_store.get_asset(asset_id, mode=mode)
+
+
+class LayeredLocalProvider:
+    """Merge isolated user and official local indexes behind one provider."""
+
+    name = "local"
+
+    def __init__(
+        self,
+        layers: tuple[tuple[str, LocalProvider], ...],
+        *,
+        max_limit: int = 50,
+    ):
+        if not layers:
+            raise InvalidArgumentError("本地索引层不能为空")
+        self.layers = layers
+        self.max_limit = max_limit
+        self.generation = stable_hash(
+            [
+                [name, layer.query_service.meta.get("index_generation")]
+                for name, layer in layers
+            ],
+            length=32,
+        )
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    def _fetch(self, layer: LocalProvider, request: SearchRequest, target: int) -> tuple[list[dict[str, Any]], bool]:
+        items: list[dict[str, Any]] = []
+        cursor: str | None = None
+        while len(items) < target:
+            page = layer.search(SearchRequest(
+                collection=request.collection,
+                provider="local",
+                query=request.query,
+                filters=request.filters,
+                sort=request.sort,
+                limit=min(self.max_limit, max(1, target - len(items))),
+                cursor=cursor,
+            ))
+            items.extend(page.get("items", []))
+            cursor = page.get("next_cursor")
+            if not cursor:
+                return items, False
+        return items, cursor is not None
+
+    @staticmethod
+    def _deduplicate(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        seen: set[str] = set()
+        result: list[dict[str, Any]] = []
+        for item in items:
+            record_id = item.get("id")
+            if not isinstance(record_id, str) or record_id in seen:
+                continue
+            seen.add(record_id)
+            result.append(item)
+        return result
+
+    @staticmethod
+    def _interleave(pages: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+        for offset in range(max((len(page) for page in pages), default=0)):
+            for page in pages:
+                if offset < len(page):
+                    result.append(page[offset])
+        return result
+
+    def search(self, request: SearchRequest) -> dict[str, Any]:
+        request_hash = stable_hash(request.canonical(), length=32)
+        offset = 0
+        if request.cursor:
+            payload = decode_cursor(request.cursor)
+            if (
+                payload.get("version") != 1
+                or payload.get("request_hash") != request_hash
+                or payload.get("index_generation") != self.generation
+            ):
+                raise InvalidCursorError("cursor 与当前分层查询或索引版本不匹配")
+            offset = payload.get("offset", -1)
+            if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+                raise InvalidCursorError("cursor offset 无效")
+        target = offset + request.limit + 1
+        fetched = [
+            self._fetch(layer, request, target) for _, layer in self.layers
+        ]
+        pages = [page for page, _ in fetched]
+        if request.sort == "stable" or not request.query:
+            merged = self._deduplicate([item for page in pages for item in page])
+            merged.sort(key=lambda item: item["id"])
+        else:
+            merged = self._deduplicate(self._interleave(pages))
+        page = merged[offset : offset + request.limit]
+        has_more = len(merged) > offset + len(page) or any(more for _, more in fetched)
+        next_cursor = None
+        if has_more:
+            next_cursor = encode_cursor({
+                "version": 1,
+                "request_hash": request_hash,
+                "index_generation": self.generation,
+                "offset": offset + len(page),
+            })
+        return {"items": page, "next_cursor": next_cursor}
+
+    def _record_layer(self, record_id: str) -> tuple[str, LocalProvider]:
+        for name, layer in self.layers:
+            try:
+                layer.record_store._record_row(record_id)
+                return name, layer
+            except RecordNotFoundError:
+                continue
+        raise RecordNotFoundError(f"记录不存在: {record_id}")
+
+    def get(self, record_id: str) -> dict[str, Any]:
+        name, layer = self._record_layer(record_id)
+        result = layer.get(record_id)
+        result.setdefault("provenance", {})["index_layer"] = name
+        return result
+
+    def read_record_part(self, record_id: str, path: str, *, offset: int = 0, limit: int = 12_000) -> dict[str, Any]:
+        name, layer = self._record_layer(record_id)
+        result = layer.read_record_part(
+            record_id, path, offset=offset, limit=limit
+        )
+        result["index_layer"] = name
+        return result
+
+    def get_asset(self, asset_id: str, mode: str = "metadata") -> dict[str, Any]:
+        for name, layer in self.layers:
+            try:
+                result = layer.get_asset(asset_id, mode=mode)
+                result["index_layer"] = name
+                return result
+            except RecordNotFoundError:
+                continue
+        raise RecordNotFoundError(f"资产不存在: {asset_id}")
 
 
 def _safe_remote_key_fields(value: Any) -> dict[str, Any]:

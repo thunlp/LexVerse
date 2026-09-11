@@ -59,44 +59,128 @@ For record-level provenance, use the `provenance` field returned by the SDK/API.
 
 Python 3.10+ is required.
 
-The source data is published separately as the Hugging Face dataset
-[`mjyanna/LexVerse-data`](https://huggingface.co/datasets/mjyanna/LexVerse-data)
-and is intentionally not stored in this Git repository. Download it before
-building the local index:
+Clone LexVerse and install the package:
 
 ```bash
-python -m pip install -U huggingface_hub
-huggingface-cli download mjyanna/LexVerse-data \
-  --repo-type dataset \
-  --local-dir ./data
-```
-
-If the dataset is private, authenticate first with `huggingface-cli login`.
-The dataset is about 3.2 GB and contains files from multiple upstream
-projects; review the upstream licenses and attribution requirements before
-redistributing it.
-
-```bash
-git clone <your-repository-url>
+git clone https://github.com/thunlp/LexVerse.git
 cd LexVerse
 python -m pip install -e .
+python -m pip install -U huggingface_hub
+```
 
-# Inspect registered sources
-lexverse-env inventory --data-dir ./data --state-dir ./.lexverse
+Download the official data and its matching prebuilt index:
 
-# Build the local index
-lexverse-env build-index \
-  --data-dir ./data \
-  --state-dir ./.lexverse \
-  --progress
+```bash
+huggingface-cli download thunlp/LexVerse-data \
+  --repo-type dataset \
+  --local-dir ./data
 
-# Check the index and sample records
+huggingface-cli download thunlp/LexVerse-index \
+  --repo-type dataset \
+  --local-dir ./.lexverse/official
+```
+
+The official `.lexverse/official` directory is already built for the corresponding
+official data release. Users of the official release do not need to run
+`lexverse-env build-index`.
+
+```bash
+# Check the downloaded data and index
 lexverse-env doctor --data-dir ./data --state-dir ./.lexverse
 ```
 
-For development, add `--max-records 100` to build a small partial index.
+The environment can then be used directly:
+
+```python
+from lexverse_env import CorpusEnv
+
+with CorpusEnv.open("data", ".lexverse") as env:
+    print(env.search_records("legal_laws", query="劳动合同解除", limit=5))
+```
+
+If either Hugging Face repository is private, authenticate first with
+`huggingface-cli login`. The data is about 3.2 GB and contains files from
+multiple upstream projects; review the upstream licenses and attribution
+requirements before redistributing it.
 
 ## Using LexVerse
+
+### Index Setup and Management
+
+#### Get the Official Index
+
+The official index is published separately from the source data at
+[`thunlp/LexVerse-index`](https://huggingface.co/datasets/thunlp/LexVerse-index).
+Download it into `.lexverse/official` alongside the matching `data` directory:
+
+```bash
+huggingface-cli download thunlp/LexVerse-index \
+  --repo-type dataset \
+  --local-dir ./.lexverse/official
+```
+
+Keep the data and index release versions matched. `manifest.json` binds an
+official index to the Hugging Face repository, immutable commit SHA, dataset
+revision, and a complete SHA-256 file manifest. A normal open performs a fast
+path-and-size check. To verify every file's contents, run:
+
+```bash
+lexverse-env doctor \
+  --data-dir ./data \
+  --state-dir ./.lexverse \
+  --verify-data
+```
+
+#### Build an Index for Custom Data
+
+Run `build-index` only when adding or changing local data, loaders,
+projections, or collections. Register a new source as described in
+[Add a Data Source](#add-a-data-source), then build a local index:
+
+```bash
+lexverse-env inventory --data-dir ./user_data --state-dir ./.lexverse/user
+
+lexverse-env build-index \
+  --data-dir ./user_data \
+  --state-dir ./.lexverse/user \
+  --source-type local \
+  --dataset-id my-legal-data \
+  --progress
+```
+
+`dataset-revision` is optional for local data. If omitted, LexVerse derives it
+from the content manifest. For development, add `--max-records 100` to create a
+small partial index.
+
+Official index publishers can build an index with explicit Hugging Face
+provenance:
+
+```bash
+lexverse-env build-index \
+  --data-dir ./data \
+  --state-dir ./.lexverse/official \
+  --source-type huggingface \
+  --hf-repo-id thunlp/LexVerse-data \
+  --huggingface-commit-sha <40-character-commit-sha> \
+  --dataset-revision <revision-used-for-download> \
+  --progress
+```
+
+LexVerse records every file's relative path, size, and SHA-256 digest. File
+modification times are deliberately excluded, so an index remains reusable
+after matching data is copied or extracted on another machine.
+
+Official and user files are never mixed. `CorpusEnv.open("data", ".lexverse")`
+opens `.lexverse/official` and automatically adds the user layer when both
+`user_data` and `.lexverse/user` exist. User records take precedence if the two
+layers contain the same record or asset ID. Stable searches are merged globally;
+relevance searches interleave results from the user and official layers.
+
+Because user data is mutable, LexVerse fully verifies its SHA-256 manifest when
+opening the user layer. An open SDK or MCP session also checks the user-data stat
+signature before every local search or read and reruns full verification after a
+change. After editing `user_data`, rebuild only `.lexverse/user` and reopen the
+environment or restart the MCP server. The official index is unaffected.
 
 ### Common Workflow
 
@@ -184,6 +268,9 @@ Install the optional MCP dependency and start the stdio server:
 python -m pip install -e '.[mcp]'
 export LEXVERSE_DATA_DIR=/path/to/LexVerse/data
 export LEXVERSE_STATE_DIR=/path/to/LexVerse/.lexverse
+# Optional custom-data layer
+export LEXVERSE_USER_DATA_DIR=/path/to/LexVerse/user_data
+export LEXVERSE_USER_STATE_DIR=/path/to/LexVerse/.lexverse/user
 lexverse-mcp
 ```
 
@@ -313,12 +400,15 @@ Add the corresponding Python environment method first, then expose it through `l
 
 ```text
 LexVerse/
-├── data/              # Downloaded from the Hugging Face dataset repository
+├── data/              # Official data; do not add custom files here
+├── user_data/         # Optional custom data
 ├── lexverse_env/      # SDK, index, Providers, and MCP Server
 ├── examples/          # Runnable tutorial notebook
 ├── tests/             # Unit tests
 ├── img/               # Architecture diagrams
-└── .lexverse/         # Generated local index
+└── .lexverse/
+    ├── official/      # Downloaded official index
+    └── user/          # Generated custom index
 ```
 
 ## License
