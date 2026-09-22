@@ -1,0 +1,1025 @@
+--- a/src/Eval/bench/CD/CD.py
++++ b/src/Eval/bench/CD/CD.py
+@@ -20,9 +20,9 @@
+         
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--dialog_history_dir", default = "/root/J1Bench/src/data/dialog_history", type = str)
+-        parser.add_argument("--intermediate_eval", default = "/root/J1Bench/src/Eval/eval_result", type = str)
+-        parser.add_argument("--final_eval", default = "/root/J1Bench/src/Eval/final_result/CD", type = str)    
++        parser.add_argument("--dialog_history_dir", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history"), type = str)
++        parser.add_argument("--intermediate_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/eval_result"), type = str)
++        parser.add_argument("--final_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/final_result/CD"), type = str)    
+     
+     def _clean(self, text):
+         clean_words = ['。', '法定代表人：', '住所：', '住', ' ']
+--- a/src/Eval/bench/CI/CI.py
++++ b/src/Eval/bench/CI/CI.py
+@@ -22,9 +22,9 @@
+         
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--dialog_history_dir", default = "/root/J1Bench/src/data/dialog_history", type = str)
+-        parser.add_argument("--intermediate_eval", default = "/root/J1Bench/src/Eval/eval_result", type = str)
+-        parser.add_argument("--final_eval", default = "/root/J1Bench/src/Eval/final_result/CI", type = str)    
++        parser.add_argument("--dialog_history_dir", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history"), type = str)
++        parser.add_argument("--intermediate_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/eval_result"), type = str)
++        parser.add_argument("--final_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/final_result/CI"), type = str)    
+     
+     
+     def get_PFS(self, dialog_history):
+--- a/src/Eval/bench/CR/CR.py
++++ b/src/Eval/bench/CR/CR.py
+@@ -22,9 +22,9 @@
+         
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--dialog_history_dir", default = "/root/J1Bench/src/data/dialog_history", type = str)
+-        parser.add_argument("--intermediate_eval", default = "/root/J1Bench/src/Eval/eval_result", type = str)
+-        parser.add_argument("--final_eval", default = "/root/J1Bench/src/Eval/final_result/CR", type = str)    
++        parser.add_argument("--dialog_history_dir", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history"), type = str)
++        parser.add_argument("--intermediate_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/eval_result"), type = str)
++        parser.add_argument("--final_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/final_result/CR"), type = str)    
+         
+     def get_PFS(self, dialog_history):
+         procedures = {
+--- a/src/Eval/bench/DD/DD.py
++++ b/src/Eval/bench/DD/DD.py
+@@ -19,9 +19,9 @@
+         
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--dialog_history_dir", default = "/root/J1Bench/src/data/dialog_history", type = str)
+-        parser.add_argument("--intermediate_eval", default = "/root/J1Bench/src/Eval/eval_result", type = str)
+-        parser.add_argument("--final_eval", default = "/root/J1Bench/src/Eval/final_result/DD", type = str)
++        parser.add_argument("--dialog_history_dir", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history"), type = str)
++        parser.add_argument("--intermediate_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/eval_result"), type = str)
++        parser.add_argument("--final_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/final_result/DD"), type = str)
+     
+     def _clean(self, text):
+         clean_words = ['。', '法定代表人：', '住所：', '住', ' ']
+--- a/src/Eval/bench/KQ/KQ.py
++++ b/src/Eval/bench/KQ/KQ.py
+@@ -57,9 +57,9 @@
+     
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--dialog_history_dir", default = "/root/J1Bench/src/data/dialog_history", type = str)
+-        parser.add_argument("--intermediate_eval", default = "/root/J1Bench/src/Eval/eval_result", type = str)
+-        parser.add_argument("--final_eval", default = "/root/J1Bench/src/Eval/final_result/KQ", type = str)
++        parser.add_argument("--dialog_history_dir", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history"), type = str)
++        parser.add_argument("--intermediate_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/eval_result"), type = str)
++        parser.add_argument("--final_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/final_result/KQ"), type = str)
+     
+     def map_dialog_question(self, questions):
+         mapped_questions = {}
+--- a/src/Eval/bench/LC/LC.py
++++ b/src/Eval/bench/LC/LC.py
+@@ -59,9 +59,9 @@
+     
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--dialog_history_dir", default = "/root/J1Bench/src/data/dialog_history", type = str)
+-        parser.add_argument("--intermediate_eval", default = "/root/J1Bench/src/Eval/eval_result", type = str)
+-        parser.add_argument("--final_eval", default = "/root/J1Bench/src/Eval/final_result/LC", type = str)
++        parser.add_argument("--dialog_history_dir", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history"), type = str)
++        parser.add_argument("--intermediate_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/eval_result"), type = str)
++        parser.add_argument("--final_eval", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/Eval/final_result/LC"), type = str)
+     
+     def map_dialog_question(self, questions):
+         mapped_questions = {}
+--- a/src/agents/defendant_CI.py
++++ b/src/agents/defendant_CI.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import registry, register_class
+ import json
+@@ -52,7 +53,7 @@
+         if other_statement == '':
+             other_statement = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -318,7 +319,7 @@
+         if other_statement == '':
+             other_statement = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+--- a/src/agents/defendant_CR.py
++++ b/src/agents/defendant_CR.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import registry, register_class
+ import json
+@@ -44,7 +45,7 @@
+         defendant = defendant_info['defendant']['personal_information']
+         attitutes = defendant_info['defendant']['attitutes']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -108,7 +109,7 @@
+         defendant = defendant_info['defendant']['personal_information']
+         attitutes = defendant_info['defendant']['attitutes']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+--- a/src/agents/general_public_LC.py
++++ b/src/agents/general_public_LC.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import registry, register_class
+ import json
+@@ -49,7 +50,7 @@
+         background = general_public_info['roles']['general_public']['background']
+         topic_list = general_public_info['topic_list']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.LC":
+@@ -130,7 +131,7 @@
+         background = general_public_info['roles']['general_public']['background']
+         topic_list = general_public_info['topic_list']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.LC":
+--- a/src/agents/judge_CI.py
++++ b/src/agents/judge_CI.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import registry, register_class
+ import json
+@@ -48,7 +49,7 @@
+         if len(third_party_findings) == 0:
+             third_party_findings = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -197,7 +198,7 @@
+         if len(third_party_findings) == 0:
+             third_party_findings = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -345,7 +346,7 @@
+         if len(third_party_findings) == 0:
+             third_party_findings = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -494,7 +495,7 @@
+         if len(third_party_findings) == 0:
+             third_party_findings = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -642,7 +643,7 @@
+         if len(third_party_findings) == 0:
+             third_party_findings = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -792,7 +793,7 @@
+         if len(third_party_findings) == 0:
+             third_party_findings = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -947,7 +948,7 @@
+         if len(third_party_findings) == 0:
+             third_party_findings = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -1095,7 +1096,7 @@
+         if len(third_party_findings) == 0:
+             third_party_findings = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -1243,7 +1244,7 @@
+         if len(third_party_findings) == 0:
+             third_party_findings = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -1391,7 +1392,7 @@
+         if len(third_party_findings) == 0:
+             third_party_findings = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -1540,7 +1541,7 @@
+         if len(third_party_findings) == 0:
+             third_party_findings = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+--- a/src/agents/judge_CR.py
++++ b/src/agents/judge_CR.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import registry, register_class
+ import json
+@@ -44,7 +45,7 @@
+         defendant_info = judge_info['defendant']
+         court_information = judge_info['court_information']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -114,7 +115,7 @@
+         defendant_info = judge_info['defendant']
+         court_information = judge_info['court_information']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -184,7 +185,7 @@
+         defendant_info = judge_info['defendant']
+         court_information = judge_info['court_information']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -254,7 +255,7 @@
+         defendant_info = judge_info['defendant']
+         court_information = judge_info['court_information']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -324,7 +325,7 @@
+         defendant_info = judge_info['defendant']
+         court_information = judge_info['court_information']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -395,7 +396,7 @@
+         defendant_info = judge_info['defendant']
+         court_information = judge_info['court_information']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -472,7 +473,7 @@
+         defendant_info = judge_info['defendant']
+         court_information = judge_info['court_information']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -541,7 +542,7 @@
+         defendant_info = judge_info['defendant']
+         court_information = judge_info['court_information']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -612,7 +613,7 @@
+         defendant_info = judge_info['defendant']
+         court_information = judge_info['court_information']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -684,7 +685,7 @@
+         defendant_info = judge_info['defendant']
+         court_information = judge_info['court_information']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -754,7 +755,7 @@
+         defendant_info = judge_info['defendant']
+         court_information = judge_info['court_information']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+--- a/src/agents/lawyer_CD.py
++++ b/src/agents/lawyer_CD.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import register_class, registry
+ from collections import defaultdict
+@@ -59,7 +60,7 @@
+             max_tokens=args.lawyer_max_tokens
+         )
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+@@ -128,7 +129,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.qwen3_14B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+@@ -193,7 +194,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.qwen3_32B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+@@ -258,7 +259,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.Gemma12B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+@@ -323,7 +324,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.GLM9B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+@@ -387,7 +388,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.Chatlaw2")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+@@ -453,7 +454,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.lawllm")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+@@ -524,7 +525,7 @@
+             max_tokens=args.lawyer_max_tokens
+         )
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+@@ -590,7 +591,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.LLaMa3_3")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+@@ -655,7 +656,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.InternLM3")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+@@ -720,7 +721,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.Ministral8B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+--- a/src/agents/lawyer_CR.py
++++ b/src/agents/lawyer_CR.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import registry, register_class
+ import json
+@@ -44,7 +45,7 @@
+         defendant_info = lawyer_info['defendant']['personal_information']
+         lawyer_defence = lawyer_info['lawyer']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -111,7 +112,7 @@
+         defendant_info = lawyer_info['defendant']['personal_information']
+         lawyer_defence = lawyer_info['lawyer']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+--- a/src/agents/lawyer_DD.py
++++ b/src/agents/lawyer_DD.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import register_class, registry
+ from collections import defaultdict
+@@ -59,7 +60,7 @@
+             max_tokens=args.lawyer_max_tokens
+         )
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+@@ -129,7 +130,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.qwen3_14B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+@@ -199,7 +200,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.qwen3_32B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+@@ -268,7 +269,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.Gemma12B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+@@ -339,7 +340,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.GLM9B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+@@ -409,7 +410,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.Chatlaw2")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+@@ -480,7 +481,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.lawllm")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+@@ -556,7 +557,7 @@
+             max_tokens=args.lawyer_max_tokens
+         )
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+@@ -625,7 +626,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.LLaMa3_3")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+@@ -695,7 +696,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.InternLM3")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+@@ -766,7 +767,7 @@
+     def __init__(self, args=None, lawyer_info=None, name="A"):
+         engine = registry.get_class("Engine.Ministral8B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+--- a/src/agents/plaintiff_CI.py
++++ b/src/agents/plaintiff_CI.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import registry, register_class
+ import json
+@@ -52,7 +53,7 @@
+         if other_statement == '':
+             other_statement = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+@@ -339,7 +340,7 @@
+         if other_statement == '':
+             other_statement = '无'
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CI":
+--- a/src/agents/procurator_CR.py
++++ b/src/agents/procurator_CR.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import registry, register_class
+ import json
+@@ -44,7 +45,7 @@
+         defendant_info = procurator_info['defendant']['personal_information']
+         procurator = procurator_info['procurator']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+@@ -115,7 +116,7 @@
+         defendant_info = procurator_info['defendant']['personal_information']
+         procurator = procurator_info['procurator']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CR":
+--- a/src/agents/specific_character_CD.py
++++ b/src/agents/specific_character_CD.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import registry, register_class
+ import json
+@@ -48,7 +49,7 @@
+         case_details = specific_character_info['case_details']
+         evidence = specific_character_info['evidence']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+@@ -239,7 +240,7 @@
+         case_details = specific_character_info['case_details']
+         evidence = specific_character_info['evidence']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.CD":
+--- a/src/agents/specific_character_DD.py
++++ b/src/agents/specific_character_DD.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import registry, register_class
+ import json
+@@ -46,7 +47,7 @@
+         evidence = specific_character_info['evidence']
+         defence = specific_character_info['statement_of_defence']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+@@ -224,7 +225,7 @@
+         evidence = specific_character_info['evidence']
+         defence = specific_character_info['statement_of_defence']
+         
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+             
+         if args.scenario == "J1Bench.Scenario.DD":
+--- a/src/agents/trainee_KQ.py
++++ b/src/agents/trainee_KQ.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import register_class, registry
+ from collections import defaultdict
+@@ -60,7 +61,7 @@
+             max_tokens=args.trainee_max_tokens
+         )
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -115,7 +116,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.qwen3_14B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -171,7 +172,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.qwen3_32B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -226,7 +227,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.Gemma12B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -282,7 +283,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.GLM9B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -338,7 +339,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.lawllm")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -399,7 +400,7 @@
+             max_tokens=args.trainee_max_tokens
+         )
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -453,7 +454,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.LLaMa3_3")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -507,7 +508,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.Chatlaw2")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -562,7 +563,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.InternLM3")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -618,7 +619,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.Ministral8B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+--- a/src/agents/trainee_LC.py
++++ b/src/agents/trainee_LC.py
+@@ -1,3 +1,4 @@
++import os
+ from .base_agent import Agent
+ from utils.register import register_class, registry
+ from collections import defaultdict
+@@ -60,7 +61,7 @@
+             max_tokens=args.trainee_max_tokens
+         )
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -107,7 +108,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.qwen3_14B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -153,7 +154,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.Gemma12B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -199,7 +200,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.qwen3_32B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -244,7 +245,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.GLM9B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -298,7 +299,7 @@
+             max_tokens=args.trainee_max_tokens
+         )
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -347,7 +348,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.LLaMa3_3")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -395,7 +396,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.InternLM3")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -445,7 +446,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.Ministral8B")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -492,7 +493,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.Chatlaw2")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+@@ -539,7 +540,7 @@
+     def __init__(self, args=None, trainee_info=None, name="A"):
+         engine = registry.get_class("Engine.lawllm")()
+             
+-        with open("/root/J1Bench/src/agents/profiles.json", "r", encoding="utf-8") as f:
++        with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+             profiles = json.load(f)
+         
+         
+--- a/src/scenario/CD.py
++++ b/src/scenario/CD.py
+@@ -43,11 +43,11 @@
+         
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--case_database", default = "/root/J1Bench/src/data/case/J1-Eval_CD.jsonl", type=str)
++        parser.add_argument("--case_database", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/case/J1-Eval_CD.jsonl"), type=str)
+         parser.add_argument("--specific_character", default="Agent.Specific_character.GPT_CD", help="registry name of specific character agent") 
+         parser.add_argument("--lawyer", default="Agent.Lawyer.GPT_CD", help="registry name of lawyer agent")
+         parser.add_argument("--max_conversation_turn", default=20, type=int, help="max conversation turn between the lawyer and the specific character")
+-        parser.add_argument("--save_path", default="/root/J1Bench/src/data/dialog_history/GPT/CD_dialog_history.jsonl", help="save path for dialog history")
++        parser.add_argument("--save_path", default=os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history/GPT/CD_dialog_history.jsonl"), help="save path for dialog history")
+         parser.add_argument("--max_workers", default=3, type=int, help="max workers for parallel CD")
+         
+     def remove_processed_cases(self): # 移除掉已经处理过的cases
+--- a/src/scenario/CI.py
++++ b/src/scenario/CI.py
+@@ -46,12 +46,12 @@
+         
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--case_database", default = "/root/J1Bench/src/data/case/J1-Eval_CI.jsonl", type=str)
++        parser.add_argument("--case_database", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/case/J1-Eval_CI.jsonl"), type=str)
+         parser.add_argument("--plaintiff", default="Agent.Plaintiff.GPT_CI", help="registry name of plaintiff agent") 
+         parser.add_argument("--defendant", default="Agent.Defendant.GPT_CI", help="registry name of defendant agent")
+         parser.add_argument("--judge", default="Agent.Judge.GPT_CI", help="registry name of judge agent")
+         parser.add_argument("--max_conversation_turn", default=50, type=int, help="max conversation turn")
+-        parser.add_argument("--save_path", default="/root/J1Bench/src/data/dialog_history/GPT/CI_dialog_history.jsonl", help="save path for dialog history")
++        parser.add_argument("--save_path", default=os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history/GPT/CI_dialog_history.jsonl"), help="save path for dialog history")
+         parser.add_argument("--max_workers", default=2, type=int, help="max workers for parallel CI")
+ 
+     def remove_processed_cases(self):
+--- a/src/scenario/CR.py
++++ b/src/scenario/CR.py
+@@ -54,13 +54,13 @@
+         
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--case_database", default = "/root/J1Bench/src/data/case/J1-Eval_CR.jsonl", type=str)
++        parser.add_argument("--case_database", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/case/J1-Eval_CR.jsonl"), type=str)
+         parser.add_argument("--defendant", default="Agent.Defendant.GPT_CR", help="registry name of defendant agent")
+         parser.add_argument("--lawyer", default="Agent.Lawyer.GPT_CR", help="registry name of lawyer agent")
+         parser.add_argument("--procurator", default="Agent.Procurator.GPT_CR", help="registry name of Procurator agent")
+         parser.add_argument("--judge", default="Agent.Judge.GPT_CR", help="registry name of judge agent")
+         parser.add_argument("--max_conversation_turn", default=35, type=int, help="max conversation turn")
+-        parser.add_argument("--save_path", default="/root/J1Bench/src/data/dialog_history/GPT/CR_dialog_history.jsonl", help="save path for dialog history")
++        parser.add_argument("--save_path", default=os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history/GPT/CR_dialog_history.jsonl"), help="save path for dialog history")
+         parser.add_argument("--max_workers", default=2, type=int, help="max workers for parallel diagnosis")
+         
+     def remove_processed_cases(self): # 移除掉已经处理过的cases
+--- a/src/scenario/DD.py
++++ b/src/scenario/DD.py
+@@ -44,11 +44,11 @@
+         
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--case_database", default = "/root/J1Bench/src/data/case/J1-Eval_DD.jsonl", type=str)
++        parser.add_argument("--case_database", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/case/J1-Eval_DD.jsonl"), type=str)
+         parser.add_argument("--specific_character", default="Agent.Specific_character.GPT_DD", help="registry name of specific_character agent") 
+         parser.add_argument("--lawyer", default="Agent.Lawyer.GPT_DD", help="registry name of lawyer agent")
+         parser.add_argument("--max_conversation_turn", default=15, type=int, help="max conversation turn between the lawyer and the specific_character")
+-        parser.add_argument("--save_path", default="/root/J1Bench/src/data/dialog_history/GPT/DD_dialog_history.jsonl", help="save path for dialog history")
++        parser.add_argument("--save_path", default=os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history/GPT/DD_dialog_history.jsonl"), help="save path for dialog history")
+         parser.add_argument("--max_workers", default=3, type=int, help="max workers for parallel DD")
+         
+     def remove_processed_cases(self):
+--- a/src/scenario/KQ.py
++++ b/src/scenario/KQ.py
+@@ -50,11 +50,11 @@
+     
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--case_database", default = "/root/J1Bench/src/data/case/J1-Eval_KQ.jsonl", type=str)
++        parser.add_argument("--case_database", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/case/J1-Eval_KQ.jsonl"), type=str)
+         parser.add_argument("--general_public", default="Agent.General_public.ConsultGPT", help="registry name of general public agent") 
+         parser.add_argument("--trainee", default="Agent.Trainee.ConsultGPT", help="registry name of trainee agent")
+         parser.add_argument("--max_conversation_turn", default=15, type=int, help="max conversation turn between the trainee and the general public")
+-        parser.add_argument("--save_path", default="/root/J1Bench/src/data/dialog_history/GPT/KQ_dialog_history.jsonl", help="save path for dialog history")
++        parser.add_argument("--save_path", default=os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history/GPT/KQ_dialog_history.jsonl"), help="save path for dialog history")
+         parser.add_argument("--max_workers", default=3, type=int, help="max workers for parallel KQ")
+ 
+     def remove_processed_cases(self):
+--- a/src/scenario/LC.py
++++ b/src/scenario/LC.py
+@@ -47,11 +47,11 @@
+     
+     @staticmethod
+     def add_parser_args(parser):
+-        parser.add_argument("--case_database", default = "/root/J1Bench/src/data/case/J1-Eval_LC.jsonl", type=str)
++        parser.add_argument("--case_database", default = os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/case/J1-Eval_LC.jsonl"), type=str)
+         parser.add_argument("--general_public", default="Agent.General_public.LC_GPT", help="registry name of general_public agent") 
+         parser.add_argument("--trainee", default="Agent.Trainee.LC_GPT", help="registry name of trainee agent")
+         parser.add_argument("--max_conversation_turn", default=10, type=int, help="max conversation turn between the trainee and the general public")
+-        parser.add_argument("--save_path", default="/root/J1Bench/src/data/dialog_history/GPT/LC_dialog_history.jsonl", help="save path for dialog history")
++        parser.add_argument("--save_path", default=os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src/data/dialog_history/GPT/LC_dialog_history.jsonl"), help="save path for dialog history")
+         parser.add_argument("--max_workers", default=5, type=int, help="max workers for parallel LC")
+         
+     def remove_processed_cases(self):

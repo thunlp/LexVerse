@@ -1,0 +1,25 @@
+schema_version: 1
+tasks:
+  "1_1": {output_type: choice, metric: Accuracy}
+  "1_2": {output_type: choice, metric: Accuracy}
+  "1_3": {output_type: choice, metric: Accuracy}
+  "2_1": {output_type: choice, metric: Accuracy}
+  "2_2": {output_type: choice, metric: Accuracy}
+  "2_3": {output_type: choice, metric: Accuracy}
+  "2_4": {output_type: choice, metric: Accuracy}
+  "2_5": {output_type: choice, metric: Accuracy}
+  "3_1": {output_type: choice, metric: Accuracy}
+  "3_2": {output_type: choice, metric: Accuracy}
+  "3_3": {output_type: choice, metric: Accuracy}
+  "3_4": {output_type: choice, metric: Accuracy}
+  "3_5": {output_type: choice, metric: Accuracy}
+  "3_6": {output_type: choice, metric: Accuracy}
+  "4_1": {output_type: choice, metric: Accuracy}
+  "4_2": {output_type: choice, metric: Accuracy}
+  "5_1": {output_type: text, metric: Rouge_L}
+  "5_2": {output_type: text, metric: Rouge_L}
+  "5_3": {output_type: text, metric: Rouge_L}
+  "5_4": {output_type: text, metric: Rouge_L}
+  "6_1": {output_type: choice, metric: Accuracy}
+  "6_2": {output_type: choice, metric: Accuracy}
+  "6_3": {output_type: choice, metric: Accuracy}

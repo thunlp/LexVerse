@@ -1,0 +1,66 @@
+--- a/src/Eval/bench/CD/CD.py
++++ b/src/Eval/bench/CD/CD.py
+@@ -10,7 +10,7 @@
+ 
+ class CDEvaluator:
+     def __init__(self, args):
+-        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_CD.jsonl')
++        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_CD.jsonl"))
+         self.args = args
+         
+         self.dialog_history_dir = args.dialog_history_dir
+--- a/src/Eval/bench/CI/CI.py
++++ b/src/Eval/bench/CI/CI.py
+@@ -12,7 +12,7 @@
+ 
+ class CIEvaluator:
+     def __init__(self, args):
+-        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_CI.jsonl')
++        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_CI.jsonl"))
+         self.args = args
+         
+         self.dialog_history_dir = args.dialog_history_dir
+--- a/src/Eval/bench/CR/CR.py
++++ b/src/Eval/bench/CR/CR.py
+@@ -12,7 +12,7 @@
+ 
+ class CREvaluator:
+     def __init__(self, args):
+-        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_CR.jsonl')
++        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_CR.jsonl"))
+         self.args = args
+         
+         self.dialog_history_dir = args.dialog_history_dir
+--- a/src/Eval/bench/DD/DD.py
++++ b/src/Eval/bench/DD/DD.py
+@@ -10,7 +10,7 @@
+ 
+ class DDEvaluator:
+     def __init__(self, args):
+-        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_DD.jsonl')
++        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_DD.jsonl"))
+         self.args = args
+         
+         self.dialog_history_dir = args.dialog_history_dir
+--- a/src/Eval/bench/KQ/KQ.py
++++ b/src/Eval/bench/KQ/KQ.py
+@@ -11,7 +11,7 @@
+ 
+ class KQEvaluator:
+     def __init__(self, args):
+-        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_KQ.jsonl')
++        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_KQ.jsonl"))
+         self.args = args
+         
+         self.dialog_history_dir = args.dialog_history_dir
+--- a/src/Eval/bench/LC/LC.py
++++ b/src/Eval/bench/LC/LC.py
+@@ -13,7 +13,7 @@
+ 
+ class LCEvaluator:
+     def __init__(self, args):
+-        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_LC.jsonl')
++        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_LC.jsonl"))
+         self.args = args
+         
+         self.dialog_history_dir = args.dialog_history_dir

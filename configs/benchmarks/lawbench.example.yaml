@@ -1,0 +1,41 @@
+# LawBench example: all 20 tasks × 10 samples.
+# Copy to lawbench.local.yaml and select a profile defined in secrets.local.yaml.
+
+schema_version: 1
+
+benchmark:
+  name: lawbench
+  tasks:
+    - "1-1"
+    - "1-2"
+    - "2-1"
+    - "2-2"
+    - "2-3"
+    - "2-4"
+    - "2-5"
+    - "2-6"
+    - "2-7"
+    - "2-8"
+    - "2-9"
+    - "2-10"
+    - "3-1"
+    - "3-2"
+    - "3-3"
+    - "3-4"
+    - "3-5"
+    - "3-6"
+    - "3-7"
+    - "3-8"
+  shot: zero_shot
+
+model:
+  profile: openai
+  name: gpt-4o-mini
+  parameters:
+    temperature: 0
+    max_tokens: 256
+
+execution:
+  concurrency: 3
+  limit: 10
+  resume: false

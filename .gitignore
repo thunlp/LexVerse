@@ -7,8 +7,12 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+runs/
 
 data.zip
+
+# Reference materials (local only, not for distribution)
+reference_harness/
 
 # Exclude tests and data contents
 tests/
@@ -18,3 +22,11 @@ tests/
 tests/
 data/*
 !data/.gitkeep
+
+# Local API credentials — never commit
+.env.local
+configs/secrets.local.yaml
+configs/benchmarks/*.local.yaml
+
+# Editable architecture sources stay local
+docs/*.drawio

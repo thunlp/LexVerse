@@ -1,0 +1,22 @@
+schema_version: 1
+tasks:
+  "1-1": {metric: score, output_type: text}
+  "1-2": {metric: score, output_type: choice}
+  "2-1": {metric: score, output_type: text}
+  "2-2": {metric: score, output_type: text}
+  "2-3": {metric: score, output_type: text}
+  "2-4": {metric: score, output_type: text}
+  "2-5": {metric: score, output_type: text}
+  "2-6": {metric: score, output_type: text}
+  "2-7": {metric: score, output_type: text}
+  "2-8": {metric: score, output_type: text}
+  "2-9": {metric: score, output_type: text}
+  "2-10": {metric: score, output_type: text}
+  "3-1": {metric: score, output_type: text}
+  "3-2": {metric: score, output_type: text}
+  "3-3": {metric: score, output_type: text}
+  "3-4": {metric: score, output_type: text}
+  "3-5": {metric: score, output_type: text}
+  "3-6": {metric: score, output_type: choice}
+  "3-7": {metric: score, output_type: text}
+  "3-8": {metric: score, output_type: text}

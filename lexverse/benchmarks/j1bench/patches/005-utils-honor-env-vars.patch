@@ -1,0 +1,36 @@
+--- a/src/utils/utils_func.py
++++ b/src/utils/utils_func.py
+@@ -10,11 +10,11 @@
+ }
+ 
+ # Set OpenAI api and url
+-api_key = 'YOUR_API_KEY'
+-api_base = 'YOUR_API_BASE'
++api_key = os.environ.get('OPENAI_API_KEY') or 'YOUR_API_KEY'
++api_base = os.environ.get('OPENAI_API_BASE') or 'YOUR_API_BASE'
+ 
+-os.environ['OPENAI_API_KEY'] = api_key
+-os.environ['OPENAI_API_BASE'] = api_base
++os.environ.setdefault('OPENAI_API_KEY', api_key)
++os.environ.setdefault('OPENAI_API_BASE', api_base)
+ 
+ def load_json(file_path):
+     with open(file_path, 'r', encoding='utf-8') as f:
+@@ -52,7 +52,7 @@
+             if flag == 1:
+                 chat_completion = client.chat.completions.create(
+                     messages=messages,
+-                    model="gpt-4o-2024-08-06",
++                    model=os.environ.get('J1BENCH_SCORING_MODEL', 'gpt-4o-mini'),
+                     response_format={"type": "json_object"},
+                     max_tokens=4096,
+                     temperature=0
+@@ -60,7 +60,7 @@
+             else:
+                 chat_completion = client.chat.completions.create(
+                     messages=messages,
+-                    model="gpt-4o-2024-08-06",
++                    model=os.environ.get('J1BENCH_SCORING_MODEL', 'gpt-4o-mini'),
+                     max_tokens=4096,
+                     temperature=0
+                     )

@@ -1,0 +1,21 @@
+--- a/code/evaluation/evaluate.py
++++ b/code/evaluation/evaluate.py
+@@ -1,17 +1,11 @@
+ import os
+ # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+ import jsonlines
+-import torch
+-import torch.nn as nn
+-import pandas as pd
+-import bert_score
+ import argparse
+ import jieba
+-from transformers import BertTokenizer, BartForConditionalGeneration
+ from typing import List
+ from rouge import Rouge
+-from process import BARTScorer, find_valid_substrings, normalize_zh_answer
+-from tqdm import tqdm
++from process import find_valid_substrings, normalize_zh_answer
+ 
+ import numpy as np
+ 

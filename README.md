@@ -1,421 +1,257 @@
-<h1 align="center">LexVerse: An Interaction Environment for Chinese Legal Agents</h1>
+<h1 align="center">LexVerse</h1>
+
+<p align="center"><em>A universe where legal agents learn, act, and are evaluated.</em></p>
 
 <p align="center">
-  <a href="examples/lexverse_tutorial.ipynb">📓 Tutorial Notebook</a> ·
-  <a href="#quick-start">🚀 Quick Start</a> ·
-  <a href="#using-lexverse">📖 Usage</a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white">
+  <img alt="Benchmarks" src="https://img.shields.io/badge/Benchmarks-LexEval%20%7C%20LawBench%20%7C%20J1Bench-243B53">
+  <img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-C9A227">
 </p>
-
----
-
-LexVerse is an interaction environment for Chinese legal agents. It organizes laws, cases, legal questions, legal concepts, and document templates behind a unified interface for search, retrieval, provenance, and controlled data access.
-
-> 💡 **New to LexVerse?** Start with [`examples/lexverse_tutorial.ipynb`](examples/lexverse_tutorial.ipynb) — a runnable Jupyter notebook covering all core APIs with real data.
-
-## The LexVerse Environment
-
-LexVerse is organized into three layers.
 
 <p align="center">
-  <img src="img/lexverse-architecture.png" alt="LexVerse architecture diagram" width="100%">
+  <a href="#-quick-start">Quick Start</a> ·
+  <a href="#-supported-benchmarks">Benchmarks</a> ·
+  <a href="#-outputs">Outputs</a> ·
+  <a href="docs/architecture.html">Architecture</a>
 </p>
 
-## Data Collections
-
-| Collection          | Description                                                     |
-| ------------------- | --------------------------------------------------------------- |
-| `legal_laws`      | Laws, regulations, judicial interpretations, and legal articles |
-| `legal_cases`     | Cases and judicial decisions                                    |
-| `legal_qa`        | Legal questions and scenario data                               |
-| `legal_concepts`  | Legal terms, concepts, and definitions                          |
-| `legal_templates` | Document templates and registered assets                        |
-
-### Dataset Sources and Attribution
-
-The table below maps each dataset currently used by LexVerse to its online source. The links identify the upstream project, dataset release, or official source page. Using these sources does not change the original dataset's license or attribution requirements.
-
-| Collection | Dataset / source                                                                             |
-| ---------- | -------------------------------------------------------------------------------------------- |
-| QA         | [J1Bench (LC, KQ)](https://github.com/FudanDISC/J1Bench)                                      |
-| QA         | [法答网 (Fadawang)](https://www.court.gov.cn/search.html?content=%E6%B3%95%E7%AD%94%E7%BD%91) |
-| QA         | [DLawBench](https://github.com/SKYLENAGE-AI/DLawBench)                                        |
-| Concepts   | [中文法律术语汇编](https://terms.legalhub.cn/)                                                |
-| Concepts   | [OwnThink](https://github.com/ownthink/KnowledgeGraphData)                                    |
-| Cases      | [J1Bench (CI, CR)](https://github.com/FudanDISC/J1Bench)                                      |
-| Cases      | [AgentsCourt / SimuCourt](https://github.com/Hezhitao2021/SimuCourt)                          |
-| Cases      | [Legal-world](https://github.com/chidaic/Legal-world)                                         |
-| Cases      | [MASER](https://github.com/FudanDISC/MASER)                                                   |
-| Cases      | [JuDGE](https://github.com/oneal2000/JuDGE)                                                   |
-| Cases      | [LeCaRDv2](https://github.com/THUIR/LeCaRDv2)                                                 |
-| Cases      | [MSLR-Bench](https://github.com/yuwenhan07/MSLR-Bench)                                        |
-| Cases      | [MUSER](https://github.com/THUlawtech/MUSER)                                                  |
-| Cases      | [LexChain](https://github.com/thunlp/LexChain)                                                |
-| Laws       | [LawRefBook / Laws](https://github.com/RanKKI/LawRefBook)                                     |
-| Templates  | [最高人民法院、中国法院网文书模板](https://law.wkinfo.com.cn/document-templates/list)         |
-
-For record-level provenance, use the `provenance` field returned by the SDK/API. It identifies the collection, source, relative path, and snapshot used for a record.
-
-## Quick Start
-
-Python 3.10+ is required.
-
-Clone LexVerse and install the package:
-
-```bash
-git clone https://github.com/thunlp/LexVerse.git
-cd LexVerse
-python -m pip install -e .
-python -m pip install -U huggingface_hub
-```
-
-Download the official data and its matching prebuilt index:
-
-```bash
-huggingface-cli download thunlp/LexVerse-data \
-  --repo-type dataset \
-  --local-dir ./data
-
-huggingface-cli download thunlp/LexVerse-index \
-  --repo-type dataset \
-  --local-dir ./.lexverse/official
-```
-
-The official `.lexverse/official` directory is already built for the corresponding
-official data release. Users of the official release do not need to run
-`lexverse-env build-index`.
-
-```bash
-# Check the downloaded data and index
-lexverse-env doctor --data-dir ./data --state-dir ./.lexverse
-```
-
-The environment can then be used directly:
-
-```python
-from lexverse_env import CorpusEnv
-
-with CorpusEnv.open("data", ".lexverse") as env:
-    print(env.search_records("legal_laws", query="劳动合同解除", limit=5))
-```
-
-If either Hugging Face repository is private, authenticate first with
-`huggingface-cli login`. The data is about 3.2 GB and contains files from
-multiple upstream projects; review the upstream licenses and attribution
-requirements before redistributing it.
-
-## Using LexVerse
-
-### Index Setup and Management
-
-#### Get the Official Index
-
-The official index is published separately from the source data at
-[`thunlp/LexVerse-index`](https://huggingface.co/datasets/thunlp/LexVerse-index).
-Download it into `.lexverse/official` alongside the matching `data` directory:
-
-```bash
-huggingface-cli download thunlp/LexVerse-index \
-  --repo-type dataset \
-  --local-dir ./.lexverse/official
-```
-
-Keep the data and index release versions matched. `manifest.json` binds an
-official index to the Hugging Face repository, immutable commit SHA, dataset
-revision, and a complete SHA-256 file manifest. A normal open performs a fast
-path-and-size check. To verify every file's contents, run:
-
-```bash
-lexverse-env doctor \
-  --data-dir ./data \
-  --state-dir ./.lexverse \
-  --verify-data
-```
-
-#### Build an Index for Custom Data
-
-Run `build-index` only when adding or changing local data, loaders,
-projections, or collections. Register a new source as described in
-[Add a Data Source](#add-a-data-source), then build a local index:
-
-```bash
-lexverse-env inventory --data-dir ./user_data --state-dir ./.lexverse/user
-
-lexverse-env build-index \
-  --data-dir ./user_data \
-  --state-dir ./.lexverse/user \
-  --source-type local \
-  --dataset-id my-legal-data \
-  --progress
-```
-
-`dataset-revision` is optional for local data. If omitted, LexVerse derives it
-from the content manifest. For development, add `--max-records 100` to create a
-small partial index.
-
-Official index publishers can build an index with explicit Hugging Face
-provenance:
-
-```bash
-lexverse-env build-index \
-  --data-dir ./data \
-  --state-dir ./.lexverse/official \
-  --source-type huggingface \
-  --hf-repo-id thunlp/LexVerse-data \
-  --huggingface-commit-sha <40-character-commit-sha> \
-  --dataset-revision <revision-used-for-download> \
-  --progress
-```
-
-LexVerse records every file's relative path, size, and SHA-256 digest. File
-modification times are deliberately excluded, so an index remains reusable
-after matching data is copied or extracted on another machine.
-
-Official and user files are never mixed. `CorpusEnv.open("data", ".lexverse")`
-opens `.lexverse/official` and automatically adds the user layer when both
-`user_data` and `.lexverse/user` exist. User records take precedence if the two
-layers contain the same record or asset ID. Stable searches are merged globally;
-relevance searches interleave results from the user and official layers.
-
-Because user data is mutable, LexVerse fully verifies its SHA-256 manifest when
-opening the user layer. An open SDK or MCP session also checks the user-data stat
-signature before every local search or read and reruns full verification after a
-change. After editing `user_data`, rebuild only `.lexverse/user` and reopen the
-environment or restart the MCP server. The official index is unaffected.
-
-### Common Workflow
-
-The standard interaction pattern is:
+LexVerse is a unified runtime for reproducible evaluation of legal language
+models and agents. It provides one execution and result-management pipeline
+while preserving each benchmark's upstream task format, interaction harness,
+and evaluator.
 
 ```text
-list_collections
-    -> describe_collection
-    -> search_records
-    -> get_record
-    -> read_record_part / get_asset
+Config → Prepare → Trials → Official Verifier → Summary
 ```
 
-Run these steps in order: search first, then read the records returned by the search. Use `read_record_part` for a large field and `get_asset` only after a template record returns an asset ID.
+The current runtime does not include a legal corpus, retrieval system, MCP data
+service, or data-environment SDK.
 
-### How to Use
+## ⚖️ Supported Benchmarks
 
-Python SDK, CLI, and MCP Server expose the same environment operations. Choose one entry point; you do not need to use all three. For a first run, the Python SDK is the easiest way to see each response.
+| Benchmark                                           |               Coverage | Interaction                 | Verification                |
+| --------------------------------------------------- | ---------------------: | --------------------------- | --------------------------- |
+| [LexEval](https://github.com/CSHaitao/LexEval)       |               23 tasks | Single response             | Upstream task evaluator     |
+| [LawBench](https://github.com/open-compass/LawBench) |               20 tasks | Single response             | Upstream task evaluator     |
+| [J1Bench](https://github.com/FudanDISC/J1Bench)      | CI, CR, KQ, LC, CD, DD | Official multi-role harness | Upstream scenario evaluator |
 
-- Use the **Python SDK** to write programs and integrate an Agent.
-- Use the **CLI** to inspect data from a terminal.
-- Use the **MCP Server** to connect LexVerse to another Agent client.
+LexEval and LawBench are evaluated once per task. J1Bench is evaluated once per
+scenario and additionally retains its official per-case intermediate results.
 
-#### Python SDK
+## 🚀 Quick Start
 
-```python
-from lexverse_env import CorpusEnv
+### 1. Create the environment
 
-with CorpusEnv.open("data", ".lexverse") as env:
-    print(env.list_collections())
-    print(env.describe_collection("legal_laws"))
-
-    page = env.search_records(
-        collection="legal_laws",
-        query="劳动合同解除",
-        limit=5,
-    )
-
-    for item in page["items"]:
-        record = env.get_record(item["id"])
-        print(record["provenance"])
-        print(record["record"])
-```
-
-Search results contain stable IDs and minimal key fields. Read large fields in bounded slices with a JSON Pointer:
-
-```python
-part = env.read_record_part(
-    record_id,
-    path="/documents/0/content",
-    offset=0,
-    limit=12000,
-)
-```
-
-Pass `next_cursor` and `next_offset` back unchanged when continuing a query or a record read.
-
-#### CLI
-
-Search records:
+Python 3.10 or newer is required. Conda avoids accidentally using macOS's system Python 3.9.
 
 ```bash
-lexverse-env search \
-  --data-dir ./data \
-  --state-dir ./.lexverse \
-  --collection legal_cases \
-  --query "劳动合同解除" \
-  --limit 5
+conda create -n lexverse python=3.10 -y
+conda activate lexverse
+
+which python
+python --version
 ```
 
-Read a record returned by search:
+`which python` should point inside `.../envs/lexverse/`, and only `(lexverse)`
+should appear in the shell prompt.
+
+Install LexVerse and the dependencies declared by all three integrations:
 
 ```bash
-lexverse-env get \
-  --data-dir ./data \
-  --state-dir ./.lexverse \
-  "<record-id>"
+python -m pip install --upgrade pip
+python -m pip install -e ".[lexeval,lawbench,j1bench,openai]"
+python -m lexverse --help
 ```
 
-#### MCP Server
+> **Compatibility note**
+> LexEval's `rouge` and LawBench's `rouge_chinese` publish the same Python
+> import path. A combined environment is suitable for integration testing but
+> cannot reproduce both upstream Rouge tokenizers exactly. Use separate
+> environments only when strict Rouge parity is required.
 
-Install the optional MCP dependency and start the stdio server:
+### 2. Create local configuration
+
+Copy the tracked templates. The resulting local files are ignored by Git.
 
 ```bash
-python -m pip install -e '.[mcp]'
-export LEXVERSE_DATA_DIR=/path/to/LexVerse/data
-export LEXVERSE_STATE_DIR=/path/to/LexVerse/.lexverse
-# Optional custom-data layer
-export LEXVERSE_USER_DATA_DIR=/path/to/LexVerse/user_data
-export LEXVERSE_USER_STATE_DIR=/path/to/LexVerse/.lexverse/user
-lexverse-mcp
+cp configs/secrets.example.yaml configs/secrets.local.yaml
+cp configs/benchmarks/lexeval.example.yaml configs/benchmarks/lexeval.local.yaml
+cp configs/benchmarks/lawbench.example.yaml configs/benchmarks/lawbench.local.yaml
+cp configs/benchmarks/j1bench.example.yaml configs/benchmarks/j1bench.local.yaml
+mkdir -p .lexverse/prepared runs
 ```
 
-The server exposes the same operations as the SDK:
+Configure at least one OpenAI-compatible connection in
+`configs/secrets.local.yaml`:
+
+```yaml
+openai:
+  provider: openai_compatible
+  base_url: https://api.openai.com/v1
+  api_key: YOUR_API_KEY
+```
+
+The benchmark YAML selects the connection with `model.profile` and the actual
+model with `model.name`. J1Bench also has `evaluation.model`, because its
+official evaluator calls a scoring model. Model names belong in benchmark
+configuration, not in the secrets file.
+
+### 3. Run LexEval
+
+`prepare` resolves the selected upstream cases and freezes them into a
+manifest. It does not call the model. `run` performs generation, official
+task-level evaluation, and aggregation.
+
+```bash
+python -m lexverse prepare \
+  --config configs/benchmarks/lexeval.local.yaml \
+  --output .lexverse/prepared/lexeval-all.json
+
+LEXEVAL_RUN="runs/lexeval-all-$(date +%Y%m%d-%H%M%S)"
+python -m lexverse run \
+  --prepared .lexverse/prepared/lexeval-all.json \
+  --output-root "$LEXEVAL_RUN"
+
+echo "$LEXEVAL_RUN"
+python -m json.tool "$LEXEVAL_RUN/summary.json"
+find "$LEXEVAL_RUN" -maxdepth 5 -type f | sort
+```
+
+### 4. Run LawBench
+
+```bash
+python -m lexverse prepare \
+  --config configs/benchmarks/lawbench.local.yaml \
+  --output .lexverse/prepared/lawbench-all.json
+
+LAWBENCH_RUN="runs/lawbench-all-$(date +%Y%m%d-%H%M%S)"
+python -m lexverse run \
+  --prepared .lexverse/prepared/lawbench-all.json \
+  --output-root "$LAWBENCH_RUN"
+
+echo "$LAWBENCH_RUN"
+python -m json.tool "$LAWBENCH_RUN/summary.json"
+find "$LAWBENCH_RUN" -maxdepth 5 -type f | sort
+```
+
+If a run is interrupted after model generation, set `execution.resume: true`
+in `configs/benchmarks/lawbench.local.yaml`, run `prepare` again, and reuse the
+same `--output-root`. Completed trials will be reused instead of calling the
+model again.
+
+### 5. Run J1Bench
+
+J1Bench uses gated data. Accept the terms on the
+[J1-Eval dataset page](https://huggingface.co/datasets/CimoInkPool/J1-Eval_Dataset/tree/main)
+and authenticate once:
+
+```bash
+hf auth login
+```
+
+The first `prepare` downloads the selected `J1-Eval_<SCENARIO>.jsonl` files to
+`.lexverse/datasets/j1bench/`. Later runs reuse this cache and do not modify the
+downloaded files.
+
+```bash
+python -m lexverse prepare \
+  --config configs/benchmarks/j1bench.local.yaml \
+  --output .lexverse/prepared/j1bench-all.json
+
+J1BENCH_RUN="runs/j1bench-all-$(date +%Y%m%d-%H%M%S)"
+python -m lexverse run \
+  --prepared .lexverse/prepared/j1bench-all.json \
+  --output-root "$J1BENCH_RUN"
+
+echo "$J1BENCH_RUN"
+python -m json.tool "$J1BENCH_RUN/summary.json"
+find "$J1BENCH_RUN" -maxdepth 8 -type f | sort
+```
+
+J1Bench runs the official multi-role conversation for every case and invokes
+the official evaluator once per scenario. It is slower and more expensive than
+the two single-response benchmarks. A successful `run` has already completed
+evaluation; there is no separate eval command.
+
+### 6. Confirm success
+
+Every `summary.json` should contain:
+
+```json
+{
+  "status": "completed",
+  "samples": {
+    "failed": 0,
+    "missing": []
+  }
+}
+```
+
+## 📂 Outputs
+
+LexEval and LawBench use the common layout below:
 
 ```text
-list_collections       describe_collection
-search_records         get_record
-read_record_part       get_asset
-get_manifest
+runs/<benchmark>-<timestamp>/
+├── manifest.json                    # frozen run metadata
+├── summary.json                     # LexVerse run summary
+├── evaluation_result.csv            # official-format task results
+├── verifier/
+│   └── predictions/
+│       └── <model>/                 # official evaluator input
+└── trials/
+    └── <task>/
+        └── <case>/
+            └── results.json             # one Trial execution record
 ```
 
-### External Integrations
+LexEval predictions are named `<model>_<task>.jsonl`; LawBench predictions are
+named `<task>.json`.
 
-#### Pkulaw MCP
-
-Pkulaw is an optional external Provider. Set its token and use the environment's semantic APIs; the HTTP/SSE bridge, service routing, official tool names, and parameter conversion are built in:
-
-```python
-import os
-from lexverse_env import CorpusEnv
-
-os.environ["PKULAW_TOKEN"] = "Bearer <your-token>"
-
-with CorpusEnv.open("data", ".lexverse") as env:
-    page = env.search_records(
-        collection="legal_laws",
-        provider="pkulaw",
-        query="劳动合同解除",
-        limit=5,
-    )
-
-    cases = env.search_records(
-        collection="legal_cases",
-        provider="pkulaw",
-        query="房屋租赁到期后拒退押金",
-        limit=3,
-    )
-```
-
-The default search mode is semantic. Select the documented keyword services with `filters={"search_mode": "keyword"}`. The built-in registry routes record searches across four Pkulaw endpoints:
-
-| Environment operation | Pkulaw tools |
-| --- | --- |
-| `search_records("legal_laws", ...)` | `search_article` / `get_law_list` |
-| `search_records("legal_cases", ...)` | `search_case` / `get_case_list` |
-
-Every registered endpoint has a `PKULAW_<SERVICE>_MCP_ENDPOINT` override, such as `PKULAW_CASE_SEMANTIC_MCP_ENDPOINT`. The original `PKULAW_LAW_MCP_ENDPOINT` remains an alias for the semantic law endpoint. Applications may alternatively pass `pkulaw_endpoints`, `pkulaw_call_tool`, or a complete `pkulaw_provider` to `CorpusEnv.open`. Keep credentials outside the repository.
-
-## Extending LexVerse
-
-### Add a Data Source
-
-Register the source, select a loader, define its projection, and rebuild the index:
+J1Bench places the official verifier under each scenario:
 
 ```text
-JSON/JSONL source
-    -> SourceRegistry entry
-    -> loader
-    -> searchable and filter projections
-    -> index build
+trials/<scenario>/verifier/
+├── dialog_history/                   # official evaluator input
+├── intermediate/                     # official per-case output
+├── final/                            # official scenario output
+├── stdout.log
+└── stderr.log
 ```
 
-Source registration and projections live primarily in `lexverse_env/registry.py`; loader implementations live in `lexverse_env/loaders.py`.
+LexEval and LawBench expose task-level scores rather than official per-case
+scores. J1Bench exposes both per-case intermediate results and a scenario-level
+final result.
 
-### Add a Collection
+`collect` rebuilds `summary.json` from existing Trial records and the existing
+official `evaluation_result.csv`:
 
-A collection should define:
-
-- a stable collection name;
-- file patterns and loader type;
-- searchable and filter fields;
-- minimal key fields for search responses;
-- source and provenance behavior.
-
-New collections should use the same public calls:
-
-```python
-env.search_records(collection="new_collection", query="...")
-env.get_record(record_id)
+```bash
+python -m lexverse collect --run-dir "$LEXEVAL_RUN"
 ```
 
-### Add an External Provider
+For a cheaper smoke test, change only `execution.limit` in a local benchmark
+YAML. Run `prepare` again after every YAML change; `run` rejects configuration
+drift by design.
 
-Implement the Provider contract and keep the public environment API unchanged:
-
-```python
-class CustomProvider:
-    name = "custom"
-
-    @property
-    def available(self) -> bool:
-        ...
-
-    def search(self, request):
-        ...
-
-    def get(self, record_id):
-        ...
-```
-
-Use explicit provider selection from an Agent:
-
-```python
-env.search_records(
-    collection="legal_cases",
-    provider="custom",
-    query="合同纠纷",
-)
-```
-
-External IDs should be namespaced so they cannot be confused with local records. `PkulawMcpProvider` is the reference implementation.
-
-### Add an MCP Tool
-
-Add the corresponding Python environment method first, then expose it through `lexverse_env/mcp_server.py`. Keep argument validation and error conversion in the environment layer, and keep MCP stdout reserved for JSON-RPC messages.
-
-## Design Boundaries
-
-- Data access is limited to registered collections and data roots.
-- Callers use stable record and asset IDs instead of physical paths.
-- Large records and attachments are read through bounded interfaces.
-- Search and record responses retain source and snapshot information.
-- External Providers are called only when explicitly configured and selected.
-
-## Project Structure
+## 🏗️ Architecture
 
 ```text
-LexVerse/
-├── data/              # Official data; do not add custom files here
-├── user_data/         # Optional custom data
-├── lexverse_env/      # SDK, index, Providers, and MCP Server
-├── examples/          # Runnable tutorial notebook
-├── tests/             # Unit tests
-├── img/               # Architecture diagrams
-└── .lexverse/
-    ├── official/      # Downloaded official index
-    └── user/          # Generated custom index
+Config → TaskBundle → Orchestrator → Environment → Official Verifier → Artifacts
 ```
 
-## License
+[Open the interactive architecture map →](docs/architecture.html)
 
-Dataset licenses and usage restrictions remain governed by the original sources; preserve `provenance` when using records.
+## 📝 Notes
 
-## Contact Us
+- Do not edit files under `.lexverse/datasets/j1bench/`.
+- Re-run `prepare` whenever a local YAML changes.
+- Upstream repositories are pinned in `lexverse/runtime/upstream.py`; patches
+  make them relocatable without replacing evaluator logic.
+- The wheel and source distribution exclude benchmark data, cloned upstream
+  repositories, local runs, tests, documentation, and credential files.
+- Benchmark and dataset licenses remain governed by their original sources.
 
-For technical issues and feature requests, please use GitHub Issues.
-If you have any questions, feedback, or would like to get in touch, please feel free to reach out to us via email at xieh@tsinghua.edu.cn.
+LexVerse is released under the [Apache License 2.0](LICENSE). The runtime design
+references Harbor's high-level execution patterns without vendoring Harbor
+code; attribution details are recorded in [NOTICE](NOTICE).

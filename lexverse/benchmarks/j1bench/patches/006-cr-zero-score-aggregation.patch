@@ -1,0 +1,27 @@
+--- a/src/Eval/bench/CR/CR.py
++++ b/src/Eval/bench/CR/CR.py
+@@ -561,12 +561,20 @@
+                 FINE_2.append(1)
++            rea = 0
+             if data['REA'] != 0:
+                 rea = data['REA']['score']
++            law = 0
+             if data['LAW'] != 0:
+                 law = data['LAW']['score']
+-            sta = data['PFS']['STA']
+-            act = data['PFS']['ACT']
+-            uni = data['PFS']['UNI']
+-            pfs = data['PFS']['UNI'] * np.mean([data['PFS']['STA'], data['PFS']['ACT']])
++            if data['PFS'] != 0:
++                sta = data['PFS']['STA']
++                act = data['PFS']['ACT']
++                uni = data['PFS']['UNI']
++                pfs = uni * np.mean([sta, act])
++            else:
++                sta = 0
++                act = 0
++                uni = 0
++                pfs = 0
+             
+             if turn < 4:
+                 rea = 0

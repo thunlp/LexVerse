@@ -1,0 +1,11 @@
+--- a/src/engine/gpt_4o_1120.py
++++ b/src/engine/gpt_4o_1120.py
+@@ -17,7 +17,7 @@
+         assert openai_api_key is not None, "openai_api_key is required" 
+         openai_api_base = openai_api_base if openai_api_base is not None else os.environ.get("OPENAI_API_BASE")
+         
+-        self.model_path = "gpt-4o-2024-11-20"
++        self.model_path = openai_model_name
+         self.temperature = temperature
+         self.max_tokens = max_tokens
+         

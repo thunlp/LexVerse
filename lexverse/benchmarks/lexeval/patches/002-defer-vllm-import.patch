@@ -1,0 +1,16 @@
+--- a/code/generation/model_gen.py
++++ b/code/generation/model_gen.py
+@@ -1,5 +1,4 @@
+ import json
+-from vllm import LLM, SamplingParams
+ 
+ class model_generator:
+     def __init__(self, f_path, is_few_shot, device, is_vllm, model_path, few_shot_path=None, tensor_parallel_size=None, gpu_memory_utilization=None):
+@@ -30,6 +29,7 @@
+         '''
+         Init the model using vllm
+         '''
++        from vllm import LLM, SamplingParams
+         model = LLM(
+             model=self.model_path,
+             tensor_parallel_size=self.tensor_parallel_size, 

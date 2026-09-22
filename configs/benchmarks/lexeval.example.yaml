@@ -1,0 +1,47 @@
+# LexEval example: all 23 tasks × 10 samples.
+# Copy to lexeval.local.yaml and select a profile defined in secrets.local.yaml.
+
+schema_version: 1
+
+benchmark:
+  name: lexeval
+  tasks:
+    - "1_1"
+    - "1_2"
+    - "1_3"
+    - "2_1"
+    - "2_2"
+    - "2_3"
+    - "2_4"
+    - "2_5"
+    - "3_1"
+    - "3_2"
+    - "3_3"
+    - "3_4"
+    - "3_5"
+    - "3_6"
+    - "4_1"
+    - "4_2"
+    - "5_1"
+    - "5_2"
+    - "5_3"
+    - "5_4"
+    - "6_1"
+    - "6_2"
+    - "6_3"
+
+model:
+  profile: openai
+  name: gpt-4o-mini
+  parameters:
+    temperature: 0
+    max_tokens: 64
+
+execution:
+  concurrency: 3
+  limit: 10
+  resume: false
+
+evaluation:
+  choice_metric: Accuracy
+  generation_metric: Rouge_L

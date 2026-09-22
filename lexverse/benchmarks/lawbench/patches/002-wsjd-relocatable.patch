@@ -1,0 +1,57 @@
+--- a/evaluation/evaluation_functions/wsjd.py
++++ b/evaluation/evaluation_functions/wsjd.py
+@@ -1,6 +1,9 @@
+ import re
+ import os
+ import subprocess
++import sys
++import tempfile
++from pathlib import Path
+ 
+ """
+ Task: legal document grammar correction
+@@ -29,20 +32,28 @@ def compute_wsjd(data_dict):
+     #generate input files for ChERRANT
+     preds = [f'{i} \t {origin} \t {prediction} \n' for i, (origin, prediction) in enumerate(zip(origins, predictions))]
+     golds = [f'{i} \t {origin} \t {reference} \n' for i, (origin, reference) in enumerate(zip(origins, references))]
+-    os.chdir('utils')
+-    with open('tmp_pred.para', 'w') as f:
+-        f.writelines(preds)
+-    with open('tmp_gold.para', 'w') as f:
+-        f.writelines(golds)
+-    os.environ['KMP_DUPLICATE_LIB_OK']='True'
+-    os.system('python3 parallel_to_m2.py -f tmp_pred.para -o tmp_pred.para.m2 -g char')
+-    os.system('python3 parallel_to_m2.py -f tmp_gold.para -o tmp_gold.para.m2 -g char')
+-    output = subprocess.check_output("python3 compare_m2_for_evaluation.py -hyp tmp_pred.para.m2 -ref tmp_gold.para.m2", shell = True)
+-    score = float(output.decode().split('\t')[-1].split('\n')[0])
+-    #remove prediction files
+-    os.remove('tmp_pred.para')
+-    os.remove('tmp_gold.para')
+-    os.remove('tmp_pred.para.m2')
+-    os.remove('tmp_gold.para.m2')
+-    os.chdir('..')
++    utils_dir = Path(__file__).resolve().parents[1] / 'utils'
++    env = dict(os.environ)
++    env['KMP_DUPLICATE_LIB_OK'] = 'True'
++    with tempfile.TemporaryDirectory(prefix='lexverse-wsjd-') as tmp:
++        tmp_dir = Path(tmp)
++        pred = tmp_dir / 'pred.para'
++        gold = tmp_dir / 'gold.para'
++        pred_m2 = tmp_dir / 'pred.para.m2'
++        gold_m2 = tmp_dir / 'gold.para.m2'
++        pred.write_text(''.join(preds), encoding='utf-8')
++        gold.write_text(''.join(golds), encoding='utf-8')
++        subprocess.run(
++            [sys.executable, str(utils_dir / 'parallel_to_m2.py'), '-f', str(pred), '-o', str(pred_m2), '-g', 'char'],
++            cwd=utils_dir, env=env, check=True,
++        )
++        subprocess.run(
++            [sys.executable, str(utils_dir / 'parallel_to_m2.py'), '-f', str(gold), '-o', str(gold_m2), '-g', 'char'],
++            cwd=utils_dir, env=env, check=True,
++        )
++        output = subprocess.check_output(
++            [sys.executable, str(utils_dir / 'compare_m2_for_evaluation.py'), '-hyp', str(pred_m2), '-ref', str(gold_m2)],
++            cwd=utils_dir, env=env,
++        )
++        score = float(output.decode().split('\t')[-1].split('\n')[0])
+     return {"score": score}

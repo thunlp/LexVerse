@@ -1,0 +1,8 @@
+schema_version: 1
+tasks:
+  CI: {supported: true, policy: j1bench_ci, metrics: [REA, LAW, JUD, PFS]}
+  CR: {supported: true, policy: j1bench_cr, metrics: [CRI, SEN, FINE, REA, LAW, PFS]}
+  KQ: {supported: true, policy: j1bench_kq, metrics: [BIN, NBIN, AVE]}
+  LC: {supported: true, policy: j1bench_lc, metrics: [BIN, NBIN, AVE]}
+  CD: {supported: true, policy: j1bench_cd, metrics: [PLA, DEF, CLA, EVI, FAC, DOC, FOR, AVE]}
+  DD: {supported: true, policy: j1bench_dd, metrics: [RES, DEF, EVI, DOC, FOR, AVE]}

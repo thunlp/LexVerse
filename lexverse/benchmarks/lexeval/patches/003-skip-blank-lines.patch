@@ -1,0 +1,11 @@
+--- a/code/generation/model_gen.py
++++ b/code/generation/model_gen.py
+@@ -94,6 +94,8 @@
+             lines = f1.readlines()
+         instruction_ls, input_text_ls, answer_ls = [], [], []
+         for idx, line in enumerate(lines):
++            if not line.strip():
++                continue
+             qa_dict = json.loads(line)
+             instruction = qa_dict['instruction']
+             answer = qa_dict['answer']

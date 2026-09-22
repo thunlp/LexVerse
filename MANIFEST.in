@@ -1,0 +1,35 @@
+# MANIFEST.in — controls what goes into sdist (source distribution).
+# Wheels only include the discovered packages; sdist takes everything by
+# default. We explicitly prune the parts that must never ship.
+
+include LICENSE
+include NOTICE
+include README.md
+include pyproject.toml
+
+# Ship Python sources and benchmark resources. The repository-level configs/
+# tree is the single configuration source and is included in the sdist.
+recursive-include lexverse *.py *.patch *.yaml
+recursive-include configs *.yaml
+
+# Explicitly prune sensitive or bulky trees.
+prune reference_harness
+prune data
+prune user_data
+prune tests
+prune docs
+prune examples
+prune img
+prune .git
+prune .git.backup
+prune .lexverse
+prune .pytest_cache
+
+# Belt-and-suspenders: never ship a real secrets file (the template ships).
+exclude configs/secrets.local.yaml
+exclude configs/benchmarks/*.local.yaml
+exclude secrets.local.yaml
+exclude .env.local
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude .DS_Store

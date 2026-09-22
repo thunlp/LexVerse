@@ -1,0 +1,11 @@
+--- a/evaluation/utils/function_utils.py
++++ b/evaluation/utils/function_utils.py
+@@ -1,4 +1,7 @@
+-from rouge_chinese import Rouge
++try:
++    from rouge_chinese import Rouge
++except ImportError:
++    from rouge import Rouge
+ import jieba
+ from nltk.translate.gleu_score import corpus_gleu
+ 

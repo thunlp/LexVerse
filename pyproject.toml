@@ -5,17 +5,82 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "lexverse"
 version = "0.1.0"
-description = "A callable legal data environment for legal agents"
+description = "Task-oriented legal benchmark runtime for legal agents"
+license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
-dependencies = ["pydantic>=2.0.0",]
+dependencies = [
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "filelock>=3.0",
+]
 
 [project.optional-dependencies]
-mcp = ["mcp"]
+test = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+]
+lexeval = [
+    "jsonlines>=3.0",
+    "jieba>=0.42",
+    "rouge>=1.0",
+    # The bundled upstream evaluators still load extensions built against
+    # NumPy 1.x (notably the LawBench LTP/Torch path in a combined install).
+    "numpy>=1.20,<2",
+]
+# NOTE: lawbench installs `rouge_chinese` which shares the `rouge/__init__.py`
+# import path with plain `rouge` and shadows it. Do NOT combine the lexeval
+# and lawbench extras in the same environment if you need exact Rouge_L
+# parity for LexEval task 5_*. Use two virtualenvs (recommended) or accept
+# a small (~1%) drift on 4 rouge-scored LawBench tasks (1-1, 3-8, 2-4, 2-8).
+lawbench = [
+    "rouge_chinese>=1.0",
+    "cn2an>=0.5",
+    "jieba>=0.42",
+    "numpy>=1.20,<2",
+    "nltk>=3.6",
+    "pandas>=1.3",
+    "opencc-python-reimplemented>=0.1.7",
+    "timeout-decorator>=0.5",
+    "tqdm>=4.0",
+    "pypinyin>=0.49",
+    "python-Levenshtein>=0.20",
+    "ltp>=4.2",
+    "torch>=2.0",
+    # ltp-core only specifies transformers>=4. Transformers 5 requires
+    # PyTorch >=2.5 and is incompatible with the currently supported LTP stack.
+    "transformers>=4.0,<5",
+]
+openai = [
+    "openai>=1.0",
+]
+j1bench = [
+    "openai>=1.0",
+    "huggingface_hub>=0.25",
+    "jsonlines>=3.0",
+    "requests>=2.0",
+    "tqdm>=4.0",
+    "numpy>=1.20,<2",
+]
 
 [project.scripts]
-lexverse-env = "lexverse_env.cli:main"
-lexverse-mcp = "lexverse_env.mcp_server:main"
+lexverse = "lexverse.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["lexverse_env", "lexverse_env.*"]
+include = ["lexverse", "lexverse.*"]
+exclude = ["reference_harness*", "tests*", "data*", "docs*"]
+
+[tool.setuptools.package-data]
+"lexverse.benchmarks.lexeval" = ["patches/*.patch", "catalog.yaml"]
+"lexverse.benchmarks.j1bench" = ["patches/*.patch", "catalog.yaml"]
+"lexverse.benchmarks.lawbench" = ["patches/*.patch", "catalog.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: needs upstream cache and/or network (offline-runnable once cached)",
+    "live_api: calls a real paid model API; excluded by default",
+]
+# Default: fast, offline. Live tests run explicitly with `-m live_api`.
+addopts = "-m 'not live_api'"
