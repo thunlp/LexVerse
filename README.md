@@ -20,13 +20,6 @@ models and agents. It provides one execution and result-management pipeline
 while preserving each benchmark's upstream task format, interaction harness,
 and evaluator.
 
-```text
-Config → Prepare → Trials → Official Verifier → Summary
-```
-
-The current runtime does not include a legal corpus, retrieval system, MCP data
-service, or data-environment SDK.
-
 ## ⚖️ Supported Benchmarks
 
 | Benchmark                                           |               Coverage | Interaction                 | Verification                |
@@ -51,9 +44,6 @@ conda activate lexverse
 which python
 python --version
 ```
-
-`which python` should point inside `.../envs/lexverse/`, and only `(lexverse)`
-should appear in the shell prompt.
 
 Install LexVerse and the dependencies declared by all three integrations:
 
