@@ -30,3 +30,7 @@ configs/benchmarks/*.local.yaml
 
 # Editable architecture sources stay local
 docs/*.drawio
+
+# Local release notes and source-distribution rules
+/NOTICE
+/MANIFEST.in

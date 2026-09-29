@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 2.17.0-dev.1">
-  <title>LexVerse 单一主链与代码边界</title>
+  <title>Lexverse：A universe where legal agents learn, act, and are evaluated.</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -5081,11 +5081,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="蓝图 / 修订 01"
            data-preset-badge-editorial="编辑风格 / 现场笔记">
         <div class="pulse-dot"></div>
-        <h1>LexVerse 单一主链与代码边界</h1>
+        <h1>Lexverse：A universe where legal agents learn, act, and are evaluated.</h1>
       </div>
     </div>
 
-    <script id="archify-guided-views-data" type="application/json">[{"id":"main","label":"单一执行主链","focus":["developer","cli","registry","plugin","bundle","orchestrator","taskrunner","environment","envresult","verifier","artifacts"],"note":"所有 Benchmark 统一经过 TaskBundle、Runtime、Environment、Verifier 与 Artifacts。"},{"id":"plugins","label":"三套 Benchmark","focus":["registry","plugin","lexeval","lawbench","j1bench","bundle"],"note":"普通 Benchmark 最小为 catalog.yaml + plugin.py；J1Bench 额外保留场景、环境与 patches。"},{"id":"execution","label":"Environment 与 Interaction","focus":["taskrunner","environment","direct","j1env","interaction","provider","j1harness","envresult"],"note":"DirectResponse 使用 LexVerse Interaction/Provider；J1Bench 保留官方 Harness 内部的 engine 与 model client。"},{"id":"runtime","label":"Runtime 与产物","focus":["bundle","orchestrator","scheduler","taskrunner","verifier","artifacts"],"note":"Runtime 管理 Job/Trial、并发、timeout、retry、resume 与原子落盘。"},{"id":"migration","label":"当前统一主链","focus":["cli","plugin","bundle","orchestrator","taskrunner","environment","direct","j1env","verifier"],"note":"CLI、三套 Benchmark Plugin、TaskBundle、TaskRunner、Environment 与 Verifier 已接通；旧 lifecycle 已删除。"}]</script>
+    <script id="archify-guided-views-data" type="application/json">[{"id":"prepare-view","label":"① prepare：准备任务","focus":["config-entry","benchmark-plugin","task-importer","task-bundle","prepared-file"],"note":"用户预先配置 Benchmark YAML 和模型连接 profile；prepare 读取 Benchmark YAML，筛选任务并写入 prepared 文件。"},{"id":"assembly-view","label":"② run：组装与调度","focus":["prepared-file","benchmark-plugin","run-assembly","job-orchestrator","trial-factory","single-runner"],"note":"run 读取 prepared 并校验配置哈希，按预先配置的 profile 加载连接凭据，再创建 Environment / Verifier、JobSpec 与 factory。"},{"id":"execution-view","label":"② run：执行与返回","focus":["trial-factory","single-runner","direct-execution","official-execution","environment-result","trial-records"],"note":"当前 CLI 调用 TaskRunner.run_environment()。两条执行路径返回 EnvironmentResult，经 factory 整理，由 Orchestrator 落盘。"},{"id":"scoring-view","label":"③ 评分与汇总","focus":["trial-records","batch-verifier","scenario-verifier","final-report","collect-entry"],"note":"整批执行结束后，CLI 收集回答或按场景收集对话，再调用官方评分适配。collect 只读取已有产物重新汇总。"}]</script>
 
     <script id="archify-i18n-data" type="application/json">{"locale":"zh-CN","messages":{"viewer.kind.frontend":"前端","viewer.kind.backend":"后端","viewer.kind.database":"数据库","viewer.kind.cloud":"云服务","viewer.kind.security":"安全","viewer.kind.messagebus":"消息总线","viewer.kind.external":"外部系统","viewer.kind.neutral":"中性","viewer.kind.node":"节点","viewer.kind.start":"开始","viewer.kind.active":"活动","viewer.kind.waiting":"等待","viewer.kind.decision":"决策","viewer.kind.success":"成功","viewer.kind.failure":"失败","viewer.toolbar.actions":"图表操作","viewer.theme.toggle.title":"切换主题（T）","viewer.theme.toggle":"切换颜色主题","viewer.theme.dark":"深色","viewer.theme.light":"浅色","viewer.preset.choose.title":"选择视觉风格（S 循环切换）","viewer.preset.choose":"选择视觉风格","viewer.preset.style":"风格","viewer.preset.menu":"视觉风格","viewer.preset.identity":"视觉表达","viewer.preset.cycles":"S 循环切换","viewer.preset.classic":"经典","viewer.preset.classic.short":"经典","viewer.preset.classic.hint":"稳定的技术默认风格","viewer.preset.flow":"信号流","viewer.preset.flow.short":"流动","viewer.preset.flow.hint":"突出动态流向","viewer.preset.blueprint":"蓝图","viewer.preset.blueprint.hint":"工程评审","viewer.preset.editorial":"编辑风格","viewer.preset.editorial.hint":"适合发布与上线说明","viewer.preset.badge.signalFlow":"信号流","viewer.preset.badge.blueprint":"蓝图 / 修订 01","viewer.preset.badge.editorial":"编辑风格 / 现场笔记","viewer.preset.badge.editorialPlate":"ARCHIFY / 图版 04","viewer.preset.current":"当前视觉风格：{style}。选择视觉风格","viewer.motion.live":"动态","viewer.motion.still":"静态","viewer.motion.pause":"暂停动效","viewer.motion.resume":"恢复动效","viewer.motion.reduced":"已根据减少动态效果偏好暂停动效","viewer.motion.hidden":"页面不可见时已暂停动效","viewer.motion.yielding":"暂停动效；当前让位于{owner}","viewer.motion.yielding.title":"动态预览已启用 · 正在让位于{owner}","viewer.owner.story":"引导故事","viewer.owner.chapter":"当前章节","viewer.owner.chapterPreview":"章节差异预览","viewer.owner.handoff":"章节交接","viewer.owner.route":"路径探测","viewer.owner.lens":"语义透镜","viewer.owner.relationship":"关系预览","viewer.owner.intent":"意图追踪","viewer.owner.focus":"语义聚焦","viewer.owner.legend":"图例预览","viewer.owner.reader":"读者交互","viewer.present.enter":"进入演示模式","viewer.present.enter.title":"演示模式（F）","viewer.present.exit":"退出演示模式","viewer.present.exit.title":"退出演示模式（F 或 Escape）","viewer.present.present":"演示","viewer.present.exit.label":"退出","viewer.export.button":"导出","viewer.export.button.title":"导出图表（E）","viewer.export.diagram":"导出图表","viewer.export.menu":"导出","viewer.export.subtitle":"便携、整洁的输出","viewer.export.share":"分享","viewer.export.shareCard":"分享卡片","viewer.export.routeShareCard":"路径分享卡片","viewer.export.reachShareCard":"可达范围分享卡片","viewer.export.copyShareCard":"复制分享卡片","viewer.export.copyDiagram":"复制图表","viewer.export.clipboardPng":"复制 PNG 到剪贴板","viewer.export.raster":"位图","viewer.export.image":"图像","viewer.export.lossless":"无损图像","viewer.export.compact":"紧凑图像","viewer.export.modern":"现代图像格式","viewer.export.vectorMotion":"矢量与动效","viewer.export.vectorMotion.heading":"矢量与动效","viewer.export.editable":"可编辑矢量图","viewer.export.motion6s":"6 秒动效","viewer.export.unsupported":"当前浏览器不支持","viewer.export.clipboardUnsupported":"当前浏览器不支持写入图片剪贴板","viewer.export.clipboardUnsupported.period":"当前浏览器不支持写入图片剪贴板。","viewer.export.clipboardUnsupported.short":"此浏览器不支持写入图片剪贴板。","viewer.export.motionUnavailable":"当前浏览器无法录制动效","viewer.export.webmUnavailable":"当前浏览器不支持 WebM","viewer.export.failed":"导出失败：{message}","viewer.export.unknownVariant":"未知的分享卡片类型：{variant}","viewer.export.routeRequired":"请先追踪路径，再导出路径分享卡片","viewer.export.reachRequired":"请先追踪编写可达范围，再导出可达范围分享卡片","viewer.export.unknown":"未知错误","viewer.export.routeFailed":"路径分享卡片导出失败：{message}","viewer.export.reachFailed":"可达范围分享卡片导出失败：{message}","viewer.export.copyFailed":"复制失败：{message}","viewer.export.copiedPng":"已将 PNG 复制到剪贴板","viewer.export.copiedShare":"已复制分享卡片","viewer.export.downloadedShare":"已下载分享卡片","viewer.export.downloadedRoute":"已下载路径分享卡片","viewer.export.downloadedReach":"已下载可达范围分享卡片","viewer.export.downloadedWebm":"已下载 WebM","viewer.export.recording":"正在录制 6 秒动效…","viewer.export.card.routeSummary.one":"路径：{source} → {target} · {count} 个有向跳转","viewer.export.card.routeSummary.other":"路径：{source} → {target} · {count} 个有向跳转","viewer.export.card.reachSummary":"从{origin}开始的编写{direction} · {nodes} · {links} · 最深 {hops}","viewer.export.card.node.one":"{count} 个节点","viewer.export.card.node.other":"{count} 个节点","viewer.export.card.link.one":"{count} 条连接","viewer.export.card.link.other":"{count} 条连接","viewer.export.card.hop.one":"{count} 跳","viewer.export.card.hop.other":"{count} 跳","viewer.export.card.routeBadge":"ARCHIFY · 路径 · {hops}","viewer.export.card.reachBadge":"ARCHIFY · {direction}可达范围","viewer.export.card.defaultBadge":"ARCHIFY · {preset} · {theme}","viewer.export.direction.upstream":"上游","viewer.export.direction.downstream":"下游","viewer.export.error.canvasUnavailable":"无法为{label}使用画布","viewer.export.error.contextUnavailable":"无法为{label}创建二维画布上下文","viewer.export.error.toBlobUnavailable":"{label}无法使用 canvas.toBlob","viewer.export.error.toBlobNull":"{label}的 canvas.toBlob 未返回数据","viewer.export.error.variantsCombined":"无法同时组合多种分享卡片类型","viewer.export.error.viewerState":"分享卡片导出无法移除临时 Viewer 状态","viewer.export.error.routeState":"路径卡片导出无法安全保留已解析路径","viewer.export.error.reachState":"可达范围卡片导出无法安全保留编写的可达范围","viewer.export.error.webmRequirements":"WebM 动效导出需要追踪动画及浏览器 MediaRecorder 支持","viewer.export.error.mediaRecorder":"MediaRecorder 录制失败","viewer.export.error.emptyWebm":"MediaRecorder 生成了空的 WebM","viewer.export.error.webmBackground":"无法为 WebM 导出加载 SVG 背景","viewer.guided.region":"图表引导视图","viewer.guided.previous":"上一个引导视图","viewer.guided.previous.title":"上一个引导视图（[）","viewer.guided.next":"下一个引导视图","viewer.guided.next.title":"下一个引导视图（]）","viewer.guided.views":"引导视图","viewer.guided.explore":"探索此系统","viewer.guided.intro":"沿精选路径逐步查看，而不改变源图表。","viewer.guided.trail":"故事轨迹","viewer.guided.beat":"节点","viewer.guided.nextBeat":"下一步","viewer.guided.play":"播放引导故事","viewer.guided.play.title":"播放引导故事（P）","viewer.guided.pause":"暂停引导故事","viewer.guided.pause.title":"暂停引导故事（P）","viewer.guided.replay":"重播引导故事","viewer.guided.replay.title":"重播引导故事（P）","viewer.guided.playStory":"播放故事","viewer.guided.pauseStory":"暂停","viewer.guided.replayStory":"重播故事","viewer.guided.motionUnavailable":"静态模式下无法播放故事","viewer.guided.enableMotion":"切换为动态模式以播放引导故事","viewer.guided.selectBeatLink":"选择故事节点以复制其精确链接","viewer.guided.copyMoment":"复制此刻","viewer.guided.momentCopied":"已复制时刻链接","viewer.guided.momentCopyFailed":"无法复制故事时刻链接","viewer.guided.copied":"已复制","viewer.guided.copyFailed":"复制失败","viewer.guided.showAll":"显示全部","viewer.guided.showAll.aria":"显示完整图表","viewer.guided.chapters":"故事章节","viewer.guided.storyTrail":"{label}的故事轨迹：{count} 个节点","viewer.guided.chapter.open":"打开第 {index}/{total} 章：{label}，{count} 个停靠点","viewer.guided.chapter.current":"当前第 {index}/{total} 章：{label}，{count} 个停靠点","viewer.guided.chapter.selectedNodes":"已选择 {count} 个节点","viewer.guided.chapter.stops":"{count} 个停靠点","viewer.guided.chapter.stop.one":"{count} 个停靠点","viewer.guided.chapter.stop.other":"{count} 个停靠点","viewer.guided.chapter.current.title":"{label} — 当前章节，{count} 个停靠点","viewer.guided.chapter.delta.expanded":"{stay} 个保留，{enter} 个进入，{leave} 个离开","viewer.guided.chapter.delta.aria":"打开第 {index}/{total} 章：{label}。章节聚焦差异：{delta}","viewer.guided.chapter.delta.title":"{label} — 章节聚焦 {delta}","viewer.guided.handoff":"{from} → {to} · 经由{label}","viewer.guided.share.chapter":"章节 {index} / {total}","viewer.guided.share.initial":"章节 01 / 01","viewer.guided.share.default":"引导章节","viewer.guided.state.ready":"就绪","viewer.guided.state.playing":"播放中","viewer.guided.state.settled":"已完成","viewer.guided.state.paused":"已暂停","viewer.guided.state.pinned":"已固定","viewer.guided.state.still":"静态","viewer.guided.share.step":"步骤 {index} / {total} · {label}","viewer.guided.share.staticMoment":"{step} · 静态时刻","viewer.guided.share.complete":"{count} 个步骤已完成 · {note}","viewer.guided.share.settled":"路径已稳定，可供阅读。","viewer.guided.share.staticPath":"{count} 个步骤 · 静态路径","viewer.guided.share.ready":"{count} 个步骤 · 就绪","viewer.guided.share.aria":"{state}，第 {index}/{total} 章：{label}。{beat}。{route}","viewer.guided.beat.start":"节点 {index} / {total} · {label} · 起点","viewer.guided.beat.forward":"节点 {index} / {total} · {from} → {to}","viewer.guided.beat.reverse":"节点 {index} / {total} · {from} → {to} · 反向编写连接","viewer.guided.beat.multiple":"节点 {index} / {total} · {from} ⇄ {to} · {count} 条编写连接","viewer.guided.beat.group":"节点 {index} / {total} · {from} · {to} · 分组 · 无直接连接","viewer.guided.beat.aria.prefix":"故事节点 {index}/{total}：{label}。","viewer.guided.beat.aria.start":"起点。","viewer.guided.beat.aria.forward":"从{from}经一条正向编写关系到达。","viewer.guided.beat.aria.reverse":"从{from}出发；编写关系实际由{to}指向{from}。","viewer.guided.beat.aria.multiple":"从{from}经 {count} 条编写关系到达；不使用任意动效。","viewer.guided.beat.aria.group":"与{from}分组展示，没有直接编写关系。","viewer.guided.caption.start":"起点","viewer.guided.caption.grouped":"分组过渡 · 无直接编写连接","viewer.guided.caption.more":" +另外 {count} 条","viewer.guided.caption.reverse":"反向编写关系","viewer.guided.caption.relationships":"{count} 条编写关系","viewer.guided.caption.relationship":"编写关系","viewer.guided.caption.direction":"编写方向：{from} → {to}","viewer.guided.caption.starting":"编写起点","viewer.guided.beatLink":"复制当前故事时刻链接：第 {index}/{total} 个节点：{label}","viewer.guided.noStory":"此图表没有编写引导故事。","viewer.guide.eyebrow":"图表指南","viewer.guide.close":"关闭图表指南","viewer.guide.inspecting":"正在检查已编译语义","viewer.guide.actions":"图表探索操作","viewer.guide.find":"查找任意节点","viewer.guide.find.hint":"搜索标签、职责、类型和稳定 ID。","viewer.guide.route":"追踪路径","viewer.guide.route.aria":"追踪有向路径","viewer.guide.route.hint":"查看两个语义节点如何按编写方向连接。","viewer.guide.map":"查看完整系统","viewer.guide.map.hint":"打开带实时视口和稳定节点的语义雷达。","viewer.guide.lens":"比较语义类型","viewer.guide.lens.hint":"统计角色、显示流量并比较直接编写的连接。","viewer.guide.story":"播放引导故事","viewer.guide.story.hint":"浏览已编写的章节和真实关系。","viewer.guide.present":"进入演示模式","viewer.guide.present.hint":"让实时图表占满视口，同时不改变导出。","viewer.guide.shortcuts":"其他键盘快捷键","viewer.guide.shortcut.export":"导出","viewer.guide.shortcut.theme":"主题","viewer.guide.shortcut.style":"风格","viewer.guide.shortcut.reset":"重置","viewer.guide.shortcut.zoomIn":"放大","viewer.guide.shortcut.zoomOut":"缩小","viewer.guide.shortcut.close":"关闭","viewer.guide.facts":"{nodes} · {relationships} · {views}","viewer.guide.fact.node.one":"{count} 个语义节点","viewer.guide.fact.node.other":"{count} 个语义节点","viewer.guide.fact.relationship.one":"{count} 条关系","viewer.guide.fact.relationship.other":"{count} 条关系","viewer.guide.fact.view.one":"{count} 个引导视图","viewer.guide.fact.view.other":"{count} 个引导视图","viewer.guide.story.available.one":"浏览 {count} 个已编写章节及其真实关系。","viewer.guide.story.available.other":"浏览 {count} 个已编写章节及其真实关系。","viewer.guide.story.unavailable":"此图表没有编写引导故事。","viewer.guide.open":"打开图表指南","viewer.guide.noStory":"此图表没有编写引导故事。","viewer.finder.title":"查找节点","viewer.finder.close":"关闭节点查找器","viewer.finder.placeholder":"搜索标签或 ID","viewer.finder.search":"搜索图表节点","viewer.finder.results":"图表节点","viewer.finder.empty":"没有匹配的节点","viewer.finder.result.focus":"聚焦{label}","viewer.finder.result.routeStart":"选择{label}作为路径起点","viewer.finder.result.routeTarget":"选择{label}作为路径终点，{links}","viewer.finder.status.empty":"没有匹配的节点","viewer.finder.status.count.one":"{count} 个匹配节点","viewer.finder.status.count.other":"{count} 个匹配节点","viewer.finder.noun.nodes":"个节点","viewer.finder.link.one":"{count} 条连接","viewer.finder.link.other":"{count} 条连接","viewer.finder.result.focus.one":"聚焦{label}，{count} 条相关连接","viewer.finder.result.focus.other":"聚焦{label}，{count} 条相关连接","viewer.finder.status.filtered":"{visible}/{available} {noun}","viewer.finder.status.all":"{available} {noun}","viewer.passport.eyebrow":"语义护照","viewer.passport.metadata":"节点元数据","viewer.passport.evidence":"已验证的源代码证据","viewer.passport.verified":"已验证来源","viewer.passport.verificationScope":"已按固定修订版本验证本地 Git 证据，未检查远程访问权限。","viewer.passport.reach":"编写可达范围","viewer.passport.reach.trace":"追踪编写的可达性","viewer.passport.upstream":"上游","viewer.passport.downstream":"下游","viewer.passport.upstream.trace":"追踪上游编写可达性","viewer.passport.downstream.trace":"追踪下游编写可达性","viewer.passport.close":"关闭语义护照","viewer.passport.copy":"复制链接","viewer.passport.copy.focus":"复制聚焦节点的链接","viewer.passport.relations":"关系","viewer.passport.relations.show":"显示关联关系","viewer.passport.relations.hide":"隐藏关联关系","viewer.passport.relations.list":"关联关系","viewer.passport.copyRelation":"复制关系","viewer.passport.copyNode":"复制节点","viewer.passport.copyPinned":"复制固定关系的链接","viewer.passport.copySource":"复制来源节点的链接","viewer.passport.copy.focused.success":"已复制聚焦节点链接","viewer.passport.copy.pinned.success":"已复制固定关系链接","viewer.passport.copy.focused.failed":"无法复制聚焦节点链接","viewer.passport.copy.pinned.failed":"无法复制固定关系链接","viewer.passport.relationship.none":"没有关联关系","viewer.passport.relationship.count.one":"{count} 条关系","viewer.passport.relationship.count.other":"{count} 条关系","viewer.passport.relationship.show.one":"显示 {count} 条关联关系","viewer.passport.relationship.show.other":"显示 {count} 条关联关系","viewer.passport.relationship.summary":"{out} 条出向 · {in} 条入向{loops}","viewer.passport.relationship.loops":" · {count} 条自环","viewer.passport.relationship.explorer":"直接关系浏览器","viewer.passport.relationship.help":"使用方向键浏览关系。按 Enter 或空格键固定详情；按 Escape 清除。","viewer.passport.relationship.loopsBack":"回环","viewer.passport.relationship.connectsTo":"连接到","viewer.passport.relationship.connectsFrom":"连接自","viewer.passport.relationship.pinned":"已固定关系 · {from} → {to} · {label}","viewer.passport.relationship.inspect":"检查第 {index}/{total} 条关系：{from} 到 {to}，{label}。按 Enter 查看详情。","viewer.passport.relationship.group.out":"出向","viewer.passport.relationship.group.in":"入向","viewer.passport.relationship.group.loop":"自环","viewer.passport.relationship.row":"{group}：{relationship}，{neighbor}","viewer.passport.relationship.direction.out":"出 →","viewer.passport.relationship.direction.in":"← 入","viewer.passport.relationship.direction.loop":"自环","viewer.passport.sourceCount.one":"{count} 个已验证来源引用","viewer.passport.sourceCount.other":"{count} 个已验证来源引用","viewer.passport.sourceMarker":"来源","viewer.passport.beacon.one":"{count} 个已验证来源；聚焦此节点以检查","viewer.passport.beacon.other":"{count} 个已验证来源；聚焦此节点以检查","viewer.passport.repository.open":"打开已验证的仓库修订版本 {revision}","viewer.passport.source.open":"打开修订版本 {revision} 中已验证的来源 {path}","viewer.passport.source.openLink":"打开 ↗","viewer.passport.reach.upstream.one":"追踪 {count} 个上游编写节点","viewer.passport.reach.upstream.other":"追踪 {count} 个上游编写节点","viewer.passport.reach.downstream.one":"追踪 {count} 个下游编写节点","viewer.passport.reach.downstream.other":"追踪 {count} 个下游编写节点","viewer.passport.reach.noUpstream":"没有上游编写节点","viewer.passport.reach.noDownstream":"没有下游编写节点","viewer.passport.reach.status":"{direction} · {nodes} 个节点 · {links} 条连接 · 最深 {hops} 跳","viewer.route.eyebrow":"路径探测","viewer.route.start":"选择起点节点","viewer.route.start.find":"查找起点","viewer.route.start.find.aria":"查找路径起点","viewer.route.copy":"复制链接","viewer.route.copy.aria":"复制已追踪路径的链接","viewer.route.clear":"清除","viewer.route.clear.aria":"清除路径探测","viewer.route.traced":"已追踪路径","viewer.route.pickTwo":"在图表中选择两个语义节点","viewer.route.pickOne":"在图表中选择一个语义节点","viewer.route.controls":"路径旅程控制","viewer.route.previous":"上一个路径位置","viewer.route.play":"播放路径旅程","viewer.route.pause":"暂停路径旅程","viewer.route.replay":"重播路径旅程","viewer.route.next":"下一个路径位置","viewer.route.journey":"旅程","viewer.route.pause.label":"暂停","viewer.route.replay.label":"重播","viewer.route.overview":"总览","viewer.route.overview.aria":"显示完整路径总览","viewer.route.instructions":"先选择来源，再选择目标；方向很重要。","viewer.route.destination":"选择从{label}出发的目标","viewer.route.destination.find":"查找目标","viewer.route.destination.find.aria":"查找可达的路径目标","viewer.route.differentDestination":"选择其他目标","viewer.route.distinct":"一条路径需要两个不同的语义节点。","viewer.route.unreachable":"没有通往{label}的有向路径","viewer.route.unreachable.detail":"从{source}无法到达{target}。请选择高亮的目标。","viewer.route.start.instructions":"选择来源。下一步只会显示有向可达的目标。","viewer.route.copy.success":"已复制路径链接","viewer.route.copy.failed":"无法复制路径链接","viewer.route.position":"路径位置 {index}/{total}：{label}","viewer.route.step":"第 {index}/{total} 步 · {phase} · {label}","viewer.route.motionRequired":"自动旅程需要动态模式","viewer.route.trigger.clear":"清除已追踪路径","viewer.route.overview.status":"{nodes} · {hops} · 最短编写路径","viewer.route.overview.node.one":"{count} 个节点","viewer.route.overview.node.other":"{count} 个节点","viewer.route.overview.hop.one":"{count} 个有向跳转","viewer.route.overview.hop.other":"{count} 个有向跳转","viewer.route.phase.playing":"播放中","viewer.route.phase.complete":"已完成","viewer.route.phase.inspecting":"检查中","viewer.route.destination.count.one":"有 {count} 个有向目标可用。请选择高亮节点。","viewer.route.destination.count.other":"有 {count} 个有向目标可用。请选择高亮节点。","viewer.route.noOutgoing":"此处没有可用的出向路径。请清除后选择其他来源。","viewer.route.result.title":"{source} 到 {target}","viewer.route.finder.source.title":"选择路径起点","viewer.route.finder.source.placeholder":"搜索路径来源","viewer.route.finder.source.empty":"没有匹配的路径来源","viewer.route.finder.source.results":"可作为路径起点的节点","viewer.route.finder.source.noun":"个路径来源","viewer.route.finder.source.badge":"起点","viewer.route.finder.target.title":"从{label}出发的目标","viewer.route.finder.target.placeholder":"搜索可达目标","viewer.route.finder.target.empty":"没有匹配的可达目标","viewer.route.finder.target.results":"可达路径目标","viewer.route.finder.target.noun":"个可达目标","viewer.route.hop.one":"{count} 跳","viewer.route.hop.other":"{count} 跳","viewer.lens.eyebrow":"语义透镜","viewer.lens.title":"比较系统角色","viewer.lens.close":"关闭语义透镜","viewer.lens.instruction":"最多选择两种语义类型。选择一种可显示其真实流量；选择两种只比较直接编写的关系。","viewer.lens.kinds":"语义类型","viewer.lens.choose":"选择一种类型以检查其节点和相连关系。","viewer.lens.copy":"复制语义透镜链接","viewer.lens.clear":"清除语义透镜","viewer.lens.open":"打开语义透镜","viewer.lens.openActive":"打开当前语义透镜","viewer.lens.legend":"语义图例","viewer.lens.legend.inspect.one":"检查{label}，{count} 个节点","viewer.lens.legend.inspect.other":"检查{label}，{count} 个节点","viewer.lens.kind.count.one":"{label}，{count} 个节点","viewer.lens.kind.count.other":"{label}，{count} 个节点","viewer.lens.compare.one":"{first} → {second}：{forward} · {second} → {first}：{reverse} · 共 {count} 条直接关系","viewer.lens.compare.other":"{first} → {second}：{forward} · {second} → {first}：{reverse} · 共 {count} 条直接关系","viewer.lens.single":"{nodes} · {relationships} · 已连接节点保持可见","viewer.lens.node.one":"{count} 个{label}节点","viewer.lens.node.other":"{count} 个{label}节点","viewer.lens.relationship.one":"{count} 条相连关系","viewer.lens.relationship.other":"{count} 条相连关系","viewer.radar.title":"语义雷达","viewer.radar.building":"正在构建总览","viewer.radar.openFull":"打开完整语义雷达","viewer.radar.open":"打开雷达","viewer.radar.close":"关闭语义雷达","viewer.radar.surface":"图表总览。点击节点进行聚焦，或使用方向键平移。","viewer.radar.click":"点击节点","viewer.radar.drag":"拖动平移","viewer.radar.space":"语义雷达需要更多地图可见空间。","viewer.radar.nodes":"语义图表雷达节点","viewer.radar.focus":"从语义雷达聚焦{label}","viewer.radar.status":"{count} 个节点 · {viewport}","viewer.radar.fullMap":"{count} 个节点 · 完整地图","viewer.radar.compacted":"已收紧雷达，避免遮挡语义护照或地图控件。","viewer.radar.cancelWaiting":"取消等待更多地图空间的语义雷达","viewer.radar.needsSpace":"语义雷达需要更多可见地图空间","viewer.radar.viewport.full":"完整地图","viewer.radar.viewport.width":"宽度 {percent}%","viewer.radar.viewport.scale":"视口 {percent}%","viewer.nav.controls":"图表视图控制","viewer.nav.route":"追踪有向路径","viewer.nav.route.title":"追踪路径（R）","viewer.nav.route.short":"路径","viewer.nav.radar":"打开语义雷达","viewer.nav.radar.title":"语义雷达（M）","viewer.nav.radar.short":"地图","viewer.nav.lens":"打开语义透镜","viewer.nav.lens.title":"语义透镜（L）","viewer.nav.lens.short":"透镜","viewer.nav.find":"查找节点","viewer.nav.find.title":"查找节点（/）","viewer.nav.guide":"打开图表指南","viewer.nav.guide.title":"图表指南（?）","viewer.nav.zoomOut":"缩小","viewer.nav.zoomOut.title":"缩小（-）","viewer.nav.reset":"重置图表视图","viewer.nav.reset.title":"重置视图（0）","viewer.nav.read":"阅读","viewer.nav.zoomIn":"放大","viewer.nav.zoomIn.title":"放大（+）","viewer.nav.camera":"{hint}。重置图表视图","viewer.nav.camera.title":"{semantic}{hint} · 重置视图（0）","viewer.nav.camera.semantic":"语义相机已启用 · ","viewer.nav.level.map":"概览","viewer.nav.level.read":"阅读","viewer.nav.level.full":"完整","viewer.nav.level.auto":"自动","viewer.nav.detail.map":"放大以显示关系标签和节点上下文","viewer.nav.detail.read":"再次放大以显示标签和注释","viewer.nav.detail.full":"完整图表详情","viewer.intent.summary":"{label}。{out} 条出向，{in} 条入向{loops}。共 {total} 条连接。按 Enter 查看详情。","viewer.intent.loops":"，{count} 条自环","viewer.common.copied":"已复制","viewer.common.copyFailed":"复制失败","viewer.common.copyLink":"复制链接","viewer.common.clear":"清除","viewer.common.close":"关闭"}}</script>
     <div class="guided-views no-print" id="guided-views" hidden aria-label="图表引导视图">
@@ -5130,8 +5130,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / 图版 04">
-      <svg viewBox="0 0 1340 720" role="img" lang="zh-CN" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="standard">
-        <title id="archify-diagram-title">LexVerse 单一主链与代码边界</title>
+      <svg viewBox="0 0 1328 816" role="img" lang="zh-CN" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase">
+        <title id="archify-diagram-title">Lexverse：A universe where legal agents learn, act, and are evaluated.</title>
         <desc id="archify-diagram-description">由 Archify 生成的架构图。</desc>
         <!-- Definitions -->
         <defs>
@@ -5156,362 +5156,314 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Boundaries (behind everything) -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="① 单一公共主链" x="13" y="56" width="1294" height="112" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="① prepare：准备本次任务集合" x="21" y="40" width="1246" height="113" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" data-composition-frame-label="② Benchmark 差异仅保留在 Plugin" x="438" y="196" width="674" height="114" rx="8" class="c-security-group" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="1" data-composition-frame-label="② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录" x="21" y="232" width="1294" height="344" rx="12" class="c-region" stroke-width="1"/>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="③ Runtime 调度" x="68" y="38" width="1264" height="424" rx="12" class="c-region" stroke-width="1"/>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="3" data-composition-frame-label="④ 一次任务的执行边界" x="303" y="306" width="1019" height="236" rx="12" class="c-region" stroke-width="1"/>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="4" data-composition-frame-label="⑤ 统一评分与产物" x="488" y="576" width="549" height="116" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="2" data-composition-frame-label="③ 整批执行结束后：官方评分与最终汇总" x="37" y="604" width="1278" height="116" rx="12" class="c-region" stroke-width="1"/>
 
         <!-- Connection paths (before components for correct z-order) -->
-        <path data-edge-from="developer" data-edge-to="cli" data-edge-key="0" data-composition-points="190,114;225,114" d="M 190 114 L 225 114" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="cli" data-edge-to="registry" data-edge-key="1" data-composition-points="415,114;450,114" d="M 415 114 L 450 114" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="registry" data-edge-to="plugin" data-edge-key="2" data-composition-points="640,114;665,114" d="M 640 114 L 665 114" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="plugin" data-edge-to="bundle" data-edge-label="import_tasks" data-edge-key="3" data-composition-points="875,114;900,114" d="M 875 114 L 900 114" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="bundle" data-edge-to="orchestrator" data-edge-key="4" data-composition-points="1090,114;1115,114" d="M 1090 114 L 1115 114" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="plugin" data-edge-to="lexeval" data-edge-key="5" data-composition-points="756,148;756,184;545,184;545,220" d="M 756 148 L 756 176 Q 756 184 748 184 L 553 184 Q 545 184 545 192 L 545 220" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="plugin" data-edge-to="lawbench" data-edge-key="6" data-composition-points="770,148;770,184;752.5,184;752.5,220" d="M 770 148 L 770 176 Q 770 184 762 184 L 760.5 184 Q 752.5 184 752.5 192 L 752.5 220" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="plugin" data-edge-to="j1bench" data-edge-key="7" data-composition-points="784,148;784,184;987.5,184;987.5,220" d="M 784 148 L 784 176 Q 784 184 792 184 L 979.5 184 Q 987.5 184 987.5 192 L 987.5 220" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="orchestrator" data-edge-to="scheduler" data-edge-key="8" data-composition-points="1205,148;1205,184;1222.5,184;1222.5,220" d="M 1205 148 L 1205 176 Q 1205 184 1213 184 L 1214.5 184 Q 1222.5 184 1222.5 192 L 1222.5 220" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="scheduler" data-edge-to="taskrunner" data-edge-label="next Trial" data-edge-key="9" data-composition-points="1222.5,290;1222.5,325;175,325;175,370" d="M 1222.5 290 L 1222.5 317 Q 1222.5 325 1214.5 325 L 183 325 Q 175 325 175 333 L 175 370" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="taskrunner" data-edge-to="environment" data-edge-label="run(task, work_dir)" data-edge-key="10" data-composition-points="270,406;315,406" d="M 270 406 L 315 406" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="environment" data-edge-to="direct" data-edge-key="11" data-composition-points="550,399;572.5,399;572.5,366;595,366" d="M 550 399 L 564.5 399 Q 572.5 399 572.5 391 L 572.5 374 Q 572.5 366 580.5 366 L 595 366" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="environment" data-edge-to="j1env" data-edge-key="12" data-composition-points="550,413;572.5,413;572.5,466;595,466" d="M 550 413 L 564.5 413 Q 572.5 413 572.5 421 L 572.5 458 Q 572.5 466 580.5 466 L 595 466" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="direct" data-edge-to="interaction" data-edge-key="13" data-composition-points="830,366;870,366" d="M 830 366 L 870 366" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="interaction" data-edge-to="provider" data-edge-key="14" data-composition-points="1075,366;1115,366" d="M 1075 366 L 1115 366" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="provider" data-edge-to="envresult" data-edge-label="model response" data-edge-key="15" data-composition-points="1197.5,402;1197.5,426;1217.5,426;1217.5,450" d="M 1197.5 402 L 1197.5 418 Q 1197.5 426 1205.5 426 L 1209.5 426 Q 1217.5 426 1217.5 434 L 1217.5 450" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="j1env" data-edge-to="j1harness" data-edge-label="launch subprocess" data-edge-key="16" data-composition-points="830,466;850,466;850,486;870,486" d="M 830 466 L 842 466 Q 850 466 850 474 L 850 478 Q 850 486 858 486 L 870 486" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="j1harness" data-edge-to="envresult" data-edge-label="normalize output" data-edge-key="17" data-composition-points="1095,486;1125,486" d="M 1095 486 L 1125 486" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="envresult" data-edge-to="verifier" data-edge-label="verify(task, result)" data-edge-key="18" data-composition-points="1217.5,522;1217.5,561;612.5,561;612.5,600" d="M 1217.5 522 L 1217.5 553 Q 1217.5 561 1209.5 561 L 620.5 561 Q 612.5 561 612.5 569 L 612.5 600" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="verifier" data-edge-to="artifacts" data-edge-key="19" data-composition-points="725,636;770,636" d="M 725 636 L 770 636" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="scheduler" data-edge-to="artifacts" data-edge-label="records + completeness" data-edge-key="20" data-composition-points="1320,255;1330,255;1330,570;897.5,570;897.5,600" d="M 1320 255 L 1325 255 Q 1330 255 1330 260 L 1330 562 Q 1330 570 1322 570 L 905.5 570 Q 897.5 570 897.5 578 L 897.5 600" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="config-entry" data-edge-to="benchmark-plugin" data-edge-key="0" data-edge-id="choose-plugin" data-composition-points="224,98.5;296,98.5" d="M 224 98.5 L 296 98.5" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="benchmark-plugin" data-edge-to="task-importer" data-edge-key="1" data-edge-id="create-importer" data-composition-points="480,98.5;552,98.5" d="M 480 98.5 L 552 98.5" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="task-importer" data-edge-to="task-bundle" data-edge-key="2" data-edge-id="build-bundle" data-composition-points="736,98.5;808,98.5" d="M 736 98.5 L 808 98.5" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="task-bundle" data-edge-to="prepared-file" data-edge-key="3" data-edge-id="save-prepared" data-composition-points="992,98.5;1064,98.5" d="M 992 98.5 L 1064 98.5" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="prepared-file" data-edge-to="run-assembly" data-edge-label="读取并校验配置 hash" data-edge-key="4" data-edge-id="load-prepared" data-composition-points="1156,133;1156,208;140,208;140,256" d="M 1156 133 L 1156 200 Q 1156 208 1148 208 L 148 208 Q 140 208 140 216 L 140 256" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="benchmark-plugin" data-edge-to="run-assembly" data-edge-label="创建环境与评分器" data-edge-key="5" data-edge-id="plugin-runtime" data-composition-points="388,133;388,168;20,168;20,292;40,292" d="M 388 133 L 388 160 Q 388 168 380 168 L 28 168 Q 20 168 20 176 L 20 284 Q 20 292 28 292 L 40 292" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="run-assembly" data-edge-to="job-orchestrator" data-edge-label="JobSpec + factory" data-edge-key="6" data-edge-id="submit-job" data-composition-points="240,292;312,292" d="M 240 292 L 312 292" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="job-orchestrator" data-edge-to="trial-factory" data-edge-label="每个任务 ID" data-edge-key="7" data-edge-id="call-factory" data-composition-points="512,292;584,292" d="M 512 292 L 584 292" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="trial-factory" data-edge-to="single-runner" data-edge-label="完整 Task" data-edge-key="8" data-edge-id="call-runner" data-composition-points="784,292;856,292" d="M 784 292 L 856 292" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="single-runner" data-edge-to="direct-execution" data-edge-key="9" data-edge-id="run-direct" data-composition-points="956,328;956,350;1180,350;1180,372" d="M 956 328 L 956 342 Q 956 350 964 350 L 1172 350 Q 1180 350 1180 358 L 1180 372" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="single-runner" data-edge-to="official-execution" data-edge-key="10" data-edge-id="run-official" data-composition-points="1056,292;1312,292;1312,520;1296,520" d="M 1056 292 L 1304 292 Q 1312 292 1312 300 L 1312 512 Q 1312 520 1304 520 L 1296 520" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="direct-execution" data-edge-to="environment-result" data-edge-key="11" data-edge-id="direct-result" data-composition-points="1064,408;1028,408;1028,465;992,465" d="M 1064 408 L 1036 408 Q 1028 408 1028 416 L 1028 457 Q 1028 465 1020 465 L 992 465" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="official-execution" data-edge-to="environment-result" data-edge-key="12" data-edge-id="official-result" data-composition-points="1064,520;1028,520;1028,479;992,479" d="M 1064 520 L 1036 520 Q 1028 520 1028 512 L 1028 487 Q 1028 479 1020 479 L 992 479" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="environment-result" data-edge-to="trial-records" data-edge-label="factory 整理返回值" data-edge-key="13" data-edge-id="persist-trial" data-composition-points="776,472;672,472" d="M 776 472 L 672 472" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="trial-records" data-edge-to="batch-verifier" data-edge-label="回答" data-edge-key="14" data-edge-id="batch-score" data-composition-points="440,472;364,472;364,664;288,664" d="M 440 472 L 372 472 Q 364 472 364 480 L 364 656 Q 364 664 356 664 L 288 664" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="trial-records" data-edge-to="scenario-verifier" data-edge-label="对话" data-edge-key="15" data-edge-id="scenario-score" data-composition-points="556,508;556,568;508,568;508,628" d="M 556 508 L 556 560 Q 556 568 548 568 L 516 568 Q 508 568 508 576 L 508 628" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="batch-verifier" data-edge-to="final-report" data-edge-key="16" data-edge-id="batch-report" data-composition-points="172,700;172,748;892,748;892,700" d="M 172 700 L 172 740 Q 172 748 180 748 L 884 748 Q 892 748 892 740 L 892 700" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="scenario-verifier" data-edge-to="final-report" data-edge-key="17" data-edge-id="scenario-report" data-composition-points="624,664;776,664" d="M 624 664 L 776 664" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="collect-entry" data-edge-to="final-report" data-edge-key="18" data-edge-id="collect-report" data-composition-points="1096,664;1008,664" d="M 1096 664 L 1008 664" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- Components -->
-        <g id="node-developer" data-node-id="developer" data-node-label="Developer" tabindex="0" role="button" aria-label="聚焦Developer，init · prepare · run · collect, ① 单一公共主链" aria-pressed="false" data-node-kind="external" data-node-sublabel="init · prepare · run · collect" data-node-tag="统一 CLI" data-node-context="① 单一公共主链">
-          <title>Developer · init · prepare · run · collect · ① 单一公共主链 · 统一 CLI</title>
-          <rect x="25" y="80" width="165" height="68" rx="6" class="c-mask"/>
-          <rect x="25" y="80" width="165" height="68" rx="6" class="c-external" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(31 86) scale(0.6875)">
-            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
-            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="107.5" y="112" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Developer</text>
-        <text data-detail="context" x="107.5" y="128" class="t-muted" font-size="8.7" text-anchor="middle">init · prepare · run · collect</text>
-        <text data-detail="fine" x="107.5" y="140" class="t-external" font-size="7" text-anchor="middle">统一 CLI</text>
-        </g>
-
-        <g id="node-cli" data-node-id="cli" data-node-label="cli.py + config.py" tabindex="0" role="button" aria-label="聚焦cli.py + config.py，prepare · run · collect · catalog, ① 单一公共主链" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="prepare · run · collect · catalog" data-node-tag="配置 + 凭据统一入口" data-node-context="① 单一公共主链">
-          <title>cli.py + config.py · prepare · run · collect · catalog · ① 单一公共主链 · 配置 + 凭据统一入口</title>
-          <rect x="225" y="80" width="190" height="68" rx="6" class="c-mask"/>
-          <rect x="225" y="80" width="190" height="68" rx="6" class="c-frontend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(231 86) scale(0.6875)">
+        <g id="node-config-entry" data-node-id="config-entry" data-node-label="评测与模型连接配置" tabindex="0" role="button" aria-label="聚焦评测与模型连接配置，Benchmark YAML + API profile, ① prepare：准备本次任务集合" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Benchmark YAML + API profile" data-node-tag="用户预先填写；prepare 读取 Benchmark YAML" data-node-context="① prepare：准备本次任务集合">
+          <title>评测与模型连接配置 · Benchmark YAML + API profile · ① prepare：准备本次任务集合 · 用户预先填写；prepare 读取 Benchmark YAML</title>
+          <rect x="40" y="64" width="184" height="69" rx="6" class="c-mask"/>
+          <rect x="40" y="64" width="184" height="69" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(46 70) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="320" y="112" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">cli.py + config.py</text>
-        <text data-detail="context" x="320" y="128" class="t-muted" font-size="9" text-anchor="middle">prepare · run · collect · catalog</text>
-        <text data-detail="fine" x="320" y="140" class="t-frontend" font-size="7" text-anchor="middle">配置 + 凭据统一入口</text>
+          <text data-node-label="" data-detail-anchor="" x="132" y="96.5" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">评测与模型连接配置</text>
+        <text data-detail="context" x="132" y="112.5" class="t-muted" font-size="9" text-anchor="middle">Benchmark YAML + API profile</text>
+        <text data-detail="fine" x="132" y="125" class="t-frontend" font-size="7" text-anchor="middle">用户预先填写；prepare 读取 Benchmark YAML</text>
         </g>
 
-        <g id="node-registry" data-node-id="registry" data-node-label="Benchmark Registry" tabindex="0" role="button" aria-label="聚焦Benchmark Registry，按 benchmark.name 选择, ① 单一公共主链" aria-pressed="false" data-node-kind="backend" data-node-sublabel="按 benchmark.name 选择" data-node-tag="唯一注册点" data-node-context="① 单一公共主链">
-          <title>Benchmark Registry · 按 benchmark.name 选择 · ① 单一公共主链 · 唯一注册点</title>
-          <rect x="450" y="80" width="190" height="68" rx="6" class="c-mask"/>
-          <rect x="450" y="80" width="190" height="68" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(456 86) scale(0.6875)">
+        <g id="node-benchmark-plugin" data-node-id="benchmark-plugin" data-node-label="BenchmarkPlugin" tabindex="0" role="button" aria-label="聚焦BenchmarkPlugin，数据导入 · 环境 · 评分适配, ① prepare：准备本次任务集合" aria-pressed="false" data-node-kind="backend" data-node-sublabel="数据导入 · 环境 · 评分适配" data-node-tag="LexEval / LawBench / J1Bench" data-node-context="① prepare：准备本次任务集合">
+          <title>BenchmarkPlugin · 数据导入 · 环境 · 评分适配 · ① prepare：准备本次任务集合 · LexEval / LawBench / J1Bench</title>
+          <rect x="296" y="64" width="184" height="69" rx="6" class="c-mask"/>
+          <rect x="296" y="64" width="184" height="69" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(302 70) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="545" y="112" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Benchmark Registry</text>
-        <text data-detail="context" x="545" y="128" class="t-muted" font-size="9" text-anchor="middle">按 benchmark.name 选择</text>
-        <text data-detail="fine" x="545" y="140" class="t-backend" font-size="7" text-anchor="middle">唯一注册点</text>
+          <text data-node-label="" data-detail-anchor="" x="388" y="96.5" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">BenchmarkPlugin</text>
+        <text data-detail="context" x="388" y="112.5" class="t-muted" font-size="9" text-anchor="middle">数据导入 · 环境 · 评分适配</text>
+        <text data-detail="fine" x="388" y="125" class="t-backend" font-size="7" text-anchor="middle">LexEval / LawBench / J1Bench</text>
         </g>
 
-        <g id="node-plugin" data-node-id="plugin" data-node-label="BenchmarkPlugin" tabindex="0" role="button" aria-label="聚焦BenchmarkPlugin，catalog · tasks · env · verifier, ① 单一公共主链" aria-pressed="false" data-node-kind="backend" data-node-sublabel="catalog · tasks · env · verifier" data-node-tag="bundle · environment · verifier" data-node-context="① 单一公共主链">
-          <title>BenchmarkPlugin · catalog · tasks · env · verifier · ① 单一公共主链 · bundle · environment · verifier</title>
-          <rect x="665" y="80" width="210" height="68" rx="6" class="c-mask"/>
-          <rect x="665" y="80" width="210" height="68" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(671 86) scale(0.6875)">
+        <g id="node-task-importer" data-node-id="task-importer" data-node-label="Importer" tabindex="0" role="button" aria-label="聚焦Importer，按任务类型、样本及数量筛选, ① prepare：准备本次任务集合" aria-pressed="false" data-node-kind="backend" data-node-sublabel="按任务类型、样本及数量筛选" data-node-tag="原始数据 → LexVerseTask[]" data-node-context="① prepare：准备本次任务集合">
+          <title>Importer · 按任务类型、样本及数量筛选 · ① prepare：准备本次任务集合 · 原始数据 → LexVerseTask[]</title>
+          <rect x="552" y="64" width="184" height="69" rx="6" class="c-mask"/>
+          <rect x="552" y="64" width="184" height="69" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(558 70) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="770" y="112" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">BenchmarkPlugin</text>
-        <text data-detail="context" x="770" y="128" class="t-muted" font-size="9" text-anchor="middle">catalog · tasks · env · verifier</text>
-        <text data-detail="fine" x="770" y="140" class="t-backend" font-size="7" text-anchor="middle">bundle · environment · verifier</text>
+          <text data-node-label="" data-detail-anchor="" x="644" y="96.5" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Importer</text>
+        <text data-detail="context" x="644" y="112.5" class="t-muted" font-size="9" text-anchor="middle">按任务类型、样本及数量筛选</text>
+        <text data-detail="fine" x="644" y="125" class="t-backend" font-size="7" text-anchor="middle">原始数据 → LexVerseTask[]</text>
         </g>
 
-        <g id="node-bundle" data-node-id="bundle" data-node-label="TaskBundle" tabindex="0" role="button" aria-label="聚焦TaskBundle，LexVerseTask[] + content hash, ① 单一公共主链" aria-pressed="false" data-node-kind="database" data-node-sublabel="LexVerseTask[] + content hash" data-node-tag="selection · reproducibility" data-node-context="① 单一公共主链">
-          <title>TaskBundle · LexVerseTask[] + content hash · ① 单一公共主链 · selection · reproducibility</title>
-          <rect x="900" y="80" width="190" height="68" rx="6" class="c-mask"/>
-          <rect x="900" y="80" width="190" height="68" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(906 86) scale(0.6875)">
+        <g id="node-task-bundle" data-node-id="task-bundle" data-node-label="TaskBundle" tabindex="0" role="button" aria-label="聚焦TaskBundle，benchmark · version · tasks, ① prepare：准备本次任务集合" aria-pressed="false" data-node-kind="database" data-node-sublabel="benchmark · version · tasks" data-node-tag="任务数据，可计算内容 hash" data-node-context="① prepare：准备本次任务集合">
+          <title>TaskBundle · benchmark · version · tasks · ① prepare：准备本次任务集合 · 任务数据，可计算内容 hash</title>
+          <rect x="808" y="64" width="184" height="69" rx="6" class="c-mask"/>
+          <rect x="808" y="64" width="184" height="69" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(814 70) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="995" y="112" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">TaskBundle</text>
-        <text data-detail="context" x="995" y="128" class="t-muted" font-size="9" text-anchor="middle">LexVerseTask[] + content hash</text>
-        <text data-detail="fine" x="995" y="140" class="t-database" font-size="7" text-anchor="middle">selection · reproducibility</text>
+          <text data-node-label="" data-detail-anchor="" x="900" y="96.5" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">TaskBundle</text>
+        <text data-detail="context" x="900" y="112.5" class="t-muted" font-size="9" text-anchor="middle">benchmark · version · tasks</text>
+        <text data-detail="fine" x="900" y="125" class="t-database" font-size="7" text-anchor="middle">任务数据，可计算内容 hash</text>
         </g>
 
-        <g id="node-orchestrator" data-node-id="orchestrator" data-node-label="Orchestrator" tabindex="0" role="button" aria-label="聚焦Orchestrator，Job / Trial 编排, ③ Runtime 调度 › ① 单一公共主链" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Job / Trial 编排" data-node-tag="统一 Runtime" data-node-context="③ Runtime 调度 › ① 单一公共主链">
-          <title>Orchestrator · Job / Trial 编排 · ③ Runtime 调度 › ① 单一公共主链 · 统一 Runtime</title>
-          <rect x="1115" y="80" width="180" height="68" rx="6" class="c-mask"/>
-          <rect x="1115" y="80" width="180" height="68" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1121 86) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1205" y="112" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Orchestrator</text>
-        <text data-detail="context" x="1205" y="128" class="t-muted" font-size="9" text-anchor="middle">Job / Trial 编排</text>
-        <text data-detail="fine" x="1205" y="140" class="t-backend" font-size="7" text-anchor="middle">统一 Runtime</text>
-        </g>
-
-        <g id="node-lexeval" data-node-id="lexeval" data-node-label="LexEval Plugin" tabindex="0" role="button" aria-label="聚焦LexEval Plugin，catalog.yaml + plugin.py, ② Benchmark 差异仅保留在 Plugin" aria-pressed="false" data-node-kind="database" data-node-sublabel="catalog.yaml + plugin.py" data-node-tag="23 tasks" data-node-context="② Benchmark 差异仅保留在 Plugin">
-          <title>LexEval Plugin · catalog.yaml + plugin.py · ② Benchmark 差异仅保留在 Plugin · 23 tasks</title>
-          <rect x="450" y="220" width="190" height="70" rx="6" class="c-mask"/>
-          <rect x="450" y="220" width="190" height="70" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(456 226) scale(0.6875)">
+        <g id="node-prepared-file" data-node-id="prepared-file" data-node-label="prepared 文件" tabindex="0" role="button" aria-label="聚焦prepared 文件，Bundle + 配置(profile) + hash, ① prepare：准备本次任务集合" aria-pressed="false" data-node-kind="database" data-node-sublabel="Bundle + 配置(profile) + hash" data-node-tag="prepare 写入 / run 读取" data-node-context="① prepare：准备本次任务集合">
+          <title>prepared 文件 · Bundle + 配置(profile) + hash · ① prepare：准备本次任务集合 · prepare 写入 / run 读取</title>
+          <rect x="1064" y="64" width="184" height="69" rx="6" class="c-mask"/>
+          <rect x="1064" y="64" width="184" height="69" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1070 70) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="545" y="253" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">LexEval Plugin</text>
-        <text data-detail="context" x="545" y="269" class="t-muted" font-size="9" text-anchor="middle">catalog.yaml + plugin.py</text>
-        <text data-detail="fine" x="545" y="282" class="t-database" font-size="7" text-anchor="middle">23 tasks</text>
+          <text data-node-label="" data-detail-anchor="" x="1156" y="96.5" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">prepared 文件</text>
+        <text data-detail="context" x="1156" y="112.5" class="t-muted" font-size="9" text-anchor="middle">Bundle + 配置(profile) + hash</text>
+        <text data-detail="fine" x="1156" y="125" class="t-database" font-size="7" text-anchor="middle">prepare 写入 / run 读取</text>
         </g>
 
-        <g id="node-lawbench" data-node-id="lawbench" data-node-label="LawBench Plugin" tabindex="0" role="button" aria-label="聚焦LawBench Plugin，catalog + loader + plugin, ② Benchmark 差异仅保留在 Plugin" aria-pressed="false" data-node-kind="database" data-node-sublabel="catalog + loader + plugin" data-node-tag="20 tasks + shot" data-node-context="② Benchmark 差异仅保留在 Plugin">
-          <title>LawBench Plugin · catalog + loader + plugin · ② Benchmark 差异仅保留在 Plugin · 20 tasks + shot</title>
-          <rect x="655" y="220" width="195" height="70" rx="6" class="c-mask"/>
-          <rect x="655" y="220" width="195" height="70" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(661 226) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+        <g id="node-run-assembly" data-node-id="run-assembly" data-node-label="CLI 组装运行对象" tabindex="0" role="button" aria-label="聚焦CLI 组装运行对象，任务字典 + JobSpec + factory, ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="任务字典 + JobSpec + factory" data-node-tag="Plugin 创建 Environment / Verifier" data-node-context="② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录">
+          <title>CLI 组装运行对象 · 任务字典 + JobSpec + factory · ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录 · Plugin 创建 Environment / Verifier</title>
+          <rect x="40" y="256" width="200" height="72" rx="6" class="c-mask"/>
+          <rect x="40" y="256" width="200" height="72" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(46 262) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="752.5" y="253" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">LawBench Plugin</text>
-        <text data-detail="context" x="752.5" y="269" class="t-muted" font-size="9" text-anchor="middle">catalog + loader + plugin</text>
-        <text data-detail="fine" x="752.5" y="282" class="t-database" font-size="7" text-anchor="middle">20 tasks + shot</text>
+          <text data-node-label="" data-detail-anchor="" x="140" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">CLI 组装运行对象</text>
+        <text data-detail="context" x="140" y="306" class="t-muted" font-size="9" text-anchor="middle">任务字典 + JobSpec + factory</text>
+        <text data-detail="fine" x="140" y="320" class="t-frontend" font-size="7" text-anchor="middle">Plugin 创建 Environment / Verifier</text>
         </g>
 
-        <g id="node-j1bench" data-node-id="j1bench" data-node-label="J1Bench Plugin" tabindex="0" role="button" aria-label="聚焦J1Bench Plugin，catalog + scenarios + env + patches, ② Benchmark 差异仅保留在 Plugin" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="catalog + scenarios + env + patches" data-node-tag="6 scenarios · gated data" data-node-context="② Benchmark 差异仅保留在 Plugin">
-          <title>J1Bench Plugin · catalog + scenarios + env + patches · ② Benchmark 差异仅保留在 Plugin · 6 scenarios · gated data</title>
-          <rect x="875" y="220" width="225" height="70" rx="6" class="c-mask"/>
-          <rect x="875" y="220" width="225" height="70" rx="6" class="c-cloud" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(881 226) scale(0.6875)">
-            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="987.5" y="253" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">J1Bench Plugin</text>
-        <text data-detail="context" x="987.5" y="269" class="t-muted" font-size="9" text-anchor="middle">catalog + scenarios + env + patches</text>
-        <text data-detail="fine" x="987.5" y="282" class="t-cloud" font-size="7" text-anchor="middle">6 scenarios · gated data</text>
-        </g>
-
-        <g id="node-scheduler" data-node-id="scheduler" data-node-label="Scheduler + Records" tabindex="0" role="button" aria-label="聚焦Scheduler + Records，parallel · timeout · retry · resume, ③ Runtime 调度" aria-pressed="false" data-node-kind="backend" data-node-sublabel="parallel · timeout · retry · resume" data-node-tag="pending → terminal" data-node-context="③ Runtime 调度">
-          <title>Scheduler + Records · parallel · timeout · retry · resume · ③ Runtime 调度 · pending → terminal</title>
-          <rect x="1125" y="220" width="195" height="70" rx="6" class="c-mask"/>
-          <rect x="1125" y="220" width="195" height="70" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1131 226) scale(0.6875)">
+        <g id="node-job-orchestrator" data-node-id="job-orchestrator" data-node-label="Orchestrator + Scheduler" tabindex="0" role="button" aria-label="聚焦Orchestrator + Scheduler，按任务 ID 调度 · 并发 · 恢复, ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录" aria-pressed="false" data-node-kind="backend" data-node-sublabel="按任务 ID 调度 · 并发 · 恢复" data-node-tag="创建 Trial 目录 · 重试 · 状态记录" data-node-context="② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录">
+          <title>Orchestrator + Scheduler · 按任务 ID 调度 · 并发 · 恢复 · ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录 · 创建 Trial 目录 · 重试 · 状态记录</title>
+          <rect x="312" y="256" width="200" height="72" rx="6" class="c-mask"/>
+          <rect x="312" y="256" width="200" height="72" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(318 262) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1222.5" y="253" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Scheduler + Records</text>
-        <text data-detail="context" x="1222.5" y="269" class="t-muted" font-size="8.9" text-anchor="middle">parallel · timeout · retry · resume</text>
-        <text data-detail="fine" x="1222.5" y="282" class="t-backend" font-size="7" text-anchor="middle">pending → terminal</text>
+          <text data-node-label="" data-detail-anchor="" x="412" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Orchestrator + Scheduler</text>
+        <text data-detail="context" x="412" y="306" class="t-muted" font-size="9" text-anchor="middle">按任务 ID 调度 · 并发 · 恢复</text>
+        <text data-detail="fine" x="412" y="320" class="t-backend" font-size="7" text-anchor="middle">创建 Trial 目录 · 重试 · 状态记录</text>
         </g>
 
-        <g id="node-taskrunner" data-node-id="taskrunner" data-node-label="TaskRunner" tabindex="0" role="button" aria-label="聚焦TaskRunner，运行一个 LexVerseTask, ③ Runtime 调度" aria-pressed="false" data-node-kind="backend" data-node-sublabel="运行一个 LexVerseTask" data-node-tag="执行 + 逐 Trial 验证" data-node-context="③ Runtime 调度">
-          <title>TaskRunner · 运行一个 LexVerseTask · ③ Runtime 调度 · 执行 + 逐 Trial 验证</title>
-          <rect x="80" y="370" width="190" height="72" rx="6" class="c-mask"/>
-          <rect x="80" y="370" width="190" height="72" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(86 376) scale(0.6875)">
+        <g id="node-trial-factory" data-node-id="trial-factory" data-node-label="factory(task_id, work_dir)" tabindex="0" role="button" aria-label="聚焦factory(task_id, work_dir)，tasks[task_id] 取出完整 Task, ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录" aria-pressed="false" data-node-kind="backend" data-node-sublabel="tasks[task_id] 取出完整 Task" data-node-tag="CLI 提供的单任务回调" data-node-context="② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录">
+          <title>factory(task_id, work_dir) · tasks[task_id] 取出完整 Task · ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录 · CLI 提供的单任务回调</title>
+          <rect x="584" y="256" width="200" height="72" rx="6" class="c-mask"/>
+          <rect x="584" y="256" width="200" height="72" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(590 262) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="175" y="404" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">TaskRunner</text>
-        <text data-detail="context" x="175" y="420" class="t-muted" font-size="9" text-anchor="middle">运行一个 LexVerseTask</text>
-        <text data-detail="fine" x="175" y="434" class="t-backend" font-size="7" text-anchor="middle">执行 + 逐 Trial 验证</text>
+          <text data-node-label="" data-detail-anchor="" x="684" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">factory(task_id, work_dir)</text>
+        <text data-detail="context" x="684" y="306" class="t-muted" font-size="9" text-anchor="middle">tasks[task_id] 取出完整 Task</text>
+        <text data-detail="fine" x="684" y="320" class="t-backend" font-size="7" text-anchor="middle">CLI 提供的单任务回调</text>
         </g>
 
-        <g id="node-environment" data-node-id="environment" data-node-label="ExecutionEnvironment" tabindex="0" role="button" aria-label="聚焦ExecutionEnvironment，prepare · run(task, work_dir) · close, ④ 一次任务的执行边界" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="prepare · run(task, work_dir) · close" data-node-tag="统一执行合同" data-node-context="④ 一次任务的执行边界">
-          <title>ExecutionEnvironment · prepare · run(task, work_dir) · close · ④ 一次任务的执行边界 · 统一执行合同</title>
-          <rect x="315" y="370" width="235" height="72" rx="6" class="c-mask"/>
-          <rect x="315" y="370" width="235" height="72" rx="6" class="c-cloud" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(321 376) scale(0.6875)">
-            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="432.5" y="404" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ExecutionEnvironment</text>
-        <text data-detail="context" x="432.5" y="420" class="t-muted" font-size="9" text-anchor="middle">prepare · run(task, work_dir) · close</text>
-        <text data-detail="fine" x="432.5" y="434" class="t-cloud" font-size="7" text-anchor="middle">统一执行合同</text>
-        </g>
-
-        <g id="node-direct" data-node-id="direct" data-node-label="DirectResponseEnvironment" tabindex="0" role="button" aria-label="聚焦DirectResponseEnvironment，LexEval / LawBench 共用, ④ 一次任务的执行边界" aria-pressed="false" data-node-kind="backend" data-node-sublabel="LexEval / LawBench 共用" data-node-tag="已接通" data-node-context="④ 一次任务的执行边界">
-          <title>DirectResponseEnvironment · LexEval / LawBench 共用 · ④ 一次任务的执行边界 · 已接通</title>
-          <rect x="595" y="330" width="235" height="72" rx="6" class="c-mask"/>
-          <rect x="595" y="330" width="235" height="72" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(601 336) scale(0.6875)">
+        <g id="node-single-runner" data-node-id="single-runner" data-node-label="TaskRunner" tabindex="0" role="button" aria-label="聚焦TaskRunner，run_environment(task, …), ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录" aria-pressed="false" data-node-kind="backend" data-node-sublabel="run_environment(task, …)" data-node-tag="准备能力上下文 → 调用 Environment" data-node-context="② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录">
+          <title>TaskRunner · run_environment(task, …) · ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录 · 准备能力上下文 → 调用 Environment</title>
+          <rect x="856" y="256" width="200" height="72" rx="6" class="c-mask"/>
+          <rect x="856" y="256" width="200" height="72" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(862 262) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="712.5" y="364" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">DirectResponseEnvironment</text>
-        <text data-detail="context" x="712.5" y="380" class="t-muted" font-size="9" text-anchor="middle">LexEval / LawBench 共用</text>
-        <text data-detail="fine" x="712.5" y="394" class="t-backend" font-size="7" text-anchor="middle">已接通</text>
+          <text data-node-label="" data-detail-anchor="" x="956" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">TaskRunner</text>
+        <text data-detail="context" x="956" y="306" class="t-muted" font-size="9" text-anchor="middle">run_environment(task, …)</text>
+        <text data-detail="fine" x="956" y="320" class="t-backend" font-size="7" text-anchor="middle">准备能力上下文 → 调用 Environment</text>
         </g>
 
-        <g id="node-j1env" data-node-id="j1env" data-node-label="J1BenchEnvironment" tabindex="0" role="button" aria-label="聚焦J1BenchEnvironment，environment.py · patches · subprocess, ④ 一次任务的执行边界" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="environment.py · patches · subprocess" data-node-tag="已接通官方 Harness" data-node-context="④ 一次任务的执行边界">
-          <title>J1BenchEnvironment · environment.py · patches · subprocess · ④ 一次任务的执行边界 · 已接通官方 Harness</title>
-          <rect x="595" y="430" width="235" height="72" rx="6" class="c-mask"/>
-          <rect x="595" y="430" width="235" height="72" rx="6" class="c-cloud" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(601 436) scale(0.6875)">
+        <g id="node-direct-execution" data-node-id="direct-execution" data-node-label="DirectResponseEnvironment" tabindex="0" role="button" aria-label="聚焦DirectResponseEnvironment，LexEval / LawBench → 模型 API, ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="LexEval / LawBench → 模型 API" data-node-tag="Interaction → Participant → Provider" data-node-context="② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录">
+          <title>DirectResponseEnvironment · LexEval / LawBench → 模型 API · ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录 · Interaction → Participant → Provider</title>
+          <rect x="1064" y="372" width="232" height="72" rx="6" class="c-mask"/>
+          <rect x="1064" y="372" width="232" height="72" rx="6" class="c-cloud" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(1070 378) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="712.5" y="464" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">J1BenchEnvironment</text>
-        <text data-detail="context" x="712.5" y="480" class="t-muted" font-size="9" text-anchor="middle">environment.py · patches · subprocess</text>
-        <text data-detail="fine" x="712.5" y="494" class="t-cloud" font-size="7" text-anchor="middle">已接通官方 Harness</text>
+          <text data-node-label="" data-detail-anchor="" x="1180" y="406" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">DirectResponseEnvironment</text>
+        <text data-detail="context" x="1180" y="422" class="t-muted" font-size="9" text-anchor="middle">LexEval / LawBench → 模型 API</text>
+        <text data-detail="fine" x="1180" y="436" class="t-cloud" font-size="7" text-anchor="middle">Interaction → Participant → Provider</text>
         </g>
 
-        <g id="node-interaction" data-node-id="interaction" data-node-label="Interaction Engine" tabindex="0" role="button" aria-label="聚焦Interaction Engine，policy · participants · state, ④ 一次任务的执行边界" aria-pressed="false" data-node-kind="backend" data-node-sublabel="policy · participants · state" data-node-tag="一次任务内部互动" data-node-context="④ 一次任务的执行边界">
-          <title>Interaction Engine · policy · participants · state · ④ 一次任务的执行边界 · 一次任务内部互动</title>
-          <rect x="870" y="330" width="205" height="72" rx="6" class="c-mask"/>
-          <rect x="870" y="330" width="205" height="72" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(876 336) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="972.5" y="364" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Interaction Engine</text>
-        <text data-detail="context" x="972.5" y="380" class="t-muted" font-size="9" text-anchor="middle">policy · participants · state</text>
-        <text data-detail="fine" x="972.5" y="394" class="t-backend" font-size="7" text-anchor="middle">一次任务内部互动</text>
-        </g>
-
-        <g id="node-provider" data-node-id="provider" data-node-label="Provider" tabindex="0" role="button" aria-label="聚焦Provider，统一模型 API, ④ 一次任务的执行边界" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="统一模型 API" data-node-tag="OpenAI-compatible" data-node-context="④ 一次任务的执行边界">
-          <title>Provider · 统一模型 API · ④ 一次任务的执行边界 · OpenAI-compatible</title>
-          <rect x="1115" y="330" width="165" height="72" rx="6" class="c-mask"/>
-          <rect x="1115" y="330" width="165" height="72" rx="6" class="c-cloud" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(1121 336) scale(0.6875)">
-            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="1197.5" y="364" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Provider</text>
-        <text data-detail="context" x="1197.5" y="380" class="t-muted" font-size="9" text-anchor="middle">统一模型 API</text>
-        <text data-detail="fine" x="1197.5" y="394" class="t-cloud" font-size="7" text-anchor="middle">OpenAI-compatible</text>
-        </g>
-
-        <g id="node-j1harness" data-node-id="j1harness" data-node-label="J1Bench Upstream Harness" tabindex="0" role="button" aria-label="聚焦J1Bench Upstream Harness，official engine · model client · roles, ④ 一次任务的执行边界" aria-pressed="false" data-node-kind="external" data-node-sublabel="official engine · model client · roles" data-node-tag="dialog_history · native output" data-node-context="④ 一次任务的执行边界">
-          <title>J1Bench Upstream Harness · official engine · model client · roles · ④ 一次任务的执行边界 · dialog_history · native output</title>
-          <rect x="870" y="450" width="225" height="72" rx="6" class="c-mask"/>
-          <rect x="870" y="450" width="225" height="72" rx="6" class="c-external" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(876 456) scale(0.6875)">
+        <g id="node-official-execution" data-node-id="official-execution" data-node-label="J1BenchEnvironment" tabindex="0" role="button" aria-label="聚焦J1BenchEnvironment，subprocess → 官方 Harness, ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录" aria-pressed="false" data-node-kind="external" data-node-sublabel="subprocess → 官方 Harness" data-node-tag="官方程序组织角色对话及模型调用" data-node-context="② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录">
+          <title>J1BenchEnvironment · subprocess → 官方 Harness · ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录 · 官方程序组织角色对话及模型调用</title>
+          <rect x="1064" y="484" width="232" height="72" rx="6" class="c-mask"/>
+          <rect x="1064" y="484" width="232" height="72" rx="6" class="c-external" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(1070 490) scale(0.6875)">
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="982.5" y="484" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">J1Bench Upstream Harness</text>
-        <text data-detail="context" x="982.5" y="500" class="t-muted" font-size="9" text-anchor="middle">official engine · model client · roles</text>
-        <text data-detail="fine" x="982.5" y="514" class="t-external" font-size="7" text-anchor="middle">dialog_history · native output</text>
+          <text data-node-label="" data-detail-anchor="" x="1180" y="518" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">J1BenchEnvironment</text>
+        <text data-detail="context" x="1180" y="534" class="t-muted" font-size="9" text-anchor="middle">subprocess → 官方 Harness</text>
+        <text data-detail="fine" x="1180" y="548" class="t-external" font-size="7" text-anchor="middle">官方程序组织角色对话及模型调用</text>
         </g>
 
-        <g id="node-envresult" data-node-id="envresult" data-node-label="EnvironmentResult" tabindex="0" role="button" aria-label="聚焦EnvironmentResult，answer · trace · native output, ④ 一次任务的执行边界" aria-pressed="false" data-node-kind="database" data-node-sublabel="answer · trace · native output" data-node-tag="两条路径汇合" data-node-context="④ 一次任务的执行边界">
-          <title>EnvironmentResult · answer · trace · native output · ④ 一次任务的执行边界 · 两条路径汇合</title>
-          <rect x="1125" y="450" width="185" height="72" rx="6" class="c-mask"/>
-          <rect x="1125" y="450" width="185" height="72" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1131 456) scale(0.6875)">
+        <g id="node-environment-result" data-node-id="environment-result" data-node-label="EnvironmentResult" tabindex="0" role="button" aria-label="聚焦EnvironmentResult，回答 · 对话 · 轨迹 · 原生产物, ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录" aria-pressed="false" data-node-kind="database" data-node-sublabel="回答 · 对话 · 轨迹 · 原生产物" data-node-tag="经 TaskRunner 返回 factory" data-node-context="② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录">
+          <title>EnvironmentResult · 回答 · 对话 · 轨迹 · 原生产物 · ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录 · 经 TaskRunner 返回 factory</title>
+          <rect x="776" y="436" width="216" height="72" rx="6" class="c-mask"/>
+          <rect x="776" y="436" width="216" height="72" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(782 442) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1217.5" y="484" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">EnvironmentResult</text>
-        <text data-detail="context" x="1217.5" y="500" class="t-muted" font-size="9" text-anchor="middle">answer · trace · native output</text>
-        <text data-detail="fine" x="1217.5" y="514" class="t-database" font-size="7" text-anchor="middle">两条路径汇合</text>
+          <text data-node-label="" data-detail-anchor="" x="884" y="470" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">EnvironmentResult</text>
+        <text data-detail="context" x="884" y="486" class="t-muted" font-size="9" text-anchor="middle">回答 · 对话 · 轨迹 · 原生产物</text>
+        <text data-detail="fine" x="884" y="500" class="t-database" font-size="7" text-anchor="middle">经 TaskRunner 返回 factory</text>
         </g>
 
-        <g id="node-verifier" data-node-id="verifier" data-node-label="VerifierRuntime" tabindex="0" role="button" aria-label="聚焦VerifierRuntime，官方 evaluator 适配 · provenance, ⑤ 统一评分与产物" aria-pressed="false" data-node-kind="security" data-node-sublabel="官方 evaluator 适配 · provenance" data-node-tag="VerifierResult" data-node-context="⑤ 统一评分与产物">
-          <title>VerifierRuntime · 官方 evaluator 适配 · provenance · ⑤ 统一评分与产物 · VerifierResult</title>
-          <rect x="500" y="600" width="225" height="72" rx="6" class="c-mask"/>
-          <rect x="500" y="600" width="225" height="72" rx="6" class="c-security" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(506 606) scale(0.6875)">
+        <g id="node-trial-records" data-node-id="trial-records" data-node-label="Trial 执行记录" tabindex="0" role="button" aria-label="聚焦Trial 执行记录，factory 整理 → Orchestrator 落盘, ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录" aria-pressed="false" data-node-kind="database" data-node-sublabel="factory 整理 → Orchestrator 落盘" data-node-tag="results.json · 完整性检查" data-node-context="② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录">
+          <title>Trial 执行记录 · factory 整理 → Orchestrator 落盘 · ② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录 · results.json · 完整性检查</title>
+          <rect x="440" y="436" width="232" height="72" rx="6" class="c-mask"/>
+          <rect x="440" y="436" width="232" height="72" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(446 442) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="556" y="470" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Trial 执行记录</text>
+        <text data-detail="context" x="556" y="486" class="t-muted" font-size="9" text-anchor="middle">factory 整理 → Orchestrator 落盘</text>
+        <text data-detail="fine" x="556" y="500" class="t-database" font-size="7" text-anchor="middle">results.json · 完整性检查</text>
+        </g>
+
+        <g id="node-batch-verifier" data-node-id="batch-verifier" data-node-label="LexEval / LawBench 评分" tabindex="0" role="button" aria-label="聚焦LexEval / LawBench 评分，收集成功回答 → verify_run(), ③ 整批执行结束后：官方评分与最终汇总" aria-pressed="false" data-node-kind="security" data-node-sublabel="收集成功回答 → verify_run()" data-node-tag="CLI 调用官方评分适配" data-node-context="③ 整批执行结束后：官方评分与最终汇总">
+          <title>LexEval / LawBench 评分 · 收集成功回答 → verify_run() · ③ 整批执行结束后：官方评分与最终汇总 · CLI 调用官方评分适配</title>
+          <rect x="56" y="628" width="232" height="72" rx="6" class="c-mask"/>
+          <rect x="56" y="628" width="232" height="72" rx="6" class="c-security" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(62 634) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="612.5" y="634" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">VerifierRuntime</text>
-        <text data-detail="context" x="612.5" y="650" class="t-muted" font-size="9" text-anchor="middle">官方 evaluator 适配 · provenance</text>
-        <text data-detail="fine" x="612.5" y="664" class="t-security" font-size="7" text-anchor="middle">VerifierResult</text>
+          <text data-node-label="" data-detail-anchor="" x="172" y="662" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">LexEval / LawBench 评分</text>
+        <text data-detail="context" x="172" y="678" class="t-muted" font-size="9" text-anchor="middle">收集成功回答 → verify_run()</text>
+        <text data-detail="fine" x="172" y="692" class="t-security" font-size="7" text-anchor="middle">CLI 调用官方评分适配</text>
         </g>
 
-        <g id="node-artifacts" data-node-id="artifacts" data-node-label="Artifacts / Collect" tabindex="0" role="button" aria-label="聚焦Artifacts / Collect，manifest · trials · completeness · score, ⑤ 统一评分与产物" aria-pressed="false" data-node-kind="database" data-node-sublabel="manifest · trials · completeness · score" data-node-tag="可恢复 / 可审计" data-node-context="⑤ 统一评分与产物">
-          <title>Artifacts / Collect · manifest · trials · completeness · score · ⑤ 统一评分与产物 · 可恢复 / 可审计</title>
-          <rect x="770" y="600" width="255" height="72" rx="6" class="c-mask"/>
-          <rect x="770" y="600" width="255" height="72" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(776 606) scale(0.6875)">
+        <g id="node-scenario-verifier" data-node-id="scenario-verifier" data-node-label="J1Bench 按场景评分" tabindex="0" role="button" aria-label="聚焦J1Bench 按场景评分，收集对话 → verify_scenario(), ③ 整批执行结束后：官方评分与最终汇总" aria-pressed="false" data-node-kind="security" data-node-sublabel="收集对话 → verify_scenario()" data-node-tag="回写每个案件的 evaluation" data-node-context="③ 整批执行结束后：官方评分与最终汇总">
+          <title>J1Bench 按场景评分 · 收集对话 → verify_scenario() · ③ 整批执行结束后：官方评分与最终汇总 · 回写每个案件的 evaluation</title>
+          <rect x="392" y="628" width="232" height="72" rx="6" class="c-mask"/>
+          <rect x="392" y="628" width="232" height="72" rx="6" class="c-security" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(398 634) scale(0.6875)">
+            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
+            <path d="m5.8 8 1.5 1.5 3-3"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="508" y="662" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">J1Bench 按场景评分</text>
+        <text data-detail="context" x="508" y="678" class="t-muted" font-size="9" text-anchor="middle">收集对话 → verify_scenario()</text>
+        <text data-detail="fine" x="508" y="692" class="t-security" font-size="7" text-anchor="middle">回写每个案件的 evaluation</text>
+        </g>
+
+        <g id="node-final-report" data-node-id="final-report" data-node-label="评分产物与 finalize_run()" tabindex="0" role="button" aria-label="聚焦评分产物与 finalize_run()，summary.json · CSV · 完整性, ③ 整批执行结束后：官方评分与最终汇总" aria-pressed="false" data-node-kind="database" data-node-sublabel="summary.json · CSV · 完整性" data-node-tag="保存分数与最终运行状态" data-node-context="③ 整批执行结束后：官方评分与最终汇总">
+          <title>评分产物与 finalize_run() · summary.json · CSV · 完整性 · ③ 整批执行结束后：官方评分与最终汇总 · 保存分数与最终运行状态</title>
+          <rect x="776" y="628" width="232" height="72" rx="6" class="c-mask"/>
+          <rect x="776" y="628" width="232" height="72" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(782 634) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="897.5" y="634" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Artifacts / Collect</text>
-        <text data-detail="context" x="897.5" y="650" class="t-muted" font-size="9" text-anchor="middle">manifest · trials · completeness · score</text>
-        <text data-detail="fine" x="897.5" y="664" class="t-database" font-size="7" text-anchor="middle">可恢复 / 可审计</text>
+          <text data-node-label="" data-detail-anchor="" x="892" y="662" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">评分产物与 finalize_run()</text>
+        <text data-detail="context" x="892" y="678" class="t-muted" font-size="9" text-anchor="middle">summary.json · CSV · 完整性</text>
+        <text data-detail="fine" x="892" y="692" class="t-database" font-size="7" text-anchor="middle">保存分数与最终运行状态</text>
+        </g>
+
+        <g id="node-collect-entry" data-node-id="collect-entry" data-node-label="collect 辅助入口" tabindex="0" role="button" aria-label="聚焦collect 辅助入口，读取已有执行记录和评分产物, ③ 整批执行结束后：官方评分与最终汇总" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="读取已有执行记录和评分产物" data-node-tag="重新汇总，不重新运行或评分" data-node-context="③ 整批执行结束后：官方评分与最终汇总">
+          <title>collect 辅助入口 · 读取已有执行记录和评分产物 · ③ 整批执行结束后：官方评分与最终汇总 · 重新汇总，不重新运行或评分</title>
+          <rect x="1096" y="628" width="200" height="72" rx="6" class="c-mask"/>
+          <rect x="1096" y="628" width="200" height="72" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(1102 634) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1196" y="662" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">collect 辅助入口</text>
+        <text data-detail="context" x="1196" y="678" class="t-muted" font-size="9" text-anchor="middle">读取已有执行记录和评分产物</text>
+        <text data-detail="fine" x="1196" y="692" class="t-frontend" font-size="7" text-anchor="middle">重新汇总，不重新运行或评分</text>
         </g>
 
         <!-- Connection labels -->
 
 
 
-        <g data-detail="context" data-edge-from="plugin" data-edge-to="bundle" data-edge-label="import_tasks" data-edge-key="3">
-          <rect x="854.2" y="152" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="888" y="162" class="t-backend" font-size="8" text-anchor="middle">import_tasks</text>
+
+        <g data-detail="context" data-edge-from="prepared-file" data-edge-to="run-assembly" data-edge-label="读取并校验配置 hash" data-edge-key="4" data-edge-id="load-prepared">
+          <rect x="597.4" y="188" width="101.2" height="14" rx="3" class="c-mask"/>
+          <text x="648" y="198" class="t-backend" font-size="8" text-anchor="middle">读取并校验配置 hash</text>
+        </g>
+        <g data-detail="context" data-edge-from="benchmark-plugin" data-edge-to="run-assembly" data-edge-label="创建环境与评分器" data-edge-key="5" data-edge-id="plugin-runtime">
+          <rect x="160.6" y="148" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="204" y="158" class="t-messagebus" font-size="8" text-anchor="middle">创建环境与评分器</text>
+        </g>
+        <g data-detail="context" data-edge-from="run-assembly" data-edge-to="job-orchestrator" data-edge-label="JobSpec + factory" data-edge-key="6" data-edge-id="submit-job">
+          <rect x="230.2" y="332" width="91.6" height="14" rx="3" class="c-mask"/>
+          <text x="276" y="342" class="t-backend" font-size="8" text-anchor="middle">JobSpec + factory</text>
+        </g>
+        <g data-detail="context" data-edge-from="job-orchestrator" data-edge-to="trial-factory" data-edge-label="每个任务 ID" data-edge-key="7" data-edge-id="call-factory">
+          <rect x="516.6" y="272" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="548" y="282" class="t-backend" font-size="8" text-anchor="middle">每个任务 ID</text>
+        </g>
+        <g data-detail="context" data-edge-from="trial-factory" data-edge-to="single-runner" data-edge-label="完整 Task" data-edge-key="8" data-edge-id="call-runner">
+          <rect x="793.4" y="272" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
+          <text x="820" y="282" class="t-backend" font-size="8" text-anchor="middle">完整 Task</text>
         </g>
 
 
 
 
-
-        <g data-detail="context" data-edge-from="scheduler" data-edge-to="taskrunner" data-edge-label="next Trial" data-edge-key="9">
-          <rect x="669.75" y="305" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="698.75" y="315" class="t-backend" font-size="8" text-anchor="middle">next Trial</text>
+        <g data-detail="context" data-edge-from="environment-result" data-edge-to="trial-records" data-edge-label="factory 整理返回值" data-edge-key="13" data-edge-id="persist-trial">
+          <rect x="675.8" y="452" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
+          <text x="724" y="462" class="t-backend" font-size="8" text-anchor="middle">factory 整理返回值</text>
         </g>
-        <g data-detail="context" data-edge-from="taskrunner" data-edge-to="environment" data-edge-label="run(task, work_dir)" data-edge-key="10">
-          <rect x="241.4" y="446" width="101.2" height="14" rx="3" class="c-mask"/>
-          <text x="292" y="456" class="t-backend" font-size="8" text-anchor="middle">run(task, work_dir)</text>
+        <g data-detail="context" data-edge-from="trial-records" data-edge-to="batch-verifier" data-edge-label="回答" data-edge-key="14" data-edge-id="batch-score">
+          <rect x="349" y="548" width="30" height="14" rx="3" class="c-mask"/>
+          <text x="364" y="558" class="t-security" font-size="8" text-anchor="middle">回答</text>
         </g>
-
-
-
-
-        <g data-detail="context" data-edge-from="provider" data-edge-to="envresult" data-edge-label="model response" data-edge-key="15">
-          <rect x="1168.9" y="406" width="77.2" height="14" rx="3" class="c-mask"/>
-          <text x="1207.5" y="416" class="t-backend" font-size="8" text-anchor="middle">model response</text>
-        </g>
-        <g data-detail="context" data-edge-from="j1env" data-edge-to="j1harness" data-edge-label="launch subprocess" data-edge-key="16">
-          <rect x="804.2" y="526" width="91.6" height="14" rx="3" class="c-mask"/>
-          <text x="850" y="536" class="t-backend" font-size="8" text-anchor="middle">launch subprocess</text>
-        </g>
-        <g data-detail="context" data-edge-from="j1harness" data-edge-to="envresult" data-edge-label="normalize output" data-edge-key="17">
-          <rect x="1066.6" y="526" width="86.8" height="14" rx="3" class="c-mask"/>
-          <text x="1110" y="536" class="t-backend" font-size="8" text-anchor="middle">normalize output</text>
-        </g>
-        <g data-detail="context" data-edge-from="envresult" data-edge-to="verifier" data-edge-label="verify(task, result)" data-edge-key="18">
-          <rect x="862" y="541" width="106" height="14" rx="3" class="c-mask"/>
-          <text x="915" y="551" class="t-security" font-size="8" text-anchor="middle">verify(task, result)</text>
+        <g data-detail="context" data-edge-from="trial-records" data-edge-to="scenario-verifier" data-edge-label="对话" data-edge-key="15" data-edge-id="scenario-score">
+          <rect x="517" y="548" width="30" height="14" rx="3" class="c-mask"/>
+          <text x="532" y="558" class="t-security" font-size="8" text-anchor="middle">对话</text>
         </g>
 
-        <g data-detail="context" data-edge-from="scheduler" data-edge-to="artifacts" data-edge-label="records + completeness" data-edge-key="20">
-          <rect x="1272.2" y="406" width="115.6" height="14" rx="3" class="c-mask"/>
-          <text x="1330" y="416" class="t-messagebus" font-size="8" text-anchor="middle">records + completeness</text>
-        </g>
+
+
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="① 单一公共主链">
-          <rect data-graph-role="structural-frame-label-mask" x="17" y="60" width="85.6" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="21" y="73" class="t-cloud" font-size="9" font-weight="600">① 单一公共主链</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="① prepare：准备本次任务集合">
+          <rect data-graph-role="structural-frame-label-mask" x="25" y="44" width="155.79999999999998" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="29" y="57" class="t-cloud" font-size="9" font-weight="600">① prepare：准备本次任务集合</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="security-group" data-composition-frame-label="② Benchmark 差异仅保留在 Plugin">
-          <rect data-graph-role="structural-frame-label-mask" x="442" y="200" width="177.4" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="446" y="213" class="t-security" font-size="9" font-weight="600">② Benchmark 差异仅保留在 Plugin</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="region" data-composition-frame-label="② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录">
+          <rect data-graph-role="structural-frame-label-mask" x="25" y="236" width="301.59999999999997" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="29" y="249" class="t-cloud" font-size="9" font-weight="600">② run：组装运行对象 → 批量调度 → 单任务执行 → 保存记录</text>
         </g>
 
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="③ Runtime 调度">
-          <rect data-graph-role="structural-frame-label-mask" x="72" y="42" width="85.6" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="76" y="55" class="t-cloud" font-size="9" font-weight="600">③ Runtime 调度</text>
-        </g>
-
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="3" data-composition-frame-kind="region" data-composition-frame-label="④ 一次任务的执行边界">
-          <rect data-graph-role="structural-frame-label-mask" x="307" y="310" width="118" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="311" y="323" class="t-cloud" font-size="9" font-weight="600">④ 一次任务的执行边界</text>
-        </g>
-
-        <g data-graph-role="structural-frame-label" data-composition-frame-id="4" data-composition-frame-kind="region" data-composition-frame-label="⑤ 统一评分与产物">
-          <rect data-graph-role="structural-frame-label-mask" x="492" y="580" width="96.39999999999999" height="16" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="496" y="593" class="t-cloud" font-size="9" font-weight="600">⑤ 统一评分与产物</text>
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="region" data-composition-frame-label="③ 整批执行结束后：官方评分与最终汇总">
+          <rect data-graph-role="structural-frame-label-mask" x="41" y="608" width="204.4" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="45" y="621" class="t-cloud" font-size="9" font-weight="600">③ 整批执行结束后：官方评分与最终汇总</text>
         </g>
 
         <!-- Legend -->
@@ -5700,41 +5652,6 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       </div>
     </div>
 
-    <!-- Info Cards -->
-    <div class="cards">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot cyan"></div>
-          <h3>统一执行流程</h3>
-        </div>
-        <ul>
-          <li>&bull; 每个 Benchmark 先由 Plugin 转换为 TaskBundle，再交给 Runtime 统一执行</li>
-          <li>&bull; 调度、重试、断点恢复和结果收集只实现一次，Benchmark 只负责数据和评分规则</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot emerald"></div>
-          <h3>模块职责划分</h3>
-        </div>
-        <ul>
-          <li>&bull; Runtime 管理整批 Trial；Environment 执行单个任务；Interaction 组织任务内部的模型交互</li>
-          <li>&bull; LexEval/LawBench 直接调用 LexVerse Provider；J1Bench 则由专用 Environment 运行官方 Harness</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot amber"></div>
-          <h3>当前实现状态</h3>
-        </div>
-        <ul>
-          <li>&bull; CLI 和三个 Benchmark Plugin 均已接入同一套 TaskBundle → Runtime → Verifier 流程</li>
-          <li>&bull; 旧执行链路已移除；J1Bench 仍保留其官方 Harness，由 J1BenchEnvironment 负责适配</li>
-        </ul>
-      </div>
-    </div>
 
   </div>
 
@@ -15164,5 +15081,107 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       }
     });
   </script>
+
+<style id="lexverse-code-details-style">
+  @media (min-width: 800px) {
+    .header { padding-right: 14rem; }
+    .header h1 { font-size: 1.1rem; }
+  }
+  #focus-chip[data-code-details="true"] {
+    width: min(42rem, calc(100% - 2rem));
+    max-width: calc(100% - 2rem);
+    max-height: min(38rem, calc(100vh - 2rem));
+    overflow: auto;
+  }
+  .lexverse-code-details {
+    margin-top: 0.75rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid var(--toolbar-border);
+  }
+  .lexverse-code-details[hidden] { display: none; }
+  .lexverse-code-details strong {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--frontend-stroke);
+    font-size: 0.7rem;
+  }
+  .lexverse-code-details p {
+    margin: 0 0 0.55rem;
+    color: var(--toolbar-text);
+    line-height: 1.5;
+  }
+  .lexverse-code-details pre {
+    box-sizing: border-box;
+    max-height: min(21rem, 43vh);
+    margin: 0;
+    padding: 0.7rem;
+    overflow: auto;
+    border: 1px solid var(--toolbar-border);
+    border-radius: 0.45rem;
+    background: var(--bg);
+    color: var(--text);
+    font: 0.68rem/1.55 'JetBrains Mono', monospace;
+    white-space: pre;
+  }
+  .lexverse-code-details a {
+    display: inline-block;
+    margin-top: 0.55rem;
+    color: var(--frontend-stroke);
+    text-decoration: underline;
+  }
+  @media (max-width: 680px) {
+    #focus-chip[data-code-details="true"] { width: calc(100% - 2rem); }
+    .lexverse-code-details pre { font-size: 0.62rem; }
+  }
+</style>
+<script type="application/json" id="lexverse-code-details-data">{"config-entry": {"description": "用户预先准备 Benchmark YAML 和模型连接 profile。这里用仓库的 example 文件展示 openai 写法；API Key 只放环境变量或本地 secrets 文件，不放进 prepared。prepare 读取 Benchmark YAML；run 才调用 load_profile() 取得连接凭据。", "source": "configs/benchmarks/lexeval.example.yaml", "code": "# configs/benchmarks/lexeval.example.yaml（节选）\nbenchmark:\n  name: lexeval\n  tasks: [\"1_1\", \"1_2\", ...]\nmodel:\n  profile: openai\n  name: gpt-4o-mini\n  parameters: {temperature: 0, max_tokens: 64}\nexecution:\n  concurrency: 3\n  limit: 10\n\n# configs/secrets.example.yaml（连接配置示意）\nopenai:\n  provider: openai_compatible\n  base_url: \"https://api.openai.com/v1\"\n  api_key: ${LEXVERSE_OPENAI_API_KEY}\n\n# prepare: config = load_config(args.config)\n# run: connection = load_profile(config.model.profile)"}, "benchmark-plugin": {"description": "Plugin 提供该 Benchmark 的数据导入、执行环境和评分适配。", "source": "lexverse/benchmarks/plugin.py", "code": "class BenchmarkPlugin:\n    def create_importer(self, config): ...\n    def create_bundle(self, config) -> TaskBundle: ...\n    def create_environment(self, config, provider): ...\n    def create_verifier(self, config): ..."}, "task-importer": {"description": "Importer 按选定任务类型、案件编号和数量读取样本，并转换为 LexVerseTask。", "source": "lexverse/benchmarks/plugin.py", "code": "selection = TaskSelection(\n    task_types=config.benchmark.get(\"tasks\"),\n    sample_ids=config.benchmark.get(\"cases\"),\n    limit_per_task=config.execution.get(\"limit\"),\n)\ntasks = plugin.create_importer(importer_config).import_tasks(selection)"}, "task-bundle": {"description": "Bundle 是本次选中任务的数据集合；它不会运行模型。", "source": "lexverse/tasks/bundle.py", "code": "bundle = TaskBundle(\n    benchmark=plugin.name,\n    source_version=plugin.source_version,\n    tasks=tasks,  # list[LexVerseTask]\n)\nbundle_hash = bundle.content_hash()"}, "prepared-file": {"description": "摘自现有 .lexverse/prepared/lexeval-all.json；该文件包含 230 个任务。raw.model.profile 保存了 prepare 时选定的 profile 名称，但不含 API Key。下方省略 raw 配置，仅展示文件头和前两个任务的标识。", "source": ".lexverse/prepared/lexeval-all.json", "code": "{\n  \"architecture_version\": \"1.3\",\n  \"config_hash\": \"c12b1b7103fa6304\",\n  \"config_source\": \"configs/benchmarks/lexeval.local.yaml\",\n  \"raw\": { ... },\n  \"plugin\": {\"name\": \"lexeval\", ...},\n  \"bundle\": {\n    \"benchmark\": \"lexeval\",\n    \"tasks\": [\n      {\"id\": \"lexeval:1_1:0\",\n       \"source\": {\"task_type\": \"1_1\", \"sample_id\": \"0\"}, ...},\n      {\"id\": \"lexeval:1_1:1\",\n       \"source\": {\"task_type\": \"1_1\", \"sample_id\": \"1\"}, ...},\n      ...\n    ]\n  }\n}"}, "run-assembly": {"description": "CLI 从现有 prepared 文件恢复 Bundle。这里的 tasks 有 230 个键；前两个键是 lexeval:1_1:0、lexeval:1_1:1。JobSpec 实际接收全部任务 ID，run_dir 则在运行时生成。", "source": "lexverse/cli.py", "code": "manifest = json.loads(Path(args.prepared).read_text(encoding=\"utf-8\"))\nbundle = TaskBundle.model_validate(manifest[\"bundle\"])\ntasks = {task.id: task for task in bundle.tasks}\n# list(tasks)[:2] == [\"lexeval:1_1:0\", \"lexeval:1_1:1\"]\n\njob = JobSpec(\n    benchmark=bundle.benchmark,\n    sample_ids=list(tasks),\n    run_dir=run_root,\n    resolved_config={\n        \"model\": config.model.name,\n        \"profile\": config.model.profile,\n        \"parameters\": config.model.parameters,\n        \"bundle_hash\": bundle.content_hash(),\n    },\n    max_attempts=int(config.execution.get(\"max_attempts\", 1)),\n    config_hash=manifest[\"config_hash\"],\n    trial_paths={\n        task.id: str(trial_relative_path(\n            task.source.task_type or bundle.benchmark,\n            task.source.sample_id,\n        ))\n        for task in bundle.tasks\n    },\n)"}, "job-orchestrator": {"description": "JobSpec 是运行安排；Orchestrator 根据任务 ID 调用 factory，并管理并发、重试和结果记录。", "source": "lexverse/runtime/orchestrator.py", "code": "@dataclass\nclass JobSpec:\n    benchmark: str\n    sample_ids: list[str]\n    run_dir: Path\n    max_attempts: int = 1\n    ...\n\nawait Orchestrator(n_concurrent=2).run(\n    job, factory, resume=False\n)"}, "trial-factory": {"description": "factory 是 CLI 定义的普通函数。Orchestrator 给它任务 ID 和工作目录，它负责执行这一题。", "source": "lexverse/cli.py", "code": "async def factory(task_id: str, work_dir: Path) -> dict:\n    task = tasks[task_id]\n    result = await task_runner.run_environment(\n        task=task,\n        policy=None,\n        participants=None,\n        work_dir=work_dir,\n        environment=environment,\n    )\n    return {\"trial_result\": 整理后的执行结果}"}, "single-runner": {"description": "当前 CLI 调用 run_environment() 执行单题；评分随后由 CLI 按 Benchmark 批量组织。", "source": "lexverse/runtime/task_runner.py", "code": "async def run_environment(self, *, task, work_dir, environment, ...):\n    capability_context = await self.capabilities.prepare(...)\n    await environment.prepare({\"capabilities\": capability_context})\n    return await environment.run(task, work_dir)"}, "direct-execution": {"description": "LexEval、LawBench 使用 DirectResponseEnvironment，让模型回答一项任务。", "source": "lexverse/environments/direct_response.py", "code": "async def run(self, task: LexVerseTask, work_dir: Path):\n    return await self.engine.execute(\n        task, self.policy, self.participants,\n        context=self.context,\n    )"}, "official-execution": {"description": "J1BenchEnvironment 根据场景找到案件，启动官方 Harness，取回对话记录。", "source": "lexverse/benchmarks/j1bench/environment.py", "code": "async def run(self, task: LexVerseTask, work_dir: Path):\n    scenario = task.source.task_type\n    case = self._loaders[scenario].by_id(task.source.sample_id)\n    result = await self._runners[scenario].run(\n        case=case, work_dir=work_dir,\n        config=self._run_config(scenario), ...\n    )\n    return EnvironmentResult(\n        status=\"completed\",\n        dialog_history=result.dialog_history, ...\n    )"}, "environment-result": {"description": "两种 Environment 都返回同一种结果结构，供 factory 整理。", "source": "lexverse/interaction/result.py", "code": "class EnvironmentResult(BaseModel):\n    status: Literal[\"completed\", \"failed\", \"timeout\", \"invalid\"]\n    answer: str | None = None\n    messages: list[dict[str, Any]] = Field(default_factory=list)\n    dialog_history: list[dict[str, Any]] = Field(default_factory=list)\n    artifacts: dict[str, str] = Field(default_factory=dict)\n    trace: list[dict[str, Any]] = Field(default_factory=list)"}, "trial-records": {"description": "Orchestrator 为每个任务保存执行状态和结果；完成执行不表示答案正确。", "source": "lexverse/runtime/orchestrator.py", "code": "record.mark_started()\nresult = await trial_factory(sample_id, trial_dir)\nrecord.mark_finished(\"completed\")\n_write_state(trial_dir, record, payload=result[\"trial_result\"])"}, "batch-verifier": {"description": "LexEval 和 LawBench 收集完成的回答后，调用该 Benchmark 的评分器。", "source": "lexverse/cli.py", "code": "completed_cases = [(task, answer), ...]\nscores = verifier.verify_run(\n    completed_cases,\n    predictions_root=run_root / \"verifier\" / \"predictions\",\n    model_name=config.model.name,\n)"}, "scenario-verifier": {"description": "J1Bench 按场景收集对话并评分，再把案件的评价结果写回结果文件。", "source": "lexverse/cli.py", "code": "for scenario, scenario_tasks in grouped.items():\n    dialog_paths = 收集该场景的对话文件(scenario_tasks)\n    verified, _ = await verifier.verify_scenario(\n        completed_tasks, dialog_paths,\n        output_dir=scenario_dir / \"verifier\",\n        context=verifier_context,\n    )"}, "final-report": {"description": "汇总已有 Trial 和评分产物，生成最终状态、summary.json 与 CSV。", "source": "lexverse/runtime/reporting.py", "code": "job_result = finalize_run(\n    run_root, manifest, plugin,\n    model_name=config.model.name,\n    task_metrics=task_metrics,\n    write_evaluation_csv=bundle.benchmark == \"j1bench\",\n)\n# job_result[\"status\"] 为 completed 或 incomplete"}, "collect-entry": {"description": "collect 从已有结果重新汇总，不再次运行模型或官方评分。", "source": "lexverse/cli.py", "code": "def cmd_collect(args):\n    manifest = 读取已有的manifest(args.run_dir)\n    task_metrics = 读取已有的CSV(args.run_dir)\n    return finalize_run(\n        run_dir, manifest, plugin,\n        model_name=model_name,\n        task_metrics=task_metrics,\n    )"}}</script>
+<script id="lexverse-code-details-script">
+(function () {
+  var dataNode = document.getElementById('lexverse-code-details-data');
+  var panel = document.getElementById('focus-chip');
+  var focusId = document.getElementById('focus-id');
+  var copy = panel && panel.querySelector('.relationship-lens-copy');
+  if (!dataNode || !panel || !focusId || !copy) return;
+
+  var details = JSON.parse(dataNode.textContent);
+  var section = document.createElement('section');
+  section.className = 'lexverse-code-details';
+  section.setAttribute('aria-label', '节点代码结构示意');
+  var heading = document.createElement('strong');
+  heading.textContent = '代码结构示意';
+  var explanation = document.createElement('p');
+  var code = document.createElement('pre');
+  var source = document.createElement('a');
+  source.textContent = '打开对应源文件 ↗';
+  section.append(heading, explanation, code, source);
+  copy.appendChild(section);
+
+  function update() {
+    var item = details[focusId.textContent.trim()];
+    section.hidden = !item;
+    if (!item) {
+      panel.removeAttribute('data-code-details');
+      return;
+    }
+    explanation.textContent = item.description;
+    code.textContent = item.code;
+    source.href = '../' + item.source;
+    source.setAttribute('aria-label', '打开源文件 ' + item.source);
+    panel.setAttribute('data-code-details', 'true');
+  }
+
+  new MutationObserver(update).observe(focusId, {
+    childList: true, characterData: true, subtree: true
+  });
+  document.querySelector('svg').addEventListener('click', function () {
+    setTimeout(update, 0);
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter' || event.key === ' ') setTimeout(update, 0);
+  });
+  update();
+})();
+</script>
+
 </body>
 </html>
