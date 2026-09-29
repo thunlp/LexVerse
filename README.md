@@ -15,10 +15,11 @@
   <a href="docs/architecture.html">Architecture</a>
 </p>
 
-LexVerse is a unified runtime for reproducible evaluation of legal language
-models and agents. It provides one execution and result-management pipeline
-while preserving each benchmark's upstream task format, interaction harness,
-and evaluator.
+LexVerse is an evolving runtime for evaluating legal language models and agents.
+It brings legal benchmarks into a shared workflow for task preparation,
+execution, and result management while preserving their original task formats,
+interaction harnesses, and evaluators. We are continuing to integrate more
+benchmarks and develop environment capabilities for richer agent interactions.
 
 ## ⚖️ Supported Benchmarks
 
@@ -28,58 +29,28 @@ and evaluator.
 | [LawBench](https://github.com/open-compass/LawBench) |               20 tasks | Single response             | Upstream task evaluator     |
 | [J1Bench](https://github.com/FudanDISC/J1Bench)      | CI, CR, KQ, LC, CD, DD | Official multi-role harness | Upstream scenario evaluator |
 
-LexEval and LawBench are evaluated once per task. J1Bench is evaluated once per
-scenario and additionally retains its official per-case intermediate results.
-
 ## 🚀 Quick Start
 
-### 1. Create the environment
+### 1. Install LexVerse
 
-Python 3.10 or newer is required. Conda avoids accidentally using macOS's system Python 3.9.
-
-```bash
-conda create -n lexverse python=3.10 -y
-conda activate lexverse
-
-which python
-python --version
-```
-
-Install LexVerse and the dependencies declared by all three integrations:
+Use Python 3.10 or newer. Install LexVerse with the dependencies for all three benchmarks:
 
 ```bash
-python -m pip install --upgrade pip
 python -m pip install -e ".[lexeval,lawbench,j1bench,openai]"
 python -m lexverse --help
 ```
 
 > **Compatibility note**
-> LexEval's `rouge` and LawBench's `rouge_chinese` publish the same Python
-> import path. A combined environment is suitable for integration testing but
-> cannot reproduce both upstream Rouge tokenizers exactly. Use separate
-> environments only when strict Rouge parity is required.
+> One environment can run all these benchmarks. LexEval and LawBench use
+> different Rouge packages, so some Rouge-based scores may differ slightly
+> from upstream results in a combined installation.
 
 ### 2. Create local configuration
 
-Copy the tracked templates. The resulting local files are ignored by Git.
-
-```bash
-cp configs/secrets.example.yaml configs/secrets.local.yaml
-cp configs/benchmarks/lexeval.example.yaml configs/benchmarks/lexeval.local.yaml
-cp configs/benchmarks/lawbench.example.yaml configs/benchmarks/lawbench.local.yaml
-cp configs/benchmarks/j1bench.example.yaml configs/benchmarks/j1bench.local.yaml
-mkdir -p .lexverse/prepared runs
-```
+Create local configuration files from the tracked `*.example.yaml` templates.
 
 Configure at least one OpenAI-compatible connection in
-`configs/secrets.local.yaml`:
-
-```yaml
-openai:
-  provider: openai_compatible
-  base_url: https://api.openai.com/v1
-  api_key: YOUR_API_KEY
-```
+`configs/secrets.local.yaml`.
 
 The benchmark YAML selects the connection with `model.profile` and the actual
 model with `model.name`. J1Bench also has `evaluation.model`, because its
@@ -101,10 +72,6 @@ LEXEVAL_RUN="runs/lexeval-all-$(date +%Y%m%d-%H%M%S)"
 python -m lexverse run \
   --prepared .lexverse/prepared/lexeval-all.json \
   --output-root "$LEXEVAL_RUN"
-
-echo "$LEXEVAL_RUN"
-python -m json.tool "$LEXEVAL_RUN/summary.json"
-find "$LEXEVAL_RUN" -maxdepth 5 -type f | sort
 ```
 
 ### 4. Run LawBench
@@ -118,10 +85,6 @@ LAWBENCH_RUN="runs/lawbench-all-$(date +%Y%m%d-%H%M%S)"
 python -m lexverse run \
   --prepared .lexverse/prepared/lawbench-all.json \
   --output-root "$LAWBENCH_RUN"
-
-echo "$LAWBENCH_RUN"
-python -m json.tool "$LAWBENCH_RUN/summary.json"
-find "$LAWBENCH_RUN" -maxdepth 5 -type f | sort
 ```
 
 If a run is interrupted after model generation, set `execution.resume: true`
@@ -152,10 +115,6 @@ J1BENCH_RUN="runs/j1bench-all-$(date +%Y%m%d-%H%M%S)"
 python -m lexverse run \
   --prepared .lexverse/prepared/j1bench-all.json \
   --output-root "$J1BENCH_RUN"
-
-echo "$J1BENCH_RUN"
-python -m json.tool "$J1BENCH_RUN/summary.json"
-find "$J1BENCH_RUN" -maxdepth 8 -type f | sort
 ```
 
 J1Bench runs the official multi-role conversation for every case and invokes
@@ -163,55 +122,12 @@ the official evaluator once per scenario. It is slower and more expensive than
 the two single-response benchmarks. A successful `run` has already completed
 evaluation; there is no separate eval command.
 
-### 6. Confirm success
-
-Every `summary.json` should contain:
-
-```json
-{
-  "status": "completed",
-  "samples": {
-    "failed": 0,
-    "missing": []
-  }
-}
-```
-
 ## 📂 Outputs
 
-LexEval and LawBench use the common layout below:
-
-```text
-runs/<benchmark>-<timestamp>/
-├── manifest.json                    # frozen run metadata
-├── summary.json                     # LexVerse run summary
-├── evaluation_result.csv            # official-format task results
-├── verifier/
-│   └── predictions/
-│       └── <model>/                 # official evaluator input
-└── trials/
-    └── <task>/
-        └── <case>/
-            └── results.json             # one Trial execution record
-```
-
-LexEval predictions are named `<model>_<task>.jsonl`; LawBench predictions are
-named `<task>.json`.
-
-J1Bench places the official verifier under each scenario:
-
-```text
-trials/<scenario>/verifier/
-├── dialog_history/                   # official evaluator input
-├── intermediate/                     # official per-case output
-├── final/                            # official scenario output
-├── stdout.log
-└── stderr.log
-```
-
-LexEval and LawBench expose task-level scores rather than official per-case
-scores. J1Bench exposes both per-case intermediate results and a scenario-level
-final result.
+Each `--output-root` contains `manifest.json`, `summary.json`, trial records,
+and official evaluation artifacts. LexEval and LawBench report task-level
+scores in `evaluation_result.csv`; J1Bench keeps per-case intermediate results
+and a scenario-level final result under `trials/<scenario>/verifier/`.
 
 `collect` rebuilds `summary.json` from existing Trial records and the existing
 official `evaluation_result.csv`:
@@ -226,9 +142,8 @@ drift by design.
 
 ## 🏗️ Architecture
 
-```text
-Config → TaskBundle → Orchestrator → Environment → Official Verifier → Artifacts
-```
+LexVerse connects benchmark preparation, execution, evaluation, and result
+management in one workflow.
 
 [Open the interactive architecture map →](docs/architecture.html)
 
@@ -238,10 +153,10 @@ Config → TaskBundle → Orchestrator → Environment → Official Verifier →
 - Re-run `prepare` whenever a local YAML changes.
 - Upstream repositories are pinned in `lexverse/runtime/upstream.py`; patches
   make them relocatable without replacing evaluator logic.
-- The wheel and source distribution exclude benchmark data, cloned upstream
-  repositories, local runs, tests, documentation, and credential files.
 - Benchmark and dataset licenses remain governed by their original sources.
 
-LexVerse is released under the [Apache License 2.0](LICENSE). The runtime design
-references Harbor's high-level execution patterns without vendoring Harbor
-code; attribution details are recorded in [NOTICE](NOTICE).
+LexVerse is released under the [Apache License 2.0](LICENSE).
+
+## Contact Us
+
+For issues and feature requests, use GitHub Issues. You can also email xieh@tsinghua.edu.cn.
