@@ -32,7 +32,7 @@ LexVerse is organized into three layers.
 
 ### Dataset Sources and Attribution
 
-The table below maps each dataset currently used by LexVerse to its online source. The links identify the upstream project, dataset release, or official source page. Using these sources does not change the original dataset's license or attribution requirements.
+The table below maps each dataset currently used by LexVerse to its online source. The links identify the upstream project, dataset release, or official source page. Each source retains its own license and attribution terms. Check those terms before sharing a copy of the data.
 
 | Collection | Dataset / source                                                                             |
 | ---------- | -------------------------------------------------------------------------------------------- |
@@ -68,7 +68,9 @@ python -m pip install -e .
 python -m pip install -U huggingface_hub
 ```
 
-Download the official data and its matching prebuilt index:
+Download the official data (about 3.2 GB) and its matching prebuilt index.
+If a repository requires authentication, run `huggingface-cli login` with an
+account that has access before downloading:
 
 ```bash
 huggingface-cli download thunlp/LexVerse-data \
@@ -97,11 +99,6 @@ from lexverse_env import CorpusEnv
 with CorpusEnv.open("data", ".lexverse") as env:
     print(env.search_records("legal_laws", query="劳动合同解除", limit=5))
 ```
-
-If either Hugging Face repository is private, authenticate first with
-`huggingface-cli login`. The data is about 3.2 GB and contains files from
-multiple upstream projects; review the upstream licenses and attribution
-requirements before redistributing it.
 
 ## Using LexVerse
 
@@ -152,8 +149,8 @@ lexverse-env build-index \
 from the content manifest. For development, add `--max-records 100` to create a
 small partial index.
 
-Official index publishers can build an index with explicit Hugging Face
-provenance:
+To build an official index from a Hugging Face dataset, provide its
+repository and revision:
 
 ```bash
 lexverse-env build-index \
