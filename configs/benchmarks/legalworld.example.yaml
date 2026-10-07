@@ -1,0 +1,113 @@
+# Pinned public dataset: 100 cases x two parties = 200 complete-flow tasks.
+# Native law retrieval is optional; disabled runs require no external index.
+# API credentials and connection URLs belong only in secrets profiles.
+
+schema_version: 1.0
+
+benchmark:
+  name: legalworld
+  # Native stage order: LC -> DRAFT -> CI -> SD -> APPEAL_DRAFT -> CIA.
+  # LC=consultation, DRAFT=first-instance drafting, CI=first-instance hearing,
+  # SD=judgment delivery, APPEAL_DRAFT=appeal drafting, CIA=appeal hearing.
+  # Disabled by default, matching upstream; no ready-to-use index is bundled.
+  # Prepare upstream law metadata/vectors with a matching embedding model.
+  # Absolute paths keep resume independent of the config file location.
+  retrieval:
+    laws:
+      enabled: false
+      # index_dir: /absolute/path/to/cn_law_index
+      # embedding_profile: YOUR_EMBEDDING_SECRETS_PROFILE
+      # embedding_model: YOUR_INDEX_EMBEDDING_MODEL
+    cases:
+      # Optional extension: native headless pipeline does not grant search_cases.
+      # Grants the upstream BM25 tool to lawyer agents only; clients/judges unchanged.
+      # Benchmark docket/near-duplicate text matches are excluded per Trial.
+      # Automatic matching is conservative and does not prove semantic disjointness.
+      enabled: false
+      # docs_path: /absolute/path/to/cases_retrieval_docs.jsonl
+      # source_url: https://YOUR_CORPUS_SOURCE
+      # revision: YOUR_FIXED_CORPUS_REVISION
+  # Task ids are user-defined; each task specifies its party and continuous range.
+  # Set each task's sample limit; null selects all samples.
+  tasks:
+    - {id: "plaintiff_full", limit: 2, party_role: plaintiff, start_stage: LC, end_stage: CIA}
+    - {id: "defendant_full", limit: 2, party_role: defendant, start_stage: LC, end_stage: CIA}
+  # Replace the entries above to test another range, for example:
+  #   - {id: "plaintiff_consultation", limit: 2, party_role: plaintiff, start_stage: LC, end_stage: LC}
+  #   - {id: "defendant_first_instance", limit: 2, party_role: defendant, start_stage: DRAFT, end_stage: CI}
+  #   - {id: "plaintiff_appeal", limit: 2, party_role: plaintiff, start_stage: APPEAL_DRAFT, end_stage: CIA}
+
+models:
+  default:
+    provider: openai_compatible
+    profile: openai
+    name: gpt-4o-mini
+    generation_parameters:
+      # Omit temperature to retain upstream defaults for each model call.
+      max_tokens: 8192
+  roles:
+    simulation:
+      provider: openai_compatible
+      profile: openai
+      name: gpt-4o-mini
+      generation_parameters:
+        # Omit temperature to retain upstream defaults for each model call.
+        max_tokens: 8192
+  evaluators:
+    - provider: openai_compatible
+      profile: openai
+      name: gpt-4o
+      generation_parameters:
+        temperature: 0
+        max_tokens: 8192
+
+generation:
+  concurrency: 10
+  timeout_sec: 7200
+
+evaluation:
+  timeout_sec: 7200
+
+# models.roles.simulation explicitly fixes clients, opponents and court judges.
+# For a smoke run, select cases: ['1'] and a LC -> LC task.
+# Backend alternatives apply to every model definition in models.
+# Replace only models.default below; retain any roles, summary and evaluators.
+# Complete role model overrides do not merge fields with models.default.
+# API: openai_compatible uses profile for the URL/key in secrets.local.yaml.
+# Transformers/vLLM load weights directly and must omit profile.
+# Generation and evaluation each support one distinct local loading/input configuration.
+
+# Tiny-model examples use max_tokens: 256; choose a context that fits prompt + output for real runs.
+
+# Transformers: install local-transformers; use cpu/cuda/auto instead of mps on other hardware.
+#   default:
+#     provider: transformers
+#     name: Qwen/Qwen2.5-0.5B-Instruct
+#     load_parameters:
+#       cache_dir: ../../.lexverse/model-cache
+#       local_files_only: false
+#       trust_remote_code: false
+#       device_map: mps
+#       dtype: float32
+#     input: {format: chat}
+#     generation_parameters: {temperature: 0, max_tokens: 256}
+
+# Local weights: replace name with ../../.lexverse/models/YOUR_MODEL and set local_files_only: true.
+# Cache-only HF loading: keep the HF ID/cache_dir and set local_files_only: true.
+
+# vLLM: install local-vllm and run on supported server hardware.
+#   default:
+#     provider: vllm
+#     name: Qwen/Qwen2.5-0.5B-Instruct
+#     load_parameters:
+#       cache_dir: ../../.lexverse/model-cache
+#       local_files_only: false
+#       trust_remote_code: false
+#       dtype: auto
+#       tensor_parallel_size: 1
+#       gpu_memory_utilization: 0.9
+#       max_model_len: 4096
+#     input: {format: chat}
+#     generation_parameters: {temperature: 0, max_tokens: 256}
+
+# Existing vLLM API server: use openai_compatible, its profile and served model name.

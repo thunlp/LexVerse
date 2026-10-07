@@ -1,0 +1,16 @@
+schema_version: 1.0
+
+source:
+  name: dlawbench
+  repo_url: https://github.com/SKYLENAGE-AI/DLawBench.git
+  commit: 9f6325f29f07b296fac110a6e1880bdd5d9ca538
+
+dataset:
+  paths:
+    - data/case_backgrounds/*.jsonl
+
+tasks:
+  P_WD: {output_type: trajectory, metrics: [fact_coverage, inquiry, elicitation, fact_resolution, issue_resolution, resolution, fidelity]}
+  P_WS: {output_type: trajectory, metrics: [fact_coverage, inquiry, elicitation, fact_resolution, issue_resolution, resolution, fidelity]}
+  P_CS: {output_type: trajectory, metrics: [fact_coverage, inquiry, elicitation, fact_resolution, issue_resolution, resolution, fidelity]}
+  P_CD: {output_type: trajectory, metrics: [fact_coverage, inquiry, elicitation, fact_resolution, issue_resolution, resolution, fidelity]}

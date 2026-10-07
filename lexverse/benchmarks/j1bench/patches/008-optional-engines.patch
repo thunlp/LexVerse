@@ -1,0 +1,46 @@
+--- a/src/engine/__init__.py
++++ b/src/engine/__init__.py
+@@ -1,26 +1,17 @@
+-# 注册不同的Engine
+-from .gpt_4o_1120 import GPT_1120Engine
+-from .lawllm import LawLLMEngine
+-from .deepseek_v3 import DeepseekEngine
+-from .ministral8B import Ministral8BEngine
+-from .GLM_4_9B import GLM9BEngine
+-from .chatlaw2 import Chatlaw2Engine
+-from .qwen3_14B import qwen3_14BEngine
+-from .qwen3_32B import qwen3_32BEngine
+-from .gemma12b import Gemma12BEngine
+-from .internlm3 import InternLM3Engine
+-from .llama33_70B import LLaMa3_3Engine
+-
+-__all__= [
+-    'GPT_1120Engine',
+-    'LawLLMEngine',
+-    'DeepseekEngine',
+-    'Ministral8BEngine',
+-    'GLM9BEngine',
+-    'Chatlaw2Engine',
+-    'qwen3_14BEngine',
+-    'qwen3_32BEngine',
+-    'Gemma12BEngine',
+-    'InternLM3Engine',
+-    'LLaMa3_3Engine'
+-]
++# LEXVERSE-SHIM-V1
++"""Load API engine and optional local engines."""
++from .gpt_4o_1120 import GPT_1120Engine
++__all__ = ["GPT_1120Engine"]
++for _mod, _cls in [
++    (".lawllm", "LawLLMEngine"), (".deepseek_v3", "DeepseekEngine"),
++    (".ministral8B", "Ministral8BEngine"), (".GLM_4_9B", "GLM9BEngine"),
++    (".chatlaw2", "Chatlaw2Engine"), (".qwen3_14B", "qwen3_14BEngine"),
++    (".qwen3_32B", "qwen3_32BEngine"), (".gemma12b", "Gemma12BEngine"),
++    (".internlm3", "InternLM3Engine"), (".llama33_70B", "LLaMa3_3Engine"),
++]:
++    try:
++        _m = __import__(f"engine{_mod}", fromlist=[_cls])
++        globals()[_cls] = getattr(_m, _cls)
++        __all__.append(_cls)
++    except ImportError:
++        pass

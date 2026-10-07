@@ -15,25 +15,12 @@ class OpenAICompatibleProvider:
     api_key: str | None = None
     base_url: str | None = None
     default_config: dict[str, Any] = field(default_factory=dict)
+    timeout_sec: float | None = None
+    max_retries: int = 2
 
     def __post_init__(self) -> None:
         self._client = None
         self.last_error: Exception | None = None
-
-    def _get_client(self):
-        if self._client is not None:
-            return self._client
-        try:
-            from openai import AsyncOpenAI
-        except ImportError as exc:
-            raise RuntimeError(
-                "openai>=1.0 is required; install with `pip install lexverse[openai]`"
-            ) from exc
-        self._client = AsyncOpenAI(
-            api_key=self.api_key or os.environ.get("OPENAI_API_KEY"),
-            base_url=self.base_url or os.environ.get("OPENAI_BASE_URL"),
-        )
-        return self._client
 
     async def generate(self, messages, *, config=None) -> ModelResponse:
         options = {**self.default_config, **(config or {})}
@@ -57,3 +44,20 @@ class OpenAICompatibleProvider:
                 f"provider {self.name!r} ({self.model}) failed: "
                 f"{type(exc).__name__}: {exc}"
             ) from exc
+
+    def _get_client(self):
+        if self._client is not None:
+            return self._client
+        try:
+            from openai import AsyncOpenAI
+        except ImportError as exc:
+            raise RuntimeError(
+                "openai>=1.0 is required; install with `pip install lexverse[openai]`"
+            ) from exc
+        self._client = AsyncOpenAI(
+            api_key=self.api_key or os.environ.get("OPENAI_API_KEY"),
+            base_url=self.base_url or os.environ.get("OPENAI_BASE_URL"),
+            **({"timeout": self.timeout_sec} if self.timeout_sec is not None else {}),
+            max_retries=self.max_retries,
+        )
+        return self._client

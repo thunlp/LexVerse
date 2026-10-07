@@ -1,0 +1,59 @@
+--- a/backend/src/pipeline/pipeline.py
++++ b/backend/src/pipeline/pipeline.py
+@@ -529,9 +529,10 @@
+         from ..scenarios import LegalConsultationScenario
+         
+         # Extract data for LC stage
+-        plaintiff_profile = self.data_loader.extract_plaintiff_profile(self.case_data)
++        plaintiff_profile = (self.data_loader.extract_plaintiff_profile(self.case_data) if self.party_role == "plaintiff"
++                             else self.data_loader.extract_defendant_profile(self.case_data))
+         case_background = self.data_loader.extract_case_background(self.case_data)
+-        party_materials = self._build_first_instance_party_materials("plaintiff")
++        party_materials = self._build_first_instance_party_materials(self.party_role)
+         
+         # Build scenario_data for client
+         scenario_data = {
+@@ -544,13 +545,13 @@
+         }
+         
+         # Work memory paths - per identity, stored in agent subdirectories
+-        plaintiff_output_dir = self._get_agent_output_dir("plaintiff")
++        plaintiff_output_dir = self._get_agent_output_dir(self.party_role)
+         lawyer_output_dir = self._get_agent_output_dir("lawyer")
+         # Stage summaries paths (replacing work_memory for cross-scenario context)
+         
+         # Create client agent
+         client_agent = ClientAgent(
+-            agent_id="plaintiff",
++            agent_id=self.party_role,
+             name=plaintiff_profile.get("name", DEFAULT_PLAINTIFF_NAME),
+             party_type=plaintiff_profile.get("party_type", "") or plaintiff_profile.get("type", ""),
+             representative=plaintiff_profile.get("representative", ""),
+@@ -564,8 +565,8 @@
+             legal_persona_profile=plaintiff_profile.get("legal_persona_profile", {}),
+             scenario_type="LC",
+             scenario_data=scenario_data,
+-            role="plaintiff",
+-            model_type=self._resolve_agent_model_name("plaintiff"),
++            role=self.party_role,
++            model_type=self._resolve_agent_model_name(self.party_role),
+         )
+         
+         lawyer_ltm_path = os.path.join(lawyer_output_dir, "memory.yaml")
+@@ -589,7 +590,7 @@
+         self._bind_stage_trace_agents(
+             "LC",
+             {
+-                "plaintiff": client_agent,
++                self.party_role: client_agent,
+                 "lawyer": lawyer_agent,
+             },
+         )
+@@ -1066,6 +1067,7 @@
+         return {
+             "case_id": self.data_loader.extract_case_id(self.case_data),
+             "case_cause": self.data_loader.extract_case_cause(self.case_data),
++            "party_role": self.party_role,
+             "stages_completed": list(self.stage_results.keys()),
+             "stage_results": self.stage_results,
+             "stage_output": self.stage_output,

@@ -1,6 +1,6 @@
 --- a/code/evaluation/evaluate.py
 +++ b/code/evaluation/evaluate.py
-@@ -1,17 +1,11 @@
+@@ -1,17 +1,10 @@
  import os
  # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
  import jsonlines
@@ -12,10 +12,77 @@
  import jieba
 -from transformers import BertTokenizer, BartForConditionalGeneration
  from typing import List
- from rouge import Rouge
+-from rouge import Rouge
 -from process import BARTScorer, find_valid_substrings, normalize_zh_answer
 -from tqdm import tqdm
 +from process import find_valid_substrings, normalize_zh_answer
  
  import numpy as np
  
+@@ -93,6 +86,8 @@
+         '''
+         Output the Rouge-L score for the given file
+         '''
++        from rouge import Rouge
++
+         with jsonlines.open(self.file_path) as f:
+             score = []
+             for qa_one in f:
+@@ -114,6 +109,8 @@
+             all_qa = [qa_one for qa_one in f]
+         all_pred, all_gt = [qa_one['output'] for qa_one in all_qa], [qa_one['answer'] for qa_one in all_qa]
+         assert (len(all_pred) == len(all_gt))
++        import bert_score
++
+         score_p, score_r, score_f1 = bert_score.score(all_pred, all_gt, lang='zh', verbose=False, model_type=self.model_path, num_layers=8, device=self.device, batch_size=batch_size)
+         bertscore = (sum(score_f1) / len(score_f1)).item()
+         return bertscore
+@@ -125,7 +122,9 @@
+         with jsonlines.open(self.file_path) as f:
+             all_qa = [qa_one for qa_one in f]
+         all_pred, all_gt = [qa_one['output'] for qa_one in all_qa], [qa_one['answer'] for qa_one in all_qa]
+-        bart_calculator = BARTScorer(checkpoint=self.model_path)
++        from process import BARTScorer
++
++        bart_calculator = BARTScorer(checkpoint=self.model_path, device=self.device)
+         score = bart_calculator.score(all_pred, all_gt, batch_size=batch_size)
+         bartscore = sum(score) / len(score)
+         return bartscore
+@@ -151,6 +150,9 @@
+     '''
+     Given the input directory for the model's generation and metrics, output the correspondent score
+     '''
++    import pandas as pd
++    from tqdm import tqdm
++
+     all_model = os.listdir(input_dir)
+     # Only select directory
+     all_model = [all_model[i] for i in range(len(all_model)) if os.path.isdir(input_dir + '/' + all_model[i])]
+--- a/code/evaluation/process.py
++++ b/code/evaluation/process.py
+@@ -7,6 +7,9 @@
+ 
+ class BARTScorer:
+     def __init__(self, device='cuda:0', max_length=1024, checkpoint='facebook/bart-large-cnn'):
++        import torch.nn as nn
++        from transformers import BertTokenizer, BartForConditionalGeneration
++
+         # Set up model
+         self.device = device
+         self.max_length = max_length
+@@ -23,10 +26,15 @@
+         """ Load model from paraphrase finetuning """
+         if path is None:
+             path = 'models/bart.pth'
++        import torch
++
+         self.model.load_state_dict(torch.load(path, map_location=self.device))
+ 
+     def score(self, srcs, tgts, batch_size=50):
+         """ Score a batch of examples """
++        import torch
++        import traceback
++
+         score_list = []
+         for i in range(0, len(srcs), batch_size):
+             src_list = srcs[i: i + batch_size]

@@ -1,0 +1,13 @@
+schema_version: 1.0
+
+source:
+  name: legalworld
+  repo_url: https://github.com/sii-research/Legal-world.git
+  commit: 979ee9619f187d227059316f849c17ecc530c816
+
+dataset:
+  repo_id: Chidaic/legal-world
+  revision: d67238957ac0fda8c47a152ee5ca37a73e504010
+
+# Tasks are defined by party_role, start_stage and end_stage in the benchmark config.
+tasks: {}

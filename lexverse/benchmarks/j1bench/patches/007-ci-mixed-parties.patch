@@ -1,0 +1,102 @@
+--- a/src/agents/plaintiff_CI.py
++++ b/src/agents/plaintiff_CI.py
+@@ -134,11 +134,21 @@
+                             system_prompt += p.format(plaintiff_nation = plaintiff['ethnicity']) + '\n'
+                         elif '{plaintiff_address}' in p:
+                             system_prompt += p.format(plaintiff_address = plaintiff['address']) + '\n'
+-                        elif '{defendant_company_name}' in p:
++                        elif '{defendant_name}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_name = defendant['name']) + '\n'
++                        elif '{defendant_sex}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_sex = defendant['gender']) + '\n'
++                        elif '{defendant_birth}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_birth = defendant['birth_date']) + '\n'
++                        elif '{defendant_nation}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_nation = defendant['ethnicity']) + '\n'
++                        elif '{defendant_address}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_address = defendant['address']) + '\n'
++                        elif '{defendant_company_name}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_name = defendant['name']) + '\n'
+-                        elif '{defendant_company_legal_person}' in p:
++                        elif '{defendant_company_legal_person}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_legal_person = defendant['representative']) + '\n'
+-                        elif '{defendant_company_address}' in p:
++                        elif '{defendant_company_address}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_address = defendant['address']) + '\n'
+                         elif '{case_details}' in p:
+                             system_prompt += p.format(case_details = plaintiff_case_details) + '\n'
+@@ -247,11 +257,21 @@
+                             system_prompt += p.format(plaintiff_company_legal_person = plaintiff['representative']) + '\n'
+                         elif '{plaintiff_company_address}' in p:
+                             system_prompt += p.format(plaintiff_company_address = plaintiff['address']) + '\n'
+-                        elif '{defendant_company_name}' in p:
++                        elif '{defendant_name}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_name = defendant['name']) + '\n'
++                        elif '{defendant_sex}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_sex = defendant['gender']) + '\n'
++                        elif '{defendant_birth}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_birth = defendant['birth_date']) + '\n'
++                        elif '{defendant_nation}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_nation = defendant['ethnicity']) + '\n'
++                        elif '{defendant_address}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_address = defendant['address']) + '\n'
++                        elif '{defendant_company_name}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_name = defendant['name']) + '\n'
+-                        elif '{defendant_company_legal_person}' in p:
++                        elif '{defendant_company_legal_person}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_legal_person = defendant['representative']) + '\n'
+-                        elif '{defendant_company_address}' in p:
++                        elif '{defendant_company_address}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_address = defendant['address']) + '\n'
+                         elif '{case_details}' in p:
+                             system_prompt += p.format(case_details = plaintiff_case_details) + '\n'
+@@ -421,11 +441,21 @@
+                             system_prompt += p.format(plaintiff_nation = plaintiff['ethnicity']) + '\n'
+                         elif '{plaintiff_address}' in p:
+                             system_prompt += p.format(plaintiff_address = plaintiff['address']) + '\n'
+-                        elif '{defendant_company_name}' in p:
++                        elif '{defendant_name}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_name = defendant['name']) + '\n'
++                        elif '{defendant_sex}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_sex = defendant['gender']) + '\n'
++                        elif '{defendant_birth}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_birth = defendant['birth_date']) + '\n'
++                        elif '{defendant_nation}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_nation = defendant['ethnicity']) + '\n'
++                        elif '{defendant_address}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_address = defendant['address']) + '\n'
++                        elif '{defendant_company_name}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_name = defendant['name']) + '\n'
+-                        elif '{defendant_company_legal_person}' in p:
++                        elif '{defendant_company_legal_person}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_legal_person = defendant['representative']) + '\n'
+-                        elif '{defendant_company_address}' in p:
++                        elif '{defendant_company_address}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_address = defendant['address']) + '\n'
+                         elif '{case_details}' in p:
+                             system_prompt += p.format(case_details = plaintiff_case_details) + '\n'
+@@ -534,11 +564,21 @@
+                             system_prompt += p.format(plaintiff_company_legal_person = plaintiff['representative']) + '\n'
+                         elif '{plaintiff_company_address}' in p:
+                             system_prompt += p.format(plaintiff_company_address = plaintiff['address']) + '\n'
+-                        elif '{defendant_company_name}' in p:
++                        elif '{defendant_name}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_name = defendant['name']) + '\n'
++                        elif '{defendant_sex}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_sex = defendant['gender']) + '\n'
++                        elif '{defendant_birth}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_birth = defendant['birth_date']) + '\n'
++                        elif '{defendant_nation}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_nation = defendant['ethnicity']) + '\n'
++                        elif '{defendant_address}' in p and 'gender' in defendant:
++                            system_prompt += p.format(defendant_address = defendant['address']) + '\n'
++                        elif '{defendant_company_name}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_name = defendant['name']) + '\n'
+-                        elif '{defendant_company_legal_person}' in p:
++                        elif '{defendant_company_legal_person}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_legal_person = defendant['representative']) + '\n'
+-                        elif '{defendant_company_address}' in p:
++                        elif '{defendant_company_address}' in p and 'gender' not in defendant:
+                             system_prompt += p.format(defendant_company_address = defendant['address']) + '\n'
+                         elif '{case_details}' in p:
+                             system_prompt += p.format(case_details = plaintiff_case_details) + '\n'

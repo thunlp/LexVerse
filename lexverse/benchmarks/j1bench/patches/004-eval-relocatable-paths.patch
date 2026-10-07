@@ -5,7 +5,7 @@
  class CDEvaluator:
      def __init__(self, args):
 -        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_CD.jsonl')
-+        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_CD.jsonl"))
++        self.ground_truth = func.load_jsonl(os.environ.get("J1BENCH_CASE_DATABASE") or os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))), "src/data/case/J1-Eval_CD.jsonl"))
          self.args = args
          
          self.dialog_history_dir = args.dialog_history_dir
@@ -16,7 +16,7 @@
  class CIEvaluator:
      def __init__(self, args):
 -        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_CI.jsonl')
-+        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_CI.jsonl"))
++        self.ground_truth = func.load_jsonl(os.environ.get("J1BENCH_CASE_DATABASE") or os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))), "src/data/case/J1-Eval_CI.jsonl"))
          self.args = args
          
          self.dialog_history_dir = args.dialog_history_dir
@@ -27,7 +27,7 @@
  class CREvaluator:
      def __init__(self, args):
 -        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_CR.jsonl')
-+        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_CR.jsonl"))
++        self.ground_truth = func.load_jsonl(os.environ.get("J1BENCH_CASE_DATABASE") or os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))), "src/data/case/J1-Eval_CR.jsonl"))
          self.args = args
          
          self.dialog_history_dir = args.dialog_history_dir
@@ -38,7 +38,7 @@
  class DDEvaluator:
      def __init__(self, args):
 -        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_DD.jsonl')
-+        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_DD.jsonl"))
++        self.ground_truth = func.load_jsonl(os.environ.get("J1BENCH_CASE_DATABASE") or os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))), "src/data/case/J1-Eval_DD.jsonl"))
          self.args = args
          
          self.dialog_history_dir = args.dialog_history_dir
@@ -49,7 +49,7 @@
  class KQEvaluator:
      def __init__(self, args):
 -        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_KQ.jsonl')
-+        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_KQ.jsonl"))
++        self.ground_truth = func.load_jsonl(os.environ.get("J1BENCH_CASE_DATABASE") or os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))), "src/data/case/J1-Eval_KQ.jsonl"))
          self.args = args
          
          self.dialog_history_dir = args.dialog_history_dir
@@ -60,7 +60,7 @@
  class LCEvaluator:
      def __init__(self, args):
 -        self.ground_truth = func.load_jsonl('/root/J1Bench/src/data/case/J1-Eval_LC.jsonl')
-+        self.ground_truth = func.load_jsonl(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "src/data/case/J1-Eval_LC.jsonl"))
++        self.ground_truth = func.load_jsonl(os.environ.get("J1BENCH_CASE_DATABASE") or os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))), "src/data/case/J1-Eval_LC.jsonl"))
          self.args = args
          
          self.dialog_history_dir = args.dialog_history_dir

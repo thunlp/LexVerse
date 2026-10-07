@@ -1,8 +1,18 @@
-schema_version: 1
+schema_version: 1.0
+
+source:
+  name: j1bench
+  repo_url: https://github.com/FudanDISC/J1Bench
+  commit: 61a6ea5515e11229c13353e73b0629e39dcc6076
+
+dataset:
+  repo_id: CimoInkPool/J1-Eval_Dataset
+  revision: 5fbc73ce3de1bbce474eed2dab27b4d01cedfd7f
+
 tasks:
-  CI: {supported: true, policy: j1bench_ci, metrics: [REA, LAW, JUD, PFS]}
-  CR: {supported: true, policy: j1bench_cr, metrics: [CRI, SEN, FINE, REA, LAW, PFS]}
-  KQ: {supported: true, policy: j1bench_kq, metrics: [BIN, NBIN, AVE]}
-  LC: {supported: true, policy: j1bench_lc, metrics: [BIN, NBIN, AVE]}
-  CD: {supported: true, policy: j1bench_cd, metrics: [PLA, DEF, CLA, EVI, FAC, DOC, FOR, AVE]}
-  DD: {supported: true, policy: j1bench_dd, metrics: [RES, DEF, EVI, DOC, FOR, AVE]}
+  CI: {output_type: trajectory, metrics: [REA, LAW, JUD, PFS]}
+  CR: {output_type: trajectory, metrics: [CRI, SEN, FINE, REA, LAW, PFS]}
+  KQ: {output_type: trajectory, metrics: [BIN, NBIN, AVE]}
+  LC: {output_type: trajectory, metrics: [BIN, NBIN, AVE]}
+  CD: {output_type: trajectory, metrics: [PLA, DEF, CLA, EVI, FAC, DOC, FOR, AVE]}
+  DD: {output_type: trajectory, metrics: [RES, DEF, EVI, DOC, FOR, AVE]}

@@ -1,0 +1,18 @@
+schema_version: 1.0
+
+source:
+  name: plawbench
+  repo_url: https://github.com/SKYLENAGE-AI/PLawBench.git
+  commit: f6ee07b36c1f4c0bfc2af8ca27183d3dd3175c56
+
+dataset:
+  paths:
+    - practical_case_analysis_250.jsonl
+    - public_legal_consultation_18.json
+    - Plantiffs_Statement.json
+    - Defendants_Statement.json
+
+tasks:
+  case_analysis: {output_type: text, metrics: [acc, failed, law_acc, fact_acc, reasoning_acc, conclusion_acc]}
+  legal_consultation: {output_type: text, metrics: [acc, failed]}
+  document_generation: {output_type: text, metrics: [acc, failed]}

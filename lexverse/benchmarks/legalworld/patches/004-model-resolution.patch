@@ -1,0 +1,18 @@
+--- a/backend/src/agents/base_agent.py
++++ b/backend/src/agents/base_agent.py
+@@ -325,14 +325,7 @@
+         if debug_output_dir:
+             self._save_debug_info(debug_output_dir)
+ 
+-        resolved_model = _resolve_agent_model_type(self, self.model_type)
+-        api_base_url = _resolve_agent_api_base_url(self)
+-        api_key = _resolve_agent_api_key(self)
+-        model_factory_kwargs: dict[str, Any] = {}
+-        if api_key:
+-            model_factory_kwargs["api_key"] = api_key
+-        if api_base_url:
+-            model_factory_kwargs["url"] = api_base_url
++        resolved_model = _resolve_model_type(self.model_type)
+         model_config = ModelFactory.create(
+             model_platform=self.model_platform,
+             model_type=resolved_model,

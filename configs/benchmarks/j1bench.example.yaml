@@ -1,37 +1,86 @@
-# J1Bench example: all six official scenarios × 2 cases.
-# On first prepare, gated dataset files are downloaded from Hugging Face to
-# .lexverse/datasets/j1bench/. Accept the dataset terms and run `hf auth login`.
+# Copy to j1bench.local.yaml and edit your personal settings.
+# Each scenario uses the default model unless models.roles.<role> is specified.
 
-schema_version: 1
+schema_version: 1.0
 
 benchmark:
   name: j1bench
-  scenarios: [CI, CR, KQ, LC, CD, DD]
+  # Set each task's sample limit; null selects all samples.
+  tasks:
+    - {id: "CI", limit: 2}
+    - {id: "CR", limit: 2}
+    - {id: "KQ", limit: 2}
+    - {id: "LC", limit: 2}
+    - {id: "CD", limit: 2}
+    - {id: "DD", limit: 2}
 
-model:
-  profile: openai
-  name: gpt-4o-mini
-  parameters:
-    temperature: 0
-    max_tokens: 512
-
-roles:
-  judge:
-    max_tokens: 512
-  plaintiff:
-    max_tokens: 512
-  defendant:
-    max_tokens: 512
-
-execution:
-  limit: 2
-  concurrency: 5
-  # One official multi-role case may run dozens of model turns.
-  timeout_sec: 3600
-  max_attempts: 1
-  resume: false
-
-evaluation:
-  model:
+models:
+  default:
+    provider: openai_compatible
     profile: openai
     name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+      # Omit max_tokens to retain upstream role defaults: 4096, or 16384 for LC trainee.
+  # KQ/LC summary defaults: gpt-4o-2024-08-06, temperature=0, max_tokens=4096; users may override.
+  summary:
+    provider: openai_compatible
+    profile: openai
+    name: gpt-4o-2024-08-06
+    generation_parameters:
+      temperature: 0
+      max_tokens: 4096
+  evaluators:
+    - provider: openai_compatible
+      profile: openai
+      name: gpt-4o-mini
+
+generation:
+  concurrency: 10
+  timeout_sec: 3600
+  max_attempts: 1
+
+# Role overrides: models.roles.<role> replaces the complete default model.
+# CI: judge, plaintiff, defendant; CR: judge, procurator, defendant, lawyer.
+# KQ/LC: trainee, general_public; CD/DD: lawyer, specific_character.
+# Backend alternatives apply to every model definition in models.
+# Replace only models.default below; retain any roles, summary and evaluators.
+# Complete role model overrides do not merge fields with models.default.
+# API: openai_compatible uses profile for the URL/key in secrets.local.yaml.
+# Transformers/vLLM load weights directly and must omit profile.
+# Generation and evaluation each support one distinct local loading/input configuration.
+
+# Tiny-model examples use max_tokens: 256; choose a context that fits prompt + output for real runs.
+
+# Transformers: install local-transformers; use cpu/cuda/auto instead of mps on other hardware.
+#   default:
+#     provider: transformers
+#     name: Qwen/Qwen2.5-0.5B-Instruct
+#     load_parameters:
+#       cache_dir: ../../.lexverse/model-cache
+#       local_files_only: false
+#       trust_remote_code: false
+#       device_map: mps
+#       dtype: float32
+#     input: {format: chat}
+#     generation_parameters: {temperature: 0, max_tokens: 256}
+
+# Local weights: replace name with ../../.lexverse/models/YOUR_MODEL and set local_files_only: true.
+# Cache-only HF loading: keep the HF ID/cache_dir and set local_files_only: true.
+
+# vLLM: install local-vllm and run on supported server hardware.
+#   default:
+#     provider: vllm
+#     name: Qwen/Qwen2.5-0.5B-Instruct
+#     load_parameters:
+#       cache_dir: ../../.lexverse/model-cache
+#       local_files_only: false
+#       trust_remote_code: false
+#       dtype: auto
+#       tensor_parallel_size: 1
+#       gpu_memory_utilization: 0.9
+#       max_model_len: 4096
+#     input: {format: chat}
+#     generation_parameters: {temperature: 0, max_tokens: 256}
+
+# Existing vLLM API server: use openai_compatible, its profile and served model name.

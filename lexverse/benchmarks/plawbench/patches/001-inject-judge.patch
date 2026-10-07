@@ -1,0 +1,21 @@
+--- a/prompt_zh.py
++++ b/prompt_zh.py
+@@ -373,6 +373,9 @@
+     - case_analysis_merge (Complex Case Analysis)
+     """
+ 
++    def __init__(self, call_llm):
++        self.call_llm = call_llm
++
+     def evaluate(self, item: dict, task_type: str) -> dict:
+         """
+         Main entry point to evaluate a single item.
+@@ -398,7 +401,7 @@
+         messages = self._build_messages(task_type, item, convo_str)
+         
+         # 3. Call Judge LLM
+-        llm_output = call_llm_api(messages)
++        llm_output = self.call_llm(messages)
+         grading_response = parse_json_to_dict(llm_output)
+         
+         # 4. Calculate Scores based on task logic

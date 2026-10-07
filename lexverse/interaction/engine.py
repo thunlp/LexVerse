@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 
-from lexverse.interaction.participants.base import Participant
-from lexverse.interaction.policies.base import InteractionPolicy
-from lexverse.interaction.result import EnvironmentResult
+from lexverse.interaction.participants import Participant
+from lexverse.interaction.policies import InteractionPolicy
+from lexverse.interaction.schema import EnvironmentResult
 from lexverse.tasks.schema import LexVerseTask
 
 

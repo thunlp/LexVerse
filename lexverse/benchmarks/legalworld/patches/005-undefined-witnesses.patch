@@ -1,0 +1,24 @@
+--- a/backend/src/pipeline/pipeline.py
++++ b/backend/src/pipeline/pipeline.py
+@@ -966,8 +966,8 @@
+             defendant_agent=defendant_client,
+             plaintiff_lawyer_agent=plaintiff_lawyer,
+             defendant_lawyer_agent=defendant_lawyer,
+-            plaintiff_witnesses=party_witnesses if self.party_role == "plaintiff" else [],
+-            defendant_witnesses=party_witnesses if self.party_role == "defendant" else [],
++            plaintiff_witnesses=[],
++            defendant_witnesses=[],
+             court_finding=judge_data.get("court_finding", ""),
+             court_opinion=judge_data.get("court_opinion", ""),
+             max_debate_rounds=4,
+@@ -1744,8 +1744,8 @@
+             appellee_agent=appellee_client,
+             appellant_lawyer_agent=appellant_lawyer,
+             appellee_lawyer_agent=appellee_lawyer,
+-            appellant_witnesses=party_witnesses if is_appellant else [],
+-            appellee_witnesses=party_witnesses if not is_appellant else [],
++            appellant_witnesses=[],
++            appellee_witnesses=[],
+             court_finding=court_finding,
+             court_opinion=court_opinion,
+             max_debate_rounds=4,

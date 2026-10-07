@@ -1,11 +1,18 @@
 --- a/evaluation/utils/function_utils.py
 +++ b/evaluation/utils/function_utils.py
-@@ -1,4 +1,7 @@
+@@ -1,4 +1,3 @@
 -from rouge_chinese import Rouge
-+try:
-+    from rouge_chinese import Rouge
-+except ImportError:
-+    from rouge import Rouge
  import jieba
  from nltk.translate.gleu_score import corpus_gleu
  
+@@ -30,6 +29,10 @@
+ 
+ 
+ def compute_rouge(hyps, refs):
++    try:
++        from rouge_chinese import Rouge
++    except ImportError as exc:
++        raise ImportError("LawBench ROUGE requires rouge_chinese; install lexverse[lawbench].") from exc
+     assert(len(hyps) == len(refs))
+     hyps = [' '.join(jieba.cut(h)) for h in hyps]
+     hyps = [h if h.strip() != "" else "无内容" for h in hyps]

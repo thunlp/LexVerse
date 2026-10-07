@@ -1,22 +1,33 @@
-schema_version: 1
+schema_version: 1.0
+
+source:
+  name: lawbench
+  repo_url: https://github.com/open-compass/LawBench
+  commit: e30981bb3ff54c41571f222e0b23e92d27375388
+
+dataset:
+  paths:
+    - data/zero_shot/*.json
+    - data/one_shot/*.json
+
 tasks:
-  "1-1": {metric: score, output_type: text}
-  "1-2": {metric: score, output_type: choice}
-  "2-1": {metric: score, output_type: text}
-  "2-2": {metric: score, output_type: text}
-  "2-3": {metric: score, output_type: text}
-  "2-4": {metric: score, output_type: text}
-  "2-5": {metric: score, output_type: text}
-  "2-6": {metric: score, output_type: text}
-  "2-7": {metric: score, output_type: text}
-  "2-8": {metric: score, output_type: text}
-  "2-9": {metric: score, output_type: text}
-  "2-10": {metric: score, output_type: text}
-  "3-1": {metric: score, output_type: text}
-  "3-2": {metric: score, output_type: text}
-  "3-3": {metric: score, output_type: text}
-  "3-4": {metric: score, output_type: text}
-  "3-5": {metric: score, output_type: text}
-  "3-6": {metric: score, output_type: choice}
-  "3-7": {metric: score, output_type: text}
-  "3-8": {metric: score, output_type: text}
+  "1-1": {output_type: text, metrics: [score, abstention_rate]}
+  "1-2": {output_type: choice, metrics: [score, abstention_rate]}
+  "2-1": {output_type: text, metrics: [score, abstention_rate]}
+  "2-2": {output_type: text, metrics: [score, abstention_rate]}
+  "2-3": {output_type: text, metrics: [score, abstention_rate]}
+  "2-4": {output_type: text, metrics: [score, abstention_rate]}
+  "2-5": {output_type: text, metrics: [score, abstention_rate]}
+  "2-6": {output_type: text, metrics: [score, abstention_rate]}
+  "2-7": {output_type: text, metrics: [score, abstention_rate]}
+  "2-8": {output_type: text, metrics: [score, abstention_rate]}
+  "2-9": {output_type: text, metrics: [score, abstention_rate]}
+  "2-10": {output_type: text, metrics: [score, abstention_rate]}
+  "3-1": {output_type: text, metrics: [score, abstention_rate]}
+  "3-2": {output_type: text, metrics: [score, abstention_rate]}
+  "3-3": {output_type: text, metrics: [score, abstention_rate]}
+  "3-4": {output_type: text, metrics: [score, abstention_rate]}
+  "3-5": {output_type: text, metrics: [score, abstention_rate]}
+  "3-6": {output_type: choice, metrics: [score, abstention_rate]}
+  "3-7": {output_type: text, metrics: [score, abstention_rate]}
+  "3-8": {output_type: text, metrics: [score, abstention_rate]}

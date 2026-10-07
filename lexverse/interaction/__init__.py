@@ -1,4 +1,4 @@
 from .engine import InteractionEngine
-from .result import EnvironmentResult, ParticipantAction
+from .schema import EnvironmentResult, ParticipantAction
 
 __all__ = ["EnvironmentResult", "InteractionEngine", "ParticipantAction"]

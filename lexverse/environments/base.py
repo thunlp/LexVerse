@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from lexverse.interaction.result import EnvironmentResult
+from lexverse.interaction.schema import EnvironmentResult
 from lexverse.tasks.schema import LexVerseTask
 
 

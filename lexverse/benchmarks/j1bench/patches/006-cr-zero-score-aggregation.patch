@@ -25,3 +25,31 @@
              
              if turn < 4:
                  rea = 0
+--- a/src/Eval/bench/DD/DD.py
++++ b/src/Eval/bench/DD/DD.py
+@@ -249,4 +249,5 @@
+     def evaluate(self, model, defendant_dh, defendant_type, ground_truth):
+         id = defendant_dh['case_id']
++        model_defence = ''
+         flag = False
+         for dialog in reversed(defendant_dh['dialog_history']):
+@@ -264,15 +265,15 @@
+             print(f'Case {id} unfinished task!')
+             evaluation_result = {
+                 'DOC': {
+-                    "RES": {'RES_score': 0, 'model_defence': 0, 'ground_truth': 0},
+-                    "DEF": {'DEF_score': 0, 'model_defence': 0, 'ground_truth': 0 },
+-                    "EVI": {'evi_score': 0, 'model_evidence': 0, 'ground_truth': 0},
++                    "RES": {'RES': 0, 'model_defence': 0, 'ground_truth': 0},
++                    "DEF": {'DEF': 0, 'model_defence': 0, 'ground_truth': 0 },
++                    "EVI": {'EVI': 0, 'model_evidence': 0, 'ground_truth': 0},
+                     "AVE": np.mean([0, 0, 0])
+                 },
+                 'FOR': {
+                     "label_score": 0,
+                     "sequential_score": 0,
+-                    "FOR": 0,
++                    "AVE": 0,
+                     'model_defence': model_defence
+                 },
+                 "AVE": np.mean([0, 0]),

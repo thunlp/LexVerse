@@ -54,7 +54,7 @@ class EvaluationSpec(_Model):
 
 
 class LexVerseTask(_Model):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 1.0] = 1.0
     id: str
     source: SourceRef
     input: TaskInput

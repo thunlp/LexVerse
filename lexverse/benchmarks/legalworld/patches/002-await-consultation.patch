@@ -1,0 +1,19 @@
+--- a/backend/src/pipeline/pipeline.py
++++ b/backend/src/pipeline/pipeline.py
+@@ -4,6 +4,7 @@
+ legal simulation processes from data loading to scenario execution.
+ """
+ 
++import asyncio
+ import json
+ import logging
+ import os
+@@ -609,7 +610,7 @@
+         # Collect agent prompts before execution
+         self._collect_agent_prompts("LC", client_agent, lawyer_agent)
+         
+-        result = scenario.execute()
++        result = asyncio.run(scenario.execute())
+         self._run_postprocess_tasks([
+             (
+                 "lc_client_summary",

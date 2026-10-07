@@ -1,0 +1,77 @@
+# Public release: 250 analysis + 18 consultation-mid + 6 plaintiff + 6 defendant.
+# Consultation follows upstream's first-50 mid rule; no hard coverage is claimed.
+# Credentials come only from the existing secrets profile; select your own profile if needed.
+
+schema_version: 1.0
+
+benchmark:
+  name: plawbench
+  # Set each task's sample limit; null selects all samples.
+  tasks:
+    - {id: "case_analysis", limit: 2}
+    - {id: "legal_consultation", limit: 2}
+    - {id: "document_generation", limit: 2}
+
+models:
+  default:
+    provider: openai_compatible
+    profile: openai
+    name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+      max_tokens: 8192
+  evaluators:
+    - provider: openai_compatible
+      profile: openai
+      name: gpt-4o-mini
+      generation_parameters:
+        temperature: 0
+        max_tokens: 8192
+
+generation:
+  concurrency: 10
+
+evaluation:
+  max_attempts: 3
+
+# Backend alternatives apply to every model definition in models.
+# Replace only models.default below; retain any roles, summary and evaluators.
+# Complete role model overrides do not merge fields with models.default.
+# API: openai_compatible uses profile for the URL/key in secrets.local.yaml.
+# Transformers/vLLM load weights directly and must omit profile.
+# Generation and evaluation each support one distinct local loading/input configuration.
+
+# Tiny-model examples use max_tokens: 256; choose a context that fits prompt + output for real runs.
+
+# Transformers: install local-transformers; use cpu/cuda/auto instead of mps on other hardware.
+#   default:
+#     provider: transformers
+#     name: Qwen/Qwen2.5-0.5B-Instruct
+#     load_parameters:
+#       cache_dir: ../../.lexverse/model-cache
+#       local_files_only: false
+#       trust_remote_code: false
+#       device_map: mps
+#       dtype: float32
+#     input: {format: chat}
+#     generation_parameters: {temperature: 0, max_tokens: 256}
+
+# Local weights: replace name with ../../.lexverse/models/YOUR_MODEL and set local_files_only: true.
+# Cache-only HF loading: keep the HF ID/cache_dir and set local_files_only: true.
+
+# vLLM: install local-vllm and run on supported server hardware.
+#   default:
+#     provider: vllm
+#     name: Qwen/Qwen2.5-0.5B-Instruct
+#     load_parameters:
+#       cache_dir: ../../.lexverse/model-cache
+#       local_files_only: false
+#       trust_remote_code: false
+#       dtype: auto
+#       tensor_parallel_size: 1
+#       gpu_memory_utilization: 0.9
+#       max_model_len: 4096
+#     input: {format: chat}
+#     generation_parameters: {temperature: 0, max_tokens: 256}
+
+# Existing vLLM API server: use openai_compatible, its profile and served model name.

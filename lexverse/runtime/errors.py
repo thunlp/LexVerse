@@ -23,10 +23,6 @@ class TrialProcessError(TrialError):
         self.stderr_tail = stderr_tail
 
 
-class TrialCancelledError(TrialError):
-    pass
-
-
 class ArtifactMissingError(TrialError):
     def __init__(self, expected: str) -> None:
         super().__init__(f"expected artifact not found: {expected}")

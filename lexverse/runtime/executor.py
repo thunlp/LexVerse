@@ -32,77 +32,6 @@ class ExecutionResult:
     artifacts: dict[str, Path] = field(default_factory=dict)
 
 
-async def run_subprocess(
-    command: list[str],
-    work_dir: Path,
-    timeout_sec: float,
-    env: dict[str, str] | None = None,
-    expected_artifacts: dict[str, str] | None = None,
-) -> ExecutionResult:
-    """Run a subprocess in an isolated work directory with a timeout.
-
-    Arguments:
-        command: argv list; not passed through a shell.
-        work_dir: created if missing; used as the subprocess cwd.
-        timeout_sec: wall-clock budget; SIGTERM then SIGKILL on breach.
-        env: full environment for the child (None -> inherit parent).
-        expected_artifacts: name -> path relative to work_dir; raises
-            ArtifactMissingError if the subprocess succeeds but a listed
-            path is missing.
-
-    Returns:
-        ExecutionResult with returncode, log paths, duration, timeout flag,
-        and resolved artifact paths.
-
-    Raises:
-        TrialTimeoutError: subprocess killed after grace period.
-        TrialProcessError: non-zero exit that is not a timeout.
-        ArtifactMissingError: exit 0 but a required output is absent.
-    """
-    work_dir.mkdir(parents=True, exist_ok=True)
-    stdout_path = work_dir / "stdout.log"
-    stderr_path = work_dir / "stderr.log"
-
-    start = time.monotonic()
-    with stdout_path.open("wb") as stdout_fp, stderr_path.open("wb") as stderr_fp:
-        proc = await asyncio.create_subprocess_exec(
-            *command,
-            cwd=str(work_dir),
-            env=env,
-            stdout=stdout_fp,
-            stderr=stderr_fp,
-            start_new_session=True,  # own process group for clean shutdown
-        )
-
-        timed_out = False
-        try:
-            returncode = await asyncio.wait_for(proc.wait(), timeout=timeout_sec)
-        except asyncio.TimeoutError:
-            timed_out = True
-            returncode = await _terminate(proc)
-
-    duration_sec = time.monotonic() - start
-
-    if timed_out:
-        raise TrialTimeoutError(
-            f"trial exceeded {timeout_sec}s (killed with returncode={returncode})"
-        )
-
-    if returncode != 0:
-        raise TrialProcessError(returncode, _tail(stderr_path, _STDERR_TAIL_BYTES))
-
-    resolved = _resolve_artifacts(work_dir, expected_artifacts or {})
-
-    return ExecutionResult(
-        returncode=returncode,
-        stdout_path=stdout_path,
-        stderr_path=stderr_path,
-        duration_sec=duration_sec,
-        timed_out=False,
-        artifacts=resolved,
-    )
-
-
 async def _terminate(proc: asyncio.subprocess.Process) -> int:
     """SIGTERM the process group, then SIGKILL after a grace period."""
     try:
@@ -141,3 +70,77 @@ def _resolve_artifacts(work_dir: Path, expected: dict[str, str]) -> dict[str, Pa
             raise ArtifactMissingError(f"{name} -> {rel}")
         resolved[name] = candidate
     return resolved
+
+
+async def run_subprocess(
+    command: list[str],
+    work_dir: Path,
+    timeout_sec: float | None,
+    env: dict[str, str] | None = None,
+    expected_artifacts: dict[str, str] | None = None,
+) -> ExecutionResult:
+    """Run a subprocess in an isolated work directory with a timeout.
+
+    Arguments:
+        command: argv list; not passed through a shell.
+        work_dir: created if missing; used as the subprocess cwd.
+        timeout_sec: wall-clock budget (None adds no deadline); SIGTERM then SIGKILL on breach.
+        env: full environment for the child (None -> inherit parent).
+        expected_artifacts: name -> path relative to work_dir; raises
+            ArtifactMissingError if the subprocess succeeds but a listed
+            path is missing.
+
+    Returns:
+        ExecutionResult with returncode, log paths, duration, timeout flag,
+        and resolved artifact paths.
+
+    Raises:
+        TrialTimeoutError: subprocess killed after grace period.
+        TrialProcessError: non-zero exit that is not a timeout.
+        ArtifactMissingError: exit 0 but a required output is absent.
+    """
+    work_dir.mkdir(parents=True, exist_ok=True)
+    stdout_path = work_dir / "stdout.log"
+    stderr_path = work_dir / "stderr.log"
+
+    start = time.monotonic()
+    with stdout_path.open("wb") as stdout_fp, stderr_path.open("wb") as stderr_fp:
+        proc = await asyncio.create_subprocess_exec(
+            *command,
+            cwd=str(work_dir),
+            env=env,
+            stdout=stdout_fp,
+            stderr=stderr_fp,
+            start_new_session=True,  # own process group for clean shutdown
+        )
+
+        timed_out = False
+        try:
+            returncode = await asyncio.wait_for(proc.wait(), timeout=timeout_sec)
+        except asyncio.TimeoutError:
+            timed_out = True
+            returncode = await _terminate(proc)
+        except BaseException:
+            await asyncio.shield(_terminate(proc))
+            raise
+
+    duration_sec = time.monotonic() - start
+
+    if timed_out:
+        raise TrialTimeoutError(
+            f"trial exceeded {timeout_sec}s (killed with returncode={returncode})"
+        )
+
+    if returncode != 0:
+        raise TrialProcessError(returncode, _tail(stderr_path, _STDERR_TAIL_BYTES))
+
+    resolved = _resolve_artifacts(work_dir, expected_artifacts or {})
+
+    return ExecutionResult(
+        returncode=returncode,
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+        duration_sec=duration_sec,
+        timed_out=False,
+        artifacts=resolved,
+    )

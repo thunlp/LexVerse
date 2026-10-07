@@ -16,6 +16,25 @@ def register_plugin(plugin: "BenchmarkPlugin") -> None:
     _PLUGINS[plugin.name] = plugin
 
 
+def ensure_builtin_plugins() -> None:
+    global _BUILTINS_LOADED
+    if _BUILTINS_LOADED:
+        return
+    from .j1bench.plugin import PLUGIN as j1bench
+    from .lawbench.plugin import PLUGIN as lawbench
+    from .lexeval.plugin import PLUGIN as lexeval
+    from .plawbench.plugin import PLUGIN as plawbench
+
+    from .dlawbench.plugin import PLUGIN as dlawbench
+
+    from .legalworld.plugin import PLUGIN as legalworld
+
+    for plugin in (lexeval, lawbench, j1bench, plawbench, dlawbench, legalworld):
+        if plugin.name not in _PLUGINS:
+            register_plugin(plugin)
+    _BUILTINS_LOADED = True
+
+
 def get_plugin(name: str) -> "BenchmarkPlugin":
     ensure_builtin_plugins()
     try:
@@ -28,17 +47,3 @@ def get_plugin(name: str) -> "BenchmarkPlugin":
 def available_plugins() -> list[str]:
     ensure_builtin_plugins()
     return sorted(_PLUGINS)
-
-
-def ensure_builtin_plugins() -> None:
-    global _BUILTINS_LOADED
-    if _BUILTINS_LOADED:
-        return
-    from .j1bench.plugin import PLUGIN as j1bench
-    from .lawbench.plugin import PLUGIN as lawbench
-    from .lexeval.plugin import PLUGIN as lexeval
-
-    for plugin in (lexeval, lawbench, j1bench):
-        if plugin.name not in _PLUGINS:
-            register_plugin(plugin)
-    _BUILTINS_LOADED = True
