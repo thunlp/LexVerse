@@ -285,7 +285,7 @@ async def _evaluate_run(config, plugin, bundle, manifest, run_root, runtime, ver
     return task_metrics
 
 
-def cmd_run(args: argparse.Namespace) -> int:
+def _prepare_and_execute(args: argparse.Namespace, execute) -> int:
     resume_dir = getattr(args, "resume", None)
     benchmark = getattr(args, "benchmark", None)
     config_path = getattr(args, "config", None)
@@ -315,7 +315,6 @@ def cmd_run(args: argparse.Namespace) -> int:
             raise ConfigError("run directory is not empty; use --resume RUN_DIR or a new directory")
     dry_run = bool(getattr(args, "dry_run", False))
     with _run_logging(None if dry_run else run_root):
-        run_started = time.monotonic()
         logger.info("[run] config=%s", config.source_path)
         logger.info("[run] preparing benchmark=%s resume=%s", config.benchmark["name"], bool(resume_dir))
         if not resume_dir:
@@ -332,132 +331,157 @@ def cmd_run(args: argparse.Namespace) -> int:
         manifest["run_hash"] = run_hash
         atomic_write_json(run_root / "manifest.json", {key: value for key, value in manifest.items() if key != "bundle"})
         logger.info("[run] directory=%s", run_root)
-        task_runner = TaskRunner()
-        tasks = {task.id: task for task in bundle.tasks}
         runtime = ModelRuntime(
             run_root, startup_timeout=config.generation.get("model_startup_timeout_sec", 1800),
             request_timeout=config.generation.get("model_request_timeout_sec"),
         )
         runtime.bind_manifest(manifest)
 
-        async def execute() -> int:
-            if plugin.name == "plawbench":
-                if not config.models.evaluators:
-                    raise ConfigError("PLawBench requires one model in models.evaluators")
-                plugin.evaluation_context(config)
-            if plugin.name == "j1bench":
-                if not config.models.evaluators:
-                    raise ConfigError("J1Bench requires one model in models.evaluators")
-                from lexverse.benchmarks.j1bench.scenarios import require_supported
-                role_names = dict.fromkeys(role for task in bundle.tasks for role in require_supported(task.source.task_type).roles)
-                models = {role: config.models.roles.get(role, config.models.default) for role in role_names}
-                uses_summary = any(task.source.task_type in {"KQ", "LC"} for task in bundle.tasks)
-                if uses_summary:
-                    models["summary"] = config.models.summary
-                runtime.validate_phase(list(models.values()))
-                connections = {role: runtime.provider(model, label=_model_label(config,
-                    "models.summary" if role == "summary" else f"models.roles.{role}"
-                )) for role, model in models.items()}
-                environment = plugin.create_environment(config, None)
-                environment.connections = connections
-            elif plugin.name in {"dlawbench", "legalworld"}:
-                models = {role: config.models.roles.get(role, config.models.default) for role in (("lawyer", "client") if plugin.name == "dlawbench" else ("lawyer", "simulation"))}
-                runtime.validate_phase(list(models.values()))
-                environment = plugin.create_environment(config, None)
-                environment.connections = {role: runtime.provider(model, label=_model_label(config, f"models.roles.{role}"))
-                                           for role, model in models.items()}
-            else:
-                runtime.validate_phase([config.models.default])
-                environment = plugin.create_environment(config, runtime.provider(config.models.default, label=_model_label(config, "models.default")))
-            verifier = plugin.create_verifier({**config.benchmark, "offline": bool(config.generation.get("offline", False))})
-            await environment.prepare({"run_root": str(run_root)})
-            logger.info("[run] executing total=%s concurrency=%s",
-                        len(tasks), config.generation.get("concurrency", 1))
-
-            async def factory(task_id: str, work_dir: Path) -> dict:
-                task = tasks[task_id]
-                try:
-                    environment_result = await asyncio.wait_for(task_runner.run_environment(
-                        task=task, policy=None, participants=None,
-                        work_dir=work_dir, environment=environment,
-                    ), timeout=config.generation.get("timeout_sec"))
-                except TrialTimeoutError:
-                    raise
-                except asyncio.TimeoutError as exc:
-                    if config.generation.get("timeout_sec") is None:
-                        raise
-                    raise TrialTimeoutError(f"task execution exceeded {config.generation.get('timeout_sec')}s") from exc
-                environment_data = environment_result.model_dump(mode="json")
-                environment_data["artifacts"] = {
-                    name: os.path.relpath(path, run_root) if Path(path).is_absolute() else path
-                    for name, path in environment_data["artifacts"].items()
-                }
-                return {"trial_result": {
-                    "id": task.id,
-                    "benchmark": bundle.benchmark,
-                    "source": task.source.model_dump(mode="json"),
-                    "run_hash": run_hash,
-                    "task": task.source.task_type or bundle.benchmark,
-                    "sample_id": task.source.sample_id,
-                    "input": task.input.model_dump(mode="json"),
-                    "reference": task.evaluation.reference,
-                    "response": environment_result.answer,
-                    "interaction": {
-                        "messages": environment_data["messages"],
-                        "dialog_history": environment_data["dialog_history"],
-                        "final_state": environment_data["final_state"],
-                        "trace": environment_data["trace"],
-                    },
-                    "model": {"name": _tested_model(config).name},
-                    "artifacts": environment_data["artifacts"],
-                    "execution_artifacts": dict(environment_data["artifacts"]),
-                }}
-
-            job = JobSpec(
-                benchmark=bundle.benchmark,
-                sample_ids=list(tasks),
-                run_dir=run_root,
-                resolved_config={
-                    "model": _tested_model(config).name,
-                    "provider": _tested_model(config).provider,
-                    "generation_parameters": _tested_model(config).generation_parameters,
-                    "bundle_hash": bundle.content_hash(),
-                },
-                max_attempts=int(config.generation.get("max_attempts", 1)),
-                config_hash=manifest["config_hash"],
-                run_hash=run_hash,
-                trial_paths={
-                    task.id: str(trial_relative_path(
-                        task.source.task_type or bundle.benchmark,
-                        task.source.sample_id,
-                    ))
-                    for task in bundle.tasks
-                },
-            )
-            try:
-                await Orchestrator(
-                    n_concurrent=int(config.generation.get("concurrency", 1))
-                ).run(job, factory, resume=bool(resume_dir))
-                task_metrics = await _evaluate_run(config, plugin, bundle, manifest, run_root, runtime, verifier)
-            finally:
-                await environment.close()
-            job_result = finalize_run(
-                run_root, manifest, plugin, model_name=_tested_model(config).name,
-                task_metrics=task_metrics,
-                write_evaluation_csv=not (run_root / "evaluation_result.csv").exists(),
-            )
-            logger.info("[run] %s success=%s failed=%s elapsed=%.1fs directory=%s",
-                        job_result["status"], job_result["samples"]["completed"],
-                        job_result["samples"]["failed"], time.monotonic() - run_started, run_root)
-            return 0 if job_result["status"] == "completed" else 4
-
-        import asyncio
         async def managed_execute():
             try:
-                return await execute()
+                return await execute(config, plugin, bundle, manifest, run_root, runtime, bool(resume_dir))
             finally:
                 await runtime.close()
         return asyncio.run(managed_execute())
+
+
+async def _generate_run(config, plugin, bundle, manifest, run_root, runtime, *, resume):
+    task_runner = TaskRunner()
+    tasks = {task.id: task for task in bundle.tasks}
+    run_hash = manifest["run_hash"]
+    if plugin.name == "j1bench":
+        from lexverse.benchmarks.j1bench.scenarios import require_supported
+        role_names = dict.fromkeys(role for task in bundle.tasks for role in require_supported(task.source.task_type).roles)
+        models = {role: config.models.roles.get(role, config.models.default) for role in role_names}
+        uses_summary = any(task.source.task_type in {"KQ", "LC"} for task in bundle.tasks)
+        if uses_summary:
+            models["summary"] = config.models.summary
+        runtime.validate_phase(list(models.values()))
+        connections = {role: runtime.provider(model, label=_model_label(config,
+            "models.summary" if role == "summary" else f"models.roles.{role}"
+        )) for role, model in models.items()}
+        environment = plugin.create_environment(config, None)
+        environment.connections = connections
+    elif plugin.name in {"dlawbench", "legalworld"}:
+        models = {role: config.models.roles.get(role, config.models.default) for role in (("lawyer", "client") if plugin.name == "dlawbench" else ("lawyer", "simulation"))}
+        runtime.validate_phase(list(models.values()))
+        environment = plugin.create_environment(config, None)
+        environment.connections = {role: runtime.provider(model, label=_model_label(config, f"models.roles.{role}"))
+                                   for role, model in models.items()}
+    else:
+        runtime.validate_phase([config.models.default])
+        environment = plugin.create_environment(config, runtime.provider(config.models.default, label=_model_label(config, "models.default")))
+    try:
+        await environment.prepare({"run_root": str(run_root)})
+        logger.info("[run] executing total=%s concurrency=%s",
+                    len(tasks), config.generation.get("concurrency", 1))
+
+        async def factory(task_id: str, work_dir: Path) -> dict:
+            task = tasks[task_id]
+            try:
+                environment_result = await asyncio.wait_for(task_runner.run_environment(
+                    task=task, policy=None, participants=None,
+                    work_dir=work_dir, environment=environment,
+                ), timeout=config.generation.get("timeout_sec"))
+            except TrialTimeoutError:
+                raise
+            except asyncio.TimeoutError as exc:
+                if config.generation.get("timeout_sec") is None:
+                    raise
+                raise TrialTimeoutError(f"task execution exceeded {config.generation.get('timeout_sec')}s") from exc
+            environment_data = environment_result.model_dump(mode="json")
+            environment_data["artifacts"] = {
+                name: os.path.relpath(path, run_root) if Path(path).is_absolute() else path
+                for name, path in environment_data["artifacts"].items()
+            }
+            return {"trial_result": {
+                "id": task.id,
+                "benchmark": bundle.benchmark,
+                "source": task.source.model_dump(mode="json"),
+                "run_hash": run_hash,
+                "task": task.source.task_type or bundle.benchmark,
+                "sample_id": task.source.sample_id,
+                "input": task.input.model_dump(mode="json"),
+                "reference": task.evaluation.reference,
+                "response": environment_result.answer,
+                "interaction": {
+                    "messages": environment_data["messages"],
+                    "dialog_history": environment_data["dialog_history"],
+                    "final_state": environment_data["final_state"],
+                    "trace": environment_data["trace"],
+                },
+                "model": {"name": _tested_model(config).name},
+                "artifacts": environment_data["artifacts"],
+                "execution_artifacts": dict(environment_data["artifacts"]),
+            }}
+
+        job = JobSpec(
+            benchmark=bundle.benchmark,
+            sample_ids=list(tasks),
+            run_dir=run_root,
+            resolved_config={
+                "model": _tested_model(config).name,
+                "provider": _tested_model(config).provider,
+                "generation_parameters": _tested_model(config).generation_parameters,
+                "bundle_hash": bundle.content_hash(),
+            },
+            max_attempts=int(config.generation.get("max_attempts", 1)),
+            config_hash=manifest["config_hash"],
+            run_hash=run_hash,
+            trial_paths={
+                task.id: str(trial_relative_path(
+                    task.source.task_type or bundle.benchmark,
+                    task.source.sample_id,
+                ))
+                for task in bundle.tasks
+            },
+        )
+        await Orchestrator(
+            n_concurrent=int(config.generation.get("concurrency", 1))
+        ).run(job, factory, resume=resume)
+    finally:
+        await environment.close()
+
+
+def cmd_generate(args: argparse.Namespace) -> int:
+    run_started = time.monotonic()
+
+    async def execute(config, plugin, bundle, manifest, run_root, runtime, resume):
+        await _generate_run(config, plugin, bundle, manifest, run_root, runtime, resume=resume)
+        result = finalize_run(run_root, manifest, plugin, model_name=_tested_model(config).name,
+                              write_evaluation_csv=False)
+        samples = result["samples"]
+        complete = samples["completed"] == samples["expected"] and not samples["failed"] and not samples["missing"]
+        logger.info("[run] generation %s success=%s failed=%s elapsed=%.1fs directory=%s; evaluation skipped",
+                    "completed" if complete else "incomplete", samples["completed"], samples["failed"],
+                    time.monotonic() - run_started, run_root)
+        return 0 if complete else 4
+
+    return _prepare_and_execute(args, execute)
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    run_started = time.monotonic()
+
+    async def execute(config, plugin, bundle, manifest, run_root, runtime, resume):
+        if plugin.name in {"plawbench", "j1bench"} and not config.models.evaluators:
+            name = "PLawBench" if plugin.name == "plawbench" else "J1Bench"
+            raise ConfigError(f"{name} requires one model in models.evaluators")
+        if plugin.name == "plawbench":
+            plugin.evaluation_context(config)
+        verifier = plugin.create_verifier({**config.benchmark, "offline": bool(config.generation.get("offline", False))})
+        await _generate_run(config, plugin, bundle, manifest, run_root, runtime, resume=resume)
+        metrics = await _evaluate_run(config, plugin, bundle, manifest, run_root, runtime, verifier)
+        result = finalize_run(
+            run_root, manifest, plugin, model_name=_tested_model(config).name, task_metrics=metrics,
+            write_evaluation_csv=not (run_root / "evaluation_result.csv").exists(),
+        )
+        logger.info("[run] %s success=%s failed=%s elapsed=%.1fs directory=%s",
+                    result["status"], result["samples"]["completed"], result["samples"]["failed"],
+                    time.monotonic() - run_started, run_root)
+        return 0 if result["status"] == "completed" else 4
+
+    return _prepare_and_execute(args, execute)
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
@@ -534,14 +558,18 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     benchmark_names = available_plugins()
 
-    run = commands.add_parser("run", help="prepare and run a benchmark, or resume its frozen tasks")
-    run.add_argument("benchmark", nargs="?", type=str.lower, choices=benchmark_names)
-    inputs = run.add_mutually_exclusive_group()
-    inputs.add_argument("--config")
-    inputs.add_argument("--resume", metavar="RUN_DIR")
-    run.add_argument("--dry-run", action="store_true")
-    run.add_argument("--output-root")
-    run.set_defaults(func=cmd_run)
+    for name, help_text in (
+        ("run", "generate and evaluate a benchmark, or resume its frozen tasks"),
+        ("generate", "generate without scoring, or resume generation of frozen tasks"),
+    ):
+        execution = commands.add_parser(name, help=help_text)
+        execution.add_argument("benchmark", nargs="?", type=str.lower, choices=benchmark_names)
+        inputs = execution.add_mutually_exclusive_group()
+        inputs.add_argument("--config")
+        inputs.add_argument("--resume", metavar="RUN_DIR")
+        execution.add_argument("--dry-run", action="store_true")
+        execution.add_argument("--output-root")
+        execution.set_defaults(func=cmd_run if name == "run" else cmd_generate)
 
     evaluate = commands.add_parser("evaluate", help="rerun native scoring using the frozen run configuration")
     evaluate.add_argument("--run-dir", required=True)
