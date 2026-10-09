@@ -1,0 +1,16 @@
+# Purpose: Override built-in capability settings; paths are relative to this file.
+# Usage: lexverse task run <task.yaml> --registry configs/capabilities/registry.local.yaml
+# Local configuration: Copy to registry.local.yaml and keep only the overrides you need.
+
+schema_version: 1
+mcp:
+  pkulaw_law_search:
+    timeout_sec: 90
+# Optional local skill source:
+# skill_sources:
+#   custom:
+#     local_path: ../../user_workspace/skills
+# skills:
+#   custom-review:
+#     source: custom
+#     path: contract-review

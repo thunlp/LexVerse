@@ -1,4 +1,8 @@
 .lexverse/
+.venv/
+knowledge/*
+!knowledge/.gitkeep
+user_workspace/
 data/*
 user_data/
 __pycache__/
@@ -27,6 +31,7 @@ data/*
 .env.local
 configs/secrets.local.yaml
 configs/benchmarks/*.local.yaml
+configs/capabilities/*.local.yaml
 
 # Editable architecture sources stay local
 docs/*.drawio
@@ -34,3 +39,10 @@ docs/*.drawio
 # Local release notes and source-distribution rules
 /NOTICE
 /MANIFEST.in
+
+/docs/
+/api_tests/
+/local_tests/
+/docs/
+/knowledge/
+/.vscode/

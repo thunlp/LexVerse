@@ -1,7 +1,7 @@
-"""Participant interface and model-backed participant."""
 from __future__ import annotations
 
 from typing import Protocol
+from pathlib import Path
 from lexverse.interaction.schema import ParticipantAction
 from dataclasses import dataclass, field
 from lexverse.providers.base import Provider
@@ -28,4 +28,18 @@ class ModelParticipant:
         )
 
 
-__all__ = ["ModelParticipant", "Participant"]
+@dataclass
+class AgentParticipant:
+    id: str
+    config: object
+
+    async def act(self, observation: list[dict], *, context: dict) -> ParticipantAction:
+        from lexverse.runtime.enhancement import act
+        result = await act(self.config, observation, context)
+        return ParticipantAction(actor_id=self.id, content=result["answer"], metadata={
+            "capabilities": True, "trace_ref": result["trace_ref"], "usage": result["usage"],
+            "result_ref": str(Path(result["run_dir"]) / "result.json"), "resource_hash": result["resource_hash"],
+        })
+
+
+__all__ = ["ModelParticipant", "AgentParticipant", "Participant"]

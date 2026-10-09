@@ -1,5 +1,6 @@
-# Pinned public release: 60 cases (30 CN + 30 US) x 4 personas = 240 tasks.
-# Set connection URLs and keys only in secrets profiles.
+# Purpose: Configure DLawBench evaluation with 2 samples per task.
+# Usage: lexverse benchmark run dlawbench
+# Local configuration: Copy to dlawbench.local.yaml and adjust model and execution settings.
 
 schema_version: 1.0
 

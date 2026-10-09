@@ -1,0 +1,18 @@
+# Purpose: Configure knowledge retrieval and index construction.
+# Usage: lexverse environment build --knowledge <path> --retrieval-config configs/knowledge/retrieval.local.yaml
+# Local configuration: Copy to retrieval.local.yaml and adjust retrieval and embedding settings.
+
+mode: hybrid
+chunk_tokens: 400
+overlap_tokens: 60
+embedding:
+  model: BAAI/bge-small-zh-v1.5
+  revision: 7999e1d3359715c523056ef9478215996d62a620
+  device: cpu
+  batch_size: 32
+  query_prefix: "为这个句子生成表示以用于检索相关文章："
+  document_prefix: ""
+  # Custom model: replace model with a HF repository ID or ./local-model.
+  # For another model, set revision to its version (or null) and set the
+  # prefixes required by that model. Relative paths resolve beside this YAML.
+  # max_tokens: 512  # Optional limit; cannot exceed the model's capacity.

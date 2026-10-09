@@ -1,4 +1,3 @@
-"""Resolve API connections and manage one local inference process per phase."""
 from __future__ import annotations
 
 import hashlib
@@ -31,8 +30,10 @@ class LocalProvider(OpenAICompatibleProvider):
     async def generate(self, messages, *, config=None):
         try:
             return await super().generate(messages, config=config)
-        except BaseException:
-            self.runtime.stop_worker()
+        except BaseException as exc:
+            # A rejected request does not invalidate the loaded model or connection.
+            if getattr(exc.__cause__, "status_code", None) != 400:
+                self.runtime.stop_worker()
             raise
 
 

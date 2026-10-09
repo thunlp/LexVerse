@@ -4,8 +4,9 @@ from pathlib import Path
 
 from lexverse.benchmarks.plugin import BenchmarkPlugin
 from lexverse.environments import DirectResponseEnvironment
-from lexverse.interaction.participants import ModelParticipant
+from lexverse.interaction.participants import ModelParticipant, AgentParticipant
 from lexverse.interaction.policies import DirectResponsePolicy
+from lexverse.providers.runtime import LocalProvider
 from lexverse.benchmarks.lexeval import UPSTREAM as LEXEVAL
 
 from .evaluation import LexEvalAggregator, LexEvalTaskVerifier
@@ -35,9 +36,16 @@ class LexEvalPlugin(BenchmarkPlugin):
         return paths
 
     def create_environment(self, config, provider):
+        from lexverse.runtime.enhancement import enabled
+        if enabled(config):
+            return DirectResponseEnvironment(
+                policy=DirectResponsePolicy(),
+                participants={"assistant": AgentParticipant("assistant", config)},
+            )
+        generation_config = {"extra_body": {"lexeval_truncate": True}} if isinstance(provider, LocalProvider) else {}
         return DirectResponseEnvironment(
             policy=DirectResponsePolicy(),
-            participants={"assistant": ModelParticipant("assistant", provider)},
+            participants={"assistant": ModelParticipant("assistant", provider, generation_config)},
         )
 
     def create_verifier(self, config=None):

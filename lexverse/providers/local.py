@@ -1,4 +1,3 @@
-"""Resolve local/HF weights and serve Transformers/vLLM inference in one worker."""
 from __future__ import annotations
 
 import hashlib
@@ -105,10 +104,15 @@ class LocalBackend:
             self.device = "vllm"
             self.dtype = str(self.model.llm_engine.model_config.dtype)
 
-    def generate(self, messages: list[dict], options: dict) -> dict:
+    def generate(self, messages: list[dict], options: dict, *, lexeval_truncate: bool = False) -> dict:
         validate_local_generation(options)
         ids = self.encode(messages)
         max_tokens = options.get("max_tokens", 512)
+        if lexeval_truncate and len(ids) + max_tokens > self.context_limit:
+            original_length = len(ids)
+            ids = self.truncate_lexeval(messages, max_tokens)
+            print(f"lexeval head-tail truncation: prompt_tokens={original_length}->{len(ids)} "
+                  f"max_tokens={max_tokens} context_limit={self.context_limit}", flush=True)
         if not ids or len(ids) + max_tokens > self.context_limit:
             raise ConfigError(f"input plus requested output exceeds model context ({self.context_limit} tokens)")
         temperature = options.get("temperature", 0)
@@ -136,6 +140,25 @@ class LocalBackend:
             tokens, text, finish = result.token_ids, result.text, result.finish_reason
         return {"content": text, "finish_reason": finish,
                 "usage": {"prompt_tokens": len(ids), "completion_tokens": len(tokens), "total_tokens": len(ids) + len(tokens)}}
+
+    def truncate_lexeval(self, messages: list[dict], max_tokens: int) -> list[int]:
+        if len(messages) != 1 or messages[0]["role"] != "user":
+            raise ConfigError("LexEval head-tail truncation requires exactly one user message")
+        # LexEval model_gen.truncate_long decodes each end separately, then joins them.
+        # Reserve the configured output budget and the actual chat-template overhead.
+        tokens = self.tokenizer.encode(messages[0]["content"])
+        overhead = len(self.encode([{"role": "user", "content": ""}]))
+        half = (self.context_limit - max_tokens - overhead) // 2
+        while half > 0:
+            prompt = (self.tokenizer.decode(tokens[:half], skip_special_tokens=True)
+                      + self.tokenizer.decode(tokens[-half:], skip_special_tokens=True))
+            ids = self.encode([{"role": "user", "content": prompt}])
+            excess = len(ids) + max_tokens - self.context_limit
+            if excess <= 0:
+                return ids
+            # Decoding/concatenation can change token boundaries; verify the rendered result.
+            half -= max(1, (excess + 1) // 2)
+        raise ConfigError(f"LexEval prompt cannot fit requested output in model context ({self.context_limit} tokens)")
 
     def encode(self, messages: list[dict]) -> list[int]:
         if not messages or any(not isinstance(m, dict) or not isinstance(m.get("content"), str)
@@ -194,6 +217,9 @@ def main() -> None:
                 payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
                 if payload.get("model") != settings["alias"] or payload.get("stream"):
                     raise ConfigError("unknown model or streaming requested")
+                lexeval_truncate = payload.pop("lexeval_truncate", False)
+                if not isinstance(lexeval_truncate, bool):
+                    raise ConfigError("lexeval_truncate must be a boolean")
                 options = {k: v for k, v in payload.items() if k not in {"model", "messages", "stream", "response_format"}}
                 response_format = payload.get("response_format")
                 if response_format and response_format != {"type": "json_object"}:
@@ -210,7 +236,7 @@ def main() -> None:
                             os._exit(125)  # Abandoned generation cannot contaminate the next request.
                 threading.Thread(target=watch_request, daemon=True).start()
                 with lock:
-                    output = backend.generate(payload["messages"], options)
+                    output = backend.generate(payload["messages"], options, lexeval_truncate=lexeval_truncate)
                 if deadline is not None and time.monotonic() >= deadline:
                     os._exit(124)
                 self.respond(200, {

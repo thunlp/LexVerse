@@ -1,4 +1,3 @@
-"""Read native pipeline artifacts; require coverage beyond a non-null overall."""
 from __future__ import annotations
 
 import csv

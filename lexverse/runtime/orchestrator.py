@@ -1,4 +1,3 @@
-"""Runtime records, bounded scheduling and checkpointed Trial execution."""
 from __future__ import annotations
 
 import time

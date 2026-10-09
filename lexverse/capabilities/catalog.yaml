@@ -1,0 +1,29 @@
+schema_version: 1
+skill_sources:
+  legal_skills_chinese:
+    repository: https://github.com/THUYRan/Legal-Skills-Chinese
+    commit: c31ef1f022be6bcb3e31c1a2374d1d8240ffa61f
+skills:
+  legal-element-extraction: {source: legal_skills_chinese, path: skills/legal-element-extraction}
+  dispute-issue-identification: {source: legal_skills_chinese, path: skills/dispute-issue-identification}
+  legal-document-summarization: {source: legal_skills_chinese, path: skills/legal-document-summarization}
+  multi-document-summarization: {source: legal_skills_chinese, path: skills/multi-document-summarization}
+  legal-article-retrieval: {source: legal_skills_chinese, path: skills/legal-article-retrieval, requires_confirmation: true}
+  case-retrieval: {source: legal_skills_chinese, path: skills/case-retrieval}
+  legal-norm-validity-check: {source: legal_skills_chinese, path: skills/legal-norm-validity-check}
+  dispute-and-performance-risk: {source: legal_skills_chinese, path: skills/dispute-and-performance-risk}
+mcp:
+  pkulaw_account: {url: 'https://apim-gateway.pkulaw.com/pkulaw-account/mcp', credential_ref: pkulaw}
+  pkulaw_enforcement_doc: {url: 'https://apim-gateway.pkulaw.com/pkulaw-enforcement-doc/mcp', credential_ref: pkulaw}
+  pkulaw_procuratorate_doc: {url: 'https://apim-gateway.pkulaw.com/pkulaw-procuratorate-doc/mcp', credential_ref: pkulaw}
+  pkulaw_statute_history: {url: 'https://apim-gateway.pkulaw.com/pkulaw-statute-history/mcp', credential_ref: pkulaw}
+  pkulaw_law_recognition: {url: 'https://apim-gateway.pkulaw.com/law_recognition', credential_ref: pkulaw}
+  pkulaw_law_item_keyword: {url: 'https://apim-gateway.pkulaw.com/mcp-fatiao', credential_ref: pkulaw}
+  pkulaw_law_keyword: {url: 'https://apim-gateway.pkulaw.com/mcp-law', credential_ref: pkulaw}
+  pkulaw_law_search: {url: 'https://apim-gateway.pkulaw.com/mcp-law-search-service', credential_ref: pkulaw}
+  pkulaw_doc_link: {url: 'https://apim-gateway.pkulaw.com/add-doc-link', credential_ref: pkulaw}
+  pkulaw_citation_validator: {url: 'https://apim-gateway.pkulaw.com/pku_citation_validator', credential_ref: pkulaw}
+  pkulaw_case_number_recognition: {url: 'https://apim-gateway.pkulaw.com/case_number_recognition', credential_ref: pkulaw}
+  pkulaw_case_keyword: {url: 'https://apim-gateway.pkulaw.com/mcp-case', credential_ref: pkulaw}
+  pkulaw_law_agg: {url: 'https://apim-gateway.pkulaw.com/mcp-law-agg/mcp', credential_ref: pkulaw}
+  pkulaw_case_search: {url: 'https://apim-gateway.pkulaw.com/mcp-case-search-service', credential_ref: pkulaw}

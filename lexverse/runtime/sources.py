@@ -1,4 +1,3 @@
-"""Prepare shared upstream sources and verify run source identity."""
 from __future__ import annotations
 
 import hashlib
@@ -48,6 +47,8 @@ def run_identity(manifest: dict) -> dict:
     if manifest.get("snapshot_version") in (1.0, 2) and "snapshot_hashes" not in manifest:
         identity.update(config=manifest.get("config"), selected_tasks=manifest.get("selected_tasks"),
                         data_sources=manifest.get("data_sources"))
+    if "capability_identity" in manifest:
+        identity["capability_identity"] = manifest["capability_identity"]
     return identity
 
 
@@ -302,13 +303,13 @@ def prepare_run_sources(run_dir: Path, manifest: dict, plugin, *, resume: bool,
                         offline: bool = True, config=None) -> str:
     prepared_source = manifest.get("provenance") or {}
     if prepared_source.get("upstream", {}).get("commit") != plugin.upstream.commit:
-        raise ConfigError("source drift or missing provenance; start a new `run --config CONFIG`")
+        raise ConfigError("source drift or missing provenance; start a new `lexverse benchmark run --config CONFIG`")
     current = source_provenance(plugin, offline=offline, config=config)
     code_fields = {"files", "source_hash"}
     recorded_conditions = {k: v for k, v in prepared_source.items() if k not in code_fields}
     current_conditions = {k: v for k, v in current.items() if k not in code_fields}
     if recorded_conditions != current_conditions or (not resume and prepared_source != current):
-        raise ConfigError("source drift or missing provenance; start a new `run --config CONFIG`")
+        raise ConfigError("source drift or missing provenance; start a new `lexverse benchmark run --config CONFIG`")
     identity = run_identity(manifest)
     old_path = run_dir / "manifest.json"
     if old_path.exists():

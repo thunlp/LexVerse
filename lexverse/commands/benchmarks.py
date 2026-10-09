@@ -14,7 +14,7 @@ from pathlib import Path
 from contextlib import contextmanager
 
 from lexverse.benchmarks.registry import available_plugins, get_plugin
-from lexverse.config import ConfigError, load_config, parse_config
+from lexverse.config import ConfigError, SecretsMissing, load_config, parse_config
 from lexverse.providers.runtime import ModelRuntime, scoring_identity
 from lexverse.runtime.results import atomic_write_json
 from lexverse.runtime.orchestrator import JobSpec, Orchestrator
@@ -194,7 +194,7 @@ def load_run_snapshot(run_root):
         except (ValueError, KeyError) as exc:
             raise ConfigError(f"cannot reconstruct selected tasks: {exc}") from exc
     else:
-        raise ConfigError("old run has no task selection; start a new run --config CONFIG")
+        raise ConfigError("old run has no task selection; start a new lexverse benchmark run --config CONFIG")
     if (config.hash() != manifest["config_hash"] or bundle.content_hash() != manifest["bundle_hash"]
             or bundle.benchmark != manifest["benchmark"] or len(bundle.tasks) != manifest["sample_count"]):
         raise ConfigError("run config/task snapshot mismatch")
@@ -309,7 +309,7 @@ def _prepare_and_execute(args: argparse.Namespace, execute) -> int:
         if benchmark and config.benchmark["name"] != benchmark:
             raise ConfigError(f"benchmark name {benchmark} does not match configuration {config.benchmark['name']}")
         run_root = Path(args.output_root).resolve() if getattr(args, "output_root", None) else (
-            Path("runs") / f"{config.benchmark['name']}-{config.hash()}-{time.time_ns()}"
+            Path("runs/benchmarks") / config.benchmark["name"] / f"{config.hash()}-{time.time_ns()}"
         ).resolve()
         if not getattr(args, "dry_run", False) and run_root.exists() and any(run_root.iterdir()):
             raise ConfigError("run directory is not empty; use --resume RUN_DIR or a new directory")
@@ -323,6 +323,9 @@ def _prepare_and_execute(args: argparse.Namespace, execute) -> int:
                 logger.info("[dry-run] %s tasks, source=%s, patchset=%s",
                             len(bundle.tasks), bundle.source_version, manifest["provenance"]["patchset_hash"])
                 return 0
+        from lexverse.runtime.enhancement import enabled, prepare_capabilities
+        if enabled(config):
+            asyncio.run(prepare_capabilities(config, plugin, bundle, manifest, run_root, resume=bool(resume_dir)))
         logger.info("[run] preparing sources")
         run_hash = prepare_run_sources(
             run_root, manifest, plugin, resume=bool(resume_dir),
@@ -368,6 +371,8 @@ async def _generate_run(config, plugin, bundle, manifest, run_root, runtime, *, 
         environment = plugin.create_environment(config, None)
         environment.connections = {role: runtime.provider(model, label=_model_label(config, f"models.roles.{role}"))
                                    for role, model in models.items()}
+    elif config.generation.get("capabilities", {}).get("enabled", False):
+        environment = plugin.create_environment(config, None)
     else:
         runtime.validate_phase([config.models.default])
         environment = plugin.create_environment(config, runtime.provider(config.models.default, label=_model_label(config, "models.default")))
@@ -554,7 +559,7 @@ def cmd_catalog(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="lexverse", description="LexVerse benchmark runner")
+    parser = argparse.ArgumentParser(prog="lexverse benchmark", description="LexVerse benchmark runner")
     commands = parser.add_subparsers(dest="command", required=True)
     benchmark_names = available_plugins()
 
@@ -586,7 +591,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.func(args)
-    except ConfigError as exc:
+    except (ConfigError, SecretsMissing) as exc:
         print(f"config error: {exc}", file=sys.stderr)
         return 2
 

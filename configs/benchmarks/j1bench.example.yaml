@@ -1,5 +1,6 @@
-# Copy to j1bench.local.yaml and edit your personal settings.
-# Each scenario uses the default model unless models.roles.<role> is specified.
+# Purpose: Configure J1Bench evaluation with 2 samples per task.
+# Usage: lexverse benchmark run j1bench
+# Local configuration: Copy to j1bench.local.yaml and adjust model and execution settings.
 
 schema_version: 1.0
 

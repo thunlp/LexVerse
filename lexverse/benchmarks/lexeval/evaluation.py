@@ -92,6 +92,10 @@ class LexEvalEvaluator:
     """Load the evaluator in an isolated import context."""
 
     def __init__(self, upstream: UpstreamSource = LEXEVAL, offline: bool = False):
+        import jieba
+        jieba_cache = Path.cwd() / ".lexverse" / "cache" / "jieba"
+        jieba_cache.mkdir(parents=True, exist_ok=True)
+        jieba.dt.tmp_dir = str(jieba_cache)
         self._upstream = upstream
         patches_dir = Path(__file__).parent / "patches"
         cache = upstream.ensure_patched(patches_dir, offline=offline)

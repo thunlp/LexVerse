@@ -1,4 +1,3 @@
-"""Run the upstream pipeline in one isolated process per Trial."""
 from __future__ import annotations
 
 from contextvars import ContextVar

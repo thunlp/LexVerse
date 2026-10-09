@@ -1,4 +1,3 @@
-"""Map J1Bench scenarios to upstream aliases, roles, and agent classes."""
 from __future__ import annotations
 
 from dataclasses import dataclass

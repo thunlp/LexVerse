@@ -1,6 +1,6 @@
-# Copy to lexeval.local.yaml and edit your personal settings.
-# All 23 LexEval tasks, 2 samples each.
-# Select a profile from secrets.local.yaml.
+# Purpose: Configure LexEval evaluation with 2 samples per task.
+# Usage: lexverse benchmark run lexeval
+# Local configuration: Copy to lexeval.local.yaml and adjust model and execution settings.
 
 schema_version: 1.0
 
@@ -42,6 +42,28 @@ models:
 
 generation:
   concurrency: 10
+  # Set enabled to true for environment interaction; use a tool-calling model.
+  capabilities:
+    enabled: false
+    defaults:
+      knowledge: [../../knowledge/legal_laws/民法典]
+      skills: [legal-element-extraction]
+      mcp: [pkulaw_law_search]
+    task_overrides:
+      "5_1":
+        skills: [legal-document-summarization]
+        mcp: []
+    retrieval:
+      mode: hybrid
+      embedding:
+        model: BAAI/bge-small-zh-v1.5
+        device: cpu
+        batch_size: 32
+    limits:
+      model_calls: 12
+      tool_calls: 20
+      active_timeout_sec: 300
+      tool_timeout_sec: 60
 
 # Backend alternatives apply to every model definition in models.
 # Replace only models.default below; retain any roles, summary and evaluators.

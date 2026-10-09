@@ -1,4 +1,3 @@
-"""Interaction state, participant actions and execution results."""
 from __future__ import annotations
 
 from typing import Any, Literal

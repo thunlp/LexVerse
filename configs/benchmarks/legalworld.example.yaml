@@ -1,6 +1,6 @@
-# Pinned public dataset: 100 cases x two parties = 200 complete-flow tasks.
-# Native law retrieval is optional; disabled runs require no external index.
-# API credentials and connection URLs belong only in secrets profiles.
+# Purpose: Configure Legal-world evaluation with 2 samples per task.
+# Usage: lexverse benchmark run legalworld
+# Local configuration: Copy to legalworld.local.yaml and adjust model and execution settings.
 
 schema_version: 1.0
 

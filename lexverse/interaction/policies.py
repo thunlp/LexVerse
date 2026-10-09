@@ -1,4 +1,3 @@
-"""Interaction rules and their registry."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -47,6 +46,8 @@ class DirectResponsePolicy(InteractionPolicy):
         if len(actions) != 1:
             raise ValueError("direct_response requires exactly one action")
         action = actions[0]
+        if action.metadata.get("capabilities"):
+            state.data["capabilities"] = action.metadata
         state.answer = action.content
         state.messages.append({"role": "assistant", "content": action.content})
         state.dialog_history.append({"actor": action.actor_id, "content": action.content})

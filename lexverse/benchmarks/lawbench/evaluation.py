@@ -114,6 +114,10 @@ def write_scores_csv(
 
 class LawBenchEvaluator:
     def __init__(self, upstream: UpstreamSource = LAWBENCH, offline: bool = False):
+        import jieba
+        jieba_cache = Path.cwd() / ".lexverse" / "cache" / "jieba"
+        jieba_cache.mkdir(parents=True, exist_ok=True)
+        jieba.dt.tmp_dir = str(jieba_cache)
         self._upstream = upstream
         self._cache = upstream.ensure_patched(
             Path(__file__).parent / "patches", offline=offline

@@ -1,4 +1,3 @@
-"""Import case/party/range cells from the pinned public dataset."""
 from __future__ import annotations
 
 import json

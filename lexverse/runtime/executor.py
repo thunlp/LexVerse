@@ -1,8 +1,3 @@
-"""Execute local subprocess trees in isolated Trial directories.
-
-Timeout cleanup sends SIGTERM to the process group, waits for a grace period,
-then escalates to SIGKILL. Standard streams are captured with a size limit.
-"""
 from __future__ import annotations
 
 import asyncio

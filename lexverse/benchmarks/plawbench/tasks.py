@@ -1,4 +1,3 @@
-"""Map the pinned public release without exposing rubrics to generation."""
 from __future__ import annotations
 
 import ast

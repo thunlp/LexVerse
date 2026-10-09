@@ -1,4 +1,3 @@
-"""Select public case/persona cells without constructing gold-bearing prompts."""
 from __future__ import annotations
 
 import json

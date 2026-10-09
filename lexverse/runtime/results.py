@@ -1,4 +1,3 @@
-"""Result paths, atomic writes, completeness checks and reporting."""
 from __future__ import annotations
 
 import json

@@ -1,4 +1,3 @@
-"""Read packaged catalogs and resolve their declared dataset files."""
 from __future__ import annotations
 
 import json

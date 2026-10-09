@@ -1,4 +1,3 @@
-"""Load benchmark configuration and provider credentials."""
 from __future__ import annotations
 
 import hashlib
@@ -367,6 +366,13 @@ def parse_config(data: dict, *, source_path: Path) -> ResolvedConfig:
                 raise ConfigError(f"roles not present in the selected scenarios: {sorted(set(roles) - supported_roles)}")
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
+
+    if "capabilities" in generation:
+        from lexverse.capabilities.benchmark import parse_capabilities
+        generation = {**generation, "capabilities": parse_capabilities(
+            generation["capabilities"], bench["name"], model, source_path.parent)}
+        if generation["capabilities"]["enabled"]:
+            data = {**data, generation_key: generation}
 
     return ResolvedConfig(
         schema_version=1.0,

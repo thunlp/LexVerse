@@ -1,6 +1,6 @@
-# Public release: 250 analysis + 18 consultation-mid + 6 plaintiff + 6 defendant.
-# Consultation follows upstream's first-50 mid rule; no hard coverage is claimed.
-# Credentials come only from the existing secrets profile; select your own profile if needed.
+# Purpose: Configure PLawBench evaluation with 2 samples per task.
+# Usage: lexverse benchmark run plawbench
+# Local configuration: Copy to plawbench.local.yaml and adjust model and execution settings.
 
 schema_version: 1.0
 

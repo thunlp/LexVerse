@@ -1,4 +1,3 @@
-"""In-process environment for direct-response benchmarks."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -33,7 +32,13 @@ class DirectResponseEnvironment(ExecutionEnvironment):
             self.context.update(context)
 
     async def run(self, task: LexVerseTask, work_dir: Path) -> EnvironmentResult:
-        del work_dir
-        return await self.engine.execute(
-            task, self.policy, self.participants, context=self.context
+        context = {**self.context, "work_dir": str(work_dir), "task_id": task.id,
+                   "task_type": task.source.task_type}
+        result = await self.engine.execute(
+            task, self.policy, self.participants, context=context
         )
+        metadata = result.final_state.get("data", {}).get("capabilities")
+        if metadata:
+            result.artifacts.update(capability_result=metadata["result_ref"], capability_trace=metadata["trace_ref"])
+            result.trace.append(metadata)
+        return result

@@ -1,4 +1,3 @@
-"""Preserve native scores and report incomplete judge coverage explicitly."""
 from __future__ import annotations
 
 import csv

@@ -1,4 +1,3 @@
-"""Inject a run-scoped judge into the native evaluator; retain native metrics."""
 from __future__ import annotations
 
 import asyncio

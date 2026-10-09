@@ -1,4 +1,3 @@
-"""Errors that distinguish Trial, process, artifact, and evaluator failures."""
 from __future__ import annotations
 
 import asyncio

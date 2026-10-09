@@ -1,4 +1,3 @@
-"""Run native consultation and scoring in isolated subprocesses."""
 from __future__ import annotations
 
 import asyncio
