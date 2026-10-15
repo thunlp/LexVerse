@@ -1,0 +1,329 @@
+diff --git a/src/evaluation/src_eval/utils.py b/src/evaluation/src_eval/utils.py
+index bc02be6..be177c9 100644
+--- a/src/evaluation/src_eval/utils.py
++++ b/src/evaluation/src_eval/utils.py
+@@ -10,10 +10,13 @@ from openai import OpenAI
+ from typing import List, Tuple
+ from requests.exceptions import ConnectionError, Timeout, RequestException
+ import time
+-from openai_config import openai_config
++import os
++import re
++import threading
++import openai
+ 
+-api_key = openai_config["api"]
+-api_url = openai_config["base_url"]
++api_key = os.environ["OPENAI_API_KEY"]
++api_url = os.environ.get("OPENAI_API_BASE")
+ 
+ def load_jsonl(file_raw: str) -> List[dict]:
+     filename = file_raw
+@@ -38,46 +41,101 @@ def save_file(output: dict, file: str):
+     with open(file, 'w', encoding='utf-8') as f:
+         json.dump(output, f, ensure_ascii=False, indent=4)
+         
++_metadata = {"requests": 0, "responses": [], "errors": []}
++_metadata_lock = threading.Lock()
++
++
++def _save_metadata():
++    with open("request_metadata.json", "w", encoding="utf-8") as stream:
++        json.dump(_metadata, stream, ensure_ascii=False, indent=4, allow_nan=False)
++
++
++class ScoreResponseError(ValueError):
++    def __init__(self, reason):
++        self.reason = reason
++        super().__init__(reason)
++
++
++def parse_regex(response, key):
++    # Keep the native integer 0..10 contract; JSON formatting is not a rubric.
++    try:
++        parsed = json.loads(response)
++    except (ValueError, TypeError):
++        raise ScoreResponseError("invalid_json") from None
++    if not isinstance(parsed, dict):
++        raise ScoreResponseError("not_object")
++    if key not in parsed:
++        raise ScoreResponseError("missing_key")
++    if type(parsed[key]) is not int:
++        raise ScoreResponseError("invalid_type")
++    if not 0 <= parsed[key] <= 10:
++        raise ScoreResponseError("out_of_range")
++    if not isinstance(parsed.get("解释"), str) or not parsed["解释"].strip():
++        raise ScoreResponseError("empty_explanation")
++    return parsed[key]
++
++
+ def get_completion(prompt: str, history: List[Tuple[str, str]]):
+-    client = OpenAI(api_key=api_key,
+-                    base_url=api_url)
+-    max_retries = 3
+-    for attempt in range(max_retries):
+-        try:
+-            SYSTEM_PROMPT = """You are a helpful assistant."""
+-            messages = []
+-            messages.append({'role': 'system', "content": SYSTEM_PROMPT})
+-            if history != []:
++    parameters = json.loads(os.environ.get("MASER_SCORING_PARAMETERS", "{}"))
++    parameters.setdefault("max_tokens", 1024)
++    parameters.setdefault("temperature", 0)
++    parameters["response_format"] = {"type": "json_object"}
++    parameters.pop("model", None)
++    parameters.pop("messages", None)
++    client = OpenAI(api_key=api_key, base_url=api_url, max_retries=0,
++                    timeout=float(os.environ.get("MASER_REQUEST_TIMEOUT", "60")))
++    max_retries = int(os.environ.get("MASER_MAX_ATTEMPTS", "3"))
++    try:
++        for attempt in range(max_retries):
++            response_meta = None
++            try:
++                messages = [{"role": "system", "content": "You are a helpful assistant."}]
+                 for h in history:
+-                    messages.append({'role':'user',"content":h[0]})
+-                    messages.append({'role':'assistant',"content":h[1]})
+-            else:
+-                messages.append({'role':'user',"content":prompt})
+-        
+-            chat_completion = client.chat.completions.create(
+-                messages=messages,
+-                model="gpt-4o-2024-08-06",
+-                response_format={"type": "json_object"},
+-                max_tokens=50,
+-                temperature=0
+-                )
+-            
+-            response = chat_completion.choices[0].message.content
+-            history.append((prompt, response))
+-            time.sleep(60)
+-            return response, history
+-        
+-        except (ConnectionError, Timeout) as e:
+-            print(f"Network error occurred: {e}. Retrying {attempt + 1}/{max_retries}...")
+-            if attempt == max_retries - 1:
+-                raise  # Re-raise the last exception if all retries fail
+-                
+-        except RequestException as e:
+-            # Handle other types of requests exceptions
+-            print(f"An error occurred: {e}.")
+-            raise  # Re-raise the exception and exit the function
+-        except Exception as e:
+-            print(e)
+-            
+-    # Optional: Return a default message or handle the failed attempts
+-    return "Unable to get a response after several attempts."
+\ No newline at end of file
++                    messages.append({"role": "user", "content": h[0]})
++                    messages.append({"role": "assistant", "content": h[1]})
++                messages.append({"role": "user", "content": prompt})
++                with _metadata_lock:
++                    _metadata["requests"] += 1
++                    _save_metadata()
++                completion = client.chat.completions.create(
++                    messages=messages, model=os.environ.get("MASER_SCORING_MODEL", "gpt-4o-mini"), **parameters)
++                choice = completion.choices[0]
++                response = choice.message.content
++                usage = completion.usage.model_dump(mode="json") if completion.usage is not None else None
++                response_meta = {"finish_reason": choice.finish_reason, "json_valid": False,
++                                 "explanation_chars": 0, "usage": usage}
++                try:
++                    parsed = json.loads(response)
++                except (ValueError, TypeError):
++                    raise ScoreResponseError("invalid_json") from None
++                response_meta["json_valid"] = isinstance(parsed, dict)
++                keys = (["互动性", "专业性", "逻辑性"] if prompt.lstrip().startswith("你是一个极其严格的法律专家") else
++                        (["规范性"] if prompt.lstrip().startswith("你是一个严格的法律文书分析专家，你的任务是判断") else
++                         (["专业性"] if prompt.lstrip().startswith("你是一个严格的法律文书分析专家，你的任务是根据") else ["分数"])))
++                explanation = parsed.get("解释") if isinstance(parsed, dict) else None
++                response_meta["explanation_chars"] = len(explanation.strip()) if isinstance(explanation, str) else 0
++                if choice.finish_reason != "stop":
++                    raise ScoreResponseError("incomplete_finish")
++                if not isinstance(parsed, dict):
++                    raise ScoreResponseError("not_object")
++                if not isinstance(explanation, str) or not explanation.strip():
++                    raise ScoreResponseError("empty_explanation")
++                scores = {key: parse_regex(response, key) for key in keys}
++                with _metadata_lock:
++                    _metadata["responses"].append({"finish_reason": choice.finish_reason,
++                        "json_valid": True, "explanation_chars": len(explanation.strip()),
++                        "scores": scores, "usage": usage})
++                    _save_metadata()
++                history.append((prompt, response))
++                return response, history
++            except Exception as error:
++                with _metadata_lock:
++                    _metadata["errors"].append({"error_type": type(error).__name__,
++                        "status_code": getattr(error, "status_code", None), "response": response_meta,
++                        "reason": error.reason if isinstance(error, ScoreResponseError) else "request_error"})
++                    _save_metadata()
++                if attempt == max_retries - 1:
++                    raise RuntimeError(type(error).__name__) from None
++        raise RuntimeError("scoring attempts exhausted")
++    finally:
++        client.close()
+diff --git a/src/evaluation/src_eval/eval.py b/src/evaluation/src_eval/eval.py
+index 7d4305c..22bd663 100644
+--- a/src/evaluation/src_eval/eval.py
++++ b/src/evaluation/src_eval/eval.py
+@@ -51,15 +51,9 @@ class InteractionEvaluator(BaseEvaluator):
+             mscore['0']['dialogue'] = ''
+             mscore['0']['dialogue_history'] = dialogue_history
+ 
+-        # Regenerate utill completion
+         score = utils.get_completion(prompt, self.history)[0]
+-        while len(re.findall(r'"互动性": ([0-9]|10),', score)) == 0 or len(re.findall(r'"专业性": ([0-9]|10),', score)) == 0 or len(re.findall(r'"逻辑性": ([0-9]|10),', score)) == 0:
+-            score = utils.get_completion(prompt, self.history)[0]
+-        mscore[str(i)] = {
+-            "互动性": int(re.findall(r'"互动性": ([0-9]|10),', score)[0]),
+-            "专业性": int(re.findall(r'"专业性": ([0-9]|10),', score)[0]),
+-            "逻辑性": int(re.findall(r'"逻辑性": ([0-9]|10),', score)[0])
+-        }
++        mscore[str(i)] = {key: utils.parse_regex(score, key)
++                          for key in ("互动性", "专业性", "逻辑性")}
+         mscore[str(i)]['dialogue'] = dialogue
+         mscore[str(i)]['dialogue_history'] = dialogue_history
+         
+@@ -80,6 +74,8 @@ class InteractionEvaluator(BaseEvaluator):
+             dialogue_history += f'{role}：{content}\n'
+         
+         # other turns
++        i = 0
++        dialogue = ''
+         for i in range(2, turns, 2):
+             for item in dialog_history:
+                 if item['turn'] == i-1:
+@@ -117,7 +113,7 @@ class InteractionEvaluator(BaseEvaluator):
+                     dialogue = f'{role}：{content}\n'
+             flag = 1
+             prompt = self._prompt_formatter(dialogue_history, dialogue, flag, less)
+-            scores = self._get_score(prompt, turns, turns, dialogue_history)
++            scores[str(turns)] = self._get_score(prompt, turns, turns, dialogue_history, dialogue)
+             
+         return scores
+     
+@@ -209,7 +205,7 @@ class GoalEvaluator(BaseEvaluator):
+         
+         # 提取个人信息和其他信息
+         p_info = parts[0].strip()  # 个人信息
+-        others = ' '.join(part.strip() for part in parts[1:])  # 其他信息
++        others = indictment[len(parts[0]):]  # 保留标题/换行给官方 section parser
+         
+         return p_info, others
+         
+@@ -268,14 +264,16 @@ class GoalEvaluator(BaseEvaluator):
+         }
+ 
+         current_section = None
++        heading_prefix = r'^(?:#{1,6}\s*)?(?:(?:\*\*|__)\s*)?(?:[（(]?[一二三四五六七八九十百0-9]+[）).、．]\s*)?(?:(?:\*\*|__)\s*)?'
++        heading_suffix = r'(?:\s*(?:\*\*|__)?\s*[:：]|\s*(?:\*\*|__)?\s*$)'
+ 
+         for line in input_str.splitlines():
+             line = line.strip()
+-            if "事实和理由" in line:
++            if re.match(heading_prefix + re.escape("事实和理由") + heading_suffix, line):
+                 current_section = "事实和理由"
+-            elif "诉讼请求" in line:
++            elif re.match(heading_prefix + re.escape("诉讼请求") + heading_suffix, line):
+                 current_section = "诉讼请求"
+-            elif "证据和证据来源，证人姓名和住所" in line:
++            elif re.match(heading_prefix + re.escape("证据和证据来源，证人姓名和住所") + heading_suffix, line):
+                 current_section = "证据"
+                 
+                 
+diff --git a/src/evaluation/src_eval/main.py b/src/evaluation/src_eval/main.py
+index 88b5375..d6963c1 100644
+--- a/src/evaluation/src_eval/main.py
++++ b/src/evaluation/src_eval/main.py
+@@ -1,4 +1,6 @@
+ import argparse
++import atexit
++import json
+ import re
+ import os
+ import numpy as np
+@@ -17,11 +19,11 @@ def _final_score(results):
+     t_score_plain = []
+     t_score_def = []
+     for d in results:
+-        t_score_claim.append(int(re.findall(r'([0-9]|10),', d['score_claim'])[0]))
+-        t_score_r_f.append(int(re.findall(r'([0-9]|10),', d['score_r_f'])[0]))
+-        t_score_evidence.append(int(re.findall(r'([0-9]|10),', d['score_evidence'])[0]))
+-        t_score_stand.append(int(re.findall(r'"规范性": ([0-9]|10),', d['score_globe']['模板'])[0]))
+-        t_score_prof.append(int(re.findall(r'"专业性": ([0-9]|10),', d['score_globe']['专业'])[0]))
++        t_score_claim.append(utils.parse_regex(d['score_claim'], "分数"))
++        t_score_r_f.append(utils.parse_regex(d['score_r_f'], "分数"))
++        t_score_evidence.append(utils.parse_regex(d['score_evidence'], "分数"))
++        t_score_stand.append(utils.parse_regex(d['score_globe']['模板'], "规范性"))
++        t_score_prof.append(utils.parse_regex(d['score_globe']['专业'], "专业性"))
+         t_score_plain.append(d['plain_accuracy'])
+         t_score_def.append(d['def_accuracy'])
+         
+@@ -57,7 +59,9 @@ if __name__ == '__main__':
+         choices = ["Interaction", "Goal"]
+     )
+     
++    parser.add_argument("--gold", default="evaluate_data/evaluate_data.json")
+     args = parser.parse_args()
++    atexit.register(utils._save_metadata)
+     
+     ## Managing Dirs
+     dirname = os.path.dirname(__file__)
+@@ -70,7 +74,7 @@ if __name__ == '__main__':
+         
+         
+         data = utils.load_jsonl(filepath)
+-        ground_truth = utils.load_files("evaluate_data\evaluate_data.json")
++        ground_truth = utils.load_files(args.gold)
+         
+         ## Evaluate Interaction
+         dialogue_scores = {}
+@@ -81,7 +85,7 @@ if __name__ == '__main__':
+             output_dir = os.path.join(output_dir, file_name.replace('.jsonl', '.json'))
+             for i in range(len(data)):
+                 case_id = data[i]['case_id']
+-                data[i]['less'] = ground_truth[case_id-1]['less']
++                data[i]['less'] = next(item for item in ground_truth if item['id'] == case_id)['less']
+ 
+             
+             InteractionEvaluator = eval.InteractionEvaluator(dataset_name=file_name.replace('.jsonl',''), output_dir=output_dir)
+@@ -117,5 +121,6 @@ if __name__ == '__main__':
+                     goal_scores.append(scores)
+                     print(idx)
+                     futures.append(future)
++                    utils.save_file(goal_scores, output_dir + ".raw.json")
+                     utils.save_file(_final_score(goal_scores), output_dir)
+                     print(f'{case_id} done.')
+\ No newline at end of file
+diff --git a/src/evaluation/src_eval/prompts.py b/src/evaluation/src_eval/prompts.py
+index a8296b2..ea8d72e 100644
+--- a/src/evaluation/src_eval/prompts.py
++++ b/src/evaluation/src_eval/prompts.py
+@@ -100,7 +100,7 @@ globe_prof = '''
+ '''
+ 
+ interaction = '''
+-    你是一个极其严格的法律专家，以下是“律师”和“原告”之间的法律咨询的多轮对话。你的任务是参考历史对话中的信息，根据以下2个评估指标来给律师回复从1分（最低）到10分（最高）打分。请不要轻易地给出10分满分，打分后需要给出打分理由。
++    你是一个极其严格的法律专家，以下是“律师”和“原告”之间的法律咨询的多轮对话。你的任务是参考历史对话中的信息，根据以下3个评估指标来给律师回复从1分（最低）到10分（最高）打分。请不要轻易地给出10分满分，打分后需要给出打分理由。
+     
+     评估指标：
+     1. **互动性**： “律师”应当是对话的主导者，应当及时回复原告问题，并主动提出问题引导原告。当原告表现出担忧时，应当及时给予安慰。当“律师”询问原告个人信息和被告个人信息中的{less}，如果原告没有回答，律师应当继续再次询问{less}，如果律师没有追问"{less}"，你需要给出4分以下的低分。当询问原告案情时，如果原告回答模糊，律师应当继续询问更多细节。“律师”不应该在单轮对话中一次性询问所有的信息（原告信息、被告信息、事实和理由、证据、原告诉求），而是逐步的询问。如果原告一次性询问原告信息、被告信息、事实和理由、证据、原告诉求，你应该给出4分以下的低分。在询问信息时，“律师”应该以符合自然语言习惯的疑问句，而不会出现不是自然语言对话时会用的形式和符号，例如，“律师”不应该使用如*、换行符等符号，如果“律师”使用了不属于自然语言对话的符号，你需要给出5分以下的低分。
+@@ -134,7 +134,7 @@ interaction = '''
+       "互动性": 9,
+       "专业性": 8,
+       "逻辑性": 8,
+-      "解释": "“律师”主动询问问题以推进对话，很好地满足**交互性**"。“律师”准确地使用了法律术语，展现了一定程度的**专业性**。“律师”的对话符合逻辑，满足了**逻辑性**。"
++      "解释": "“律师”主动询问问题以推进对话，很好地满足**交互性**。“律师”准确地使用了法律术语，展现了一定程度的**专业性**。“律师”的对话符合逻辑，满足了**逻辑性**。"
+       }}
+     
+ 
+@@ -150,7 +150,7 @@ interaction = '''
+       "互动性": 3,
+       "专业性": 4,
+       "逻辑性": 4,
+-      "解释": "“律师”没有及时询问”原告“没有回答的法定代表人信息，并且没有安慰原告的紧张情绪，因此没有很好地满足**交互性**"。“律师”身为专业的法律律师，却要求原告寻求专业的法律帮助，不符合**逻辑性**和**专业性**方面的要求。"
++      "解释": "“律师”没有及时询问”原告“没有回答的法定代表人信息，并且没有安慰原告的紧张情绪，因此没有很好地满足**交互性**。“律师”身为专业的法律律师，却要求原告寻求专业的法律帮助，不符合**逻辑性**和**专业性**方面的要求。"
+       }}
+     
+ 

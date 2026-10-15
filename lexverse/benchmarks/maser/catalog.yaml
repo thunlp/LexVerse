@@ -1,0 +1,13 @@
+schema_version: 1.0
+
+source:
+  name: maser
+  repo_url: https://github.com/FudanDISC/MASER.git
+  commit: 7f8eedb6eea21ac0468a727205206fe2543df3a6
+
+dataset:
+  paths:
+    - src/evaluation/evaluate_data/evaluate_data.json
+
+tasks:
+  complaint_generation: {output_type: trajectory, metrics: [CLI, DEF, INT, I_PROF, LOGI, I_AVE, F_R, CLA, EVID, STA, G_PROF, G_AVE, Total]}

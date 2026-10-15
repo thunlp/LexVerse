@@ -1,0 +1,243 @@
+diff --git a/src/agents/lawyer_fact.py b/src/agents/lawyer_fact.py
+index 792f924..3209549 100644
+--- a/src/agents/lawyer_fact.py
++++ b/src/agents/lawyer_fact.py
+@@ -506,13 +506,13 @@ class WenXinLawyer_fact(Lawyer_fact):
+ 
+ @register_class(alias="Agent.Lawyer.FactQwen")
+ class QwenLawyer_fact(Lawyer_fact):
+-    def __init__(self, args=None, doctor_info=None, name="A"):
++    def __init__(self, args=None, doctor_info=None, name="A", plaintiff_type=None):
+         engine = registry.get_class("Engine.Qwen")(
+             api_key=args.doctor_qwen_api_key, 
+             model_name=args.doctor_qwen_model_name, 
+             seed=1,
+         )
+-        super(QwenLawyer_fact, self).__init__(engine, doctor_info, name=name)
++        super(QwenLawyer_fact, self).__init__(engine, doctor_info, name=name, plaintiff_type=plaintiff_type)
+ 
+     @staticmethod
+     def add_parser_args(parser):
+@@ -585,4 +585,6 @@ class HFLawyer_fact(Lawyer_fact):
+         
+         self.memorize(("user", content), patient_id)
+         self.memorize(("assistant", responese), patient_id)
+-        return responese
+\ No newline at end of file
++        return responese
++
++registry.register("Agent.Lawyer.FactQwen.evaluate", QwenLawyer_fact)
+diff --git a/src/engine/gpt.py b/src/engine/gpt.py
+index e0b685e..eff224a 100644
+--- a/src/engine/gpt.py
++++ b/src/engine/gpt.py
+@@ -48,15 +48,15 @@ class GPTEngine(Engine):
+                     presence_penalty=self.presence_penalty)
+                 break
+             except openai.BadRequestError as e:
+-                print("error BadRequestError gpt:", e)
++                print("error BadRequestError gpt:", type(e).__name__)
+                 time.sleep(20)
+                 i += 1
+             except openai.RateLimitError as e:
+-                print("error RateLimitError gpt:", e)
++                print("error RateLimitError gpt:", type(e).__name__)
+                 time.sleep(20)
+                 i += 1
+             except Exception as e:
+-                print("error Exception gpt:", e)
++                print("error Exception gpt:", type(e).__name__)
+                 i += 1
+                 time.sleep(20)
+                 continue
+diff --git a/src/legal/law_fact.py b/src/legal/law_fact.py
+index e8e7151..7e4f82e 100644
+--- a/src/legal/law_fact.py
++++ b/src/legal/law_fact.py
+@@ -18,7 +18,7 @@ class Law_Fact:
+         self.args = args 
+         # self.lawyer = registry.get_class(args.lawyer)(args)  
+         self.plaintiffs = []
+-        for plaintiff_profile in case_database[5000:]:
++        for plaintiff_profile in case_database[args.case_start:args.case_stop]:
+             plaintiff = registry.get_class(args.plaintiff)(
+                 args,
+                 id=plaintiff_profile["id"],
+@@ -73,6 +73,9 @@ class Law_Fact:
+ 
+     @staticmethod
+     def add_parser_args(parser: argparse.ArgumentParser):
++        parser.add_argument("--case_start", default=0, type=int)
++        parser.add_argument("--case_stop", default=None, type=int)
++        parser.add_argument("--all_info_path", required=True)
+         parser.add_argument("--case_database", default="/attached/remote-home/thuang/new_AI_Law_main_2/vs_AI_Law_main/src/data/case_msf_train.json", type=str)
+         parser.add_argument("--plaintiff", default="Agent.Plaintiff.FactGPT", help="registry name of plaintiff agent")
+         parser.add_argument("--lawyer", default="Agent.Lawyer.FactGPT", help="registry name of doctor agent")
+@@ -158,17 +161,16 @@ class Law_Fact:
+         # print("事实理由————",plaintiff.case_r_f)
+         
+         # case_type=None, case_facts=None, case_r_f=None, plaintiff=None, less=None, law_level=None, defendant=None, claim=None, evidence=None
+-        lawyer = registry.get_class(self.args.lawyer)(self.args, plaintiff_type = plaintiff.plaintiff_type, reason = plaintiff.reason, laws = plaintiff.laws)
++        lawyer = registry.get_class(self.args.lawyer)(self.args, plaintiff_type=plaintiff.plaintiff_type)
+         supervisor = registry.get_class(self.args.supervisor)(self.args)  
+ 
+         dialog_history = [{"turn": 0, "role": "Plaintiff", "content": plaintiff.plaintiff_greet}]
+         dialog_history.append({"turn": 0, "role": "Lawyer", "content": lawyer.lawyer_greet})
+ 
+         history = "**原告**：" + plaintiff.plaintiff_greet + "\n" 
+         history += "**律师**：" + lawyer.lawyer_greet + "\n"
+         
+         plaintiff.memorize(("assistant", plaintiff.plaintiff_greet))
+-        plaintiff.memorize(("user", lawyer.lawyer_greet))
+         lawyer.memorize(("user", plaintiff.plaintiff_greet), plaintiff.id)
+         lawyer.memorize(("assistant", lawyer.lawyer_greet), plaintiff.id)
+ 
+@@ -226,29 +228,8 @@ class Law_Fact:
+             
+ 
+             
+-            if turn == 0:
+-                history += "**原告**：" + plaintiff_response + "\n"
+-                lawyer_response = lawyer.speak(plaintiff_response, plaintiff.id)
+-            else:
+-                lawyer_response = lawyer.speak(plaintiff_response, plaintiff.id, save_to_memory=False)
+-                print("______________________________________________________start________________________________________________________")
+-                print("修改前————",lawyer_response)
+-                revise_dict["lawyer"]["修改前"] = lawyer_response
+-
+-                history += "**原告**：" + plaintiff_response + "\n"
+-                supervisor_response = supervisor.speak(speak_style=plaintiff.speak_style, less=plaintiff.less, history=history, role="Lawyer" , to_revised=lawyer_response, question=plaintiff_response, PLAINTIFF=plaintiff.plaintiff, DEFENDANT=plaintiff.defendant, case_r_f=plaintiff.case_r_f, claim=plaintiff.claim, evidence=plaintiff.evidence)
+-                print("advice",supervisor_response)
+-                revise_dict["lawyer"]["advice"] = supervisor_response
+-
+-                if "回复无误" not in supervisor_response: # 需要修改 
+-                    lawyer_response = lawyer.correct_speak(advice=supervisor_response, false_reply = lawyer_response, content = plaintiff_response, case_id = plaintiff.id, save_to_memory=True) 
+-                    print("修改后————",lawyer_response)
+-                    revise_dict["lawyer"]["修改后"] = lawyer_response
+-                    print("______________________________________________________end________________________________________________________")
+-                elif "回复无误" in supervisor_response: # 不需要修改 
+-                    lawyer.memorize(("user", plaintiff_response), plaintiff.id)
+-                    lawyer.memorize(("assistant", lawyer_response), plaintiff.id)
+-                lawyer_response   
++            history += "**原告**：" + plaintiff_response + "\n"
++            lawyer_response = lawyer.speak(plaintiff_response, plaintiff.id)
+ 
+             dialog_history.append({"turn": turn+1, "role": "Lawyer", "content": lawyer_response})
+             revise_history.append(revise_dict)
+@@ -299,7 +280,7 @@ class Law_Fact:
+             "revise_history": revise_history,
+             "time": self.start_time,
+         }
+-        with jsonlines.open("/attached/remote-home/thuang/new_AI_Law_main_2/vs_AI_Law_main/src/outputs/dialog_history_iiyi/train_law_fact_gpt3_alldata.jsonl", "a") as f:
++        with jsonlines.open(self.args.all_info_path, "a") as f:
+             f.write(all_info)
+         f.close()
+ 
+diff --git a/src/run_law_fact.py b/src/run_law_fact.py
+index 7825ed5..9aa032b 100644
+--- a/src/run_law_fact.py
++++ b/src/run_law_fact.py
+@@ -1,24 +1,90 @@
++import argparse
+ from utils.register import registry
+-import engine,agents,hospital,utils
++import engine.base_engine
++import engine.gpt
++import agents.base_agent
++import agents.lawyer_fact
++import agents.plaintiff_fact
++import agents.supervisor
++import legal.law_fact
+ from utils.options_law_fact import get_parser
+ 
+-import os 
+-os.environ['OPENAI_API_KEY'] = '' # my
+ 
+-os.environ['OPENAI_API_BASE'] = ''
+-api_key = os.environ.get('OPENAI_API_KEY')
+-# print(api_key)
++def build_args(
++    case_database,
++    save_path,
++    all_info_path,
++    max_turns=15,
++    lawyer="Agent.Lawyer.FactQwen.evaluate",
++    plaintiff_config=None,
++    supervisor_config=None,
++):
++    plaintiff_config = plaintiff_config or {}
++    supervisor_config = supervisor_config or {}
++    return argparse.Namespace(
++        scenario="Law.Scenario.Fact",
++        case_database=str(case_database),
++        case_start=0,
++        case_stop=1,
++        save_path=str(save_path),
++        all_info_path=str(all_info_path),
++        max_conversation_turn=int(max_turns),
++        max_workers=1,
++        delay_between_tasks=0,
++        ff_print=False,
++        parallel=False,
++        plaintiff="Agent.Plaintiff.FactGPT",
++        lawyer=lawyer,
++        supervisor="Agent.Supervisor.GPT",
++        doctor_qwen_api_key="unused",
++        doctor_qwen_model_name=lawyer,
++        doctor_seed=1,
++        plaintiff_openai_api_key="unused",
++        plaintiff_openai_api_base=None,
++        plaintiff_openai_model_name=plaintiff_config.get("model"),
++        plaintiff_temperature=plaintiff_config.get("temperature", 0.5),
++        plaintiff_max_tokens=plaintiff_config.get("max_tokens", 2048),
++        plaintiff_top_p=plaintiff_config.get("top_p", 1),
++        plaintiff_frequency_penalty=plaintiff_config.get("frequency_penalty", 0),
++        plaintiff_presence_penalty=plaintiff_config.get("presence_penalty", 0),
++        supervisor_openai_api_key="unused",
++        supervisor_openai_api_base=None,
++        supervisor_openai_model_name=supervisor_config.get("model"),
++        supervisor_temperature=supervisor_config.get("temperature", 0),
++        supervisor_max_tokens=supervisor_config.get("max_tokens", 2048),
++        supervisor_top_p=supervisor_config.get("top_p", 1),
++        supervisor_frequency_penalty=supervisor_config.get("frequency_penalty", 0),
++        supervisor_presence_penalty=supervisor_config.get("presence_penalty", 0),
++    )
+ 
+-if __name__ == '__main__':
++
++def run_case(
++    case_database,
++    save_path,
++    all_info_path,
++    max_turns=15,
++    lawyer="Agent.Lawyer.FactQwen.evaluate",
++    plaintiff_config=None,
++    supervisor_config=None,
++):
++    args = build_args(
++        case_database=case_database,
++        save_path=save_path,
++        all_info_path=all_info_path,
++        max_turns=max_turns,
++        lawyer=lawyer,
++        plaintiff_config=plaintiff_config,
++        supervisor_config=supervisor_config,
++    )
++    scenario = registry.get_class(args.scenario)(args)
++    scenario.run()
++    return scenario
++
++
++if __name__ == "__main__":
+     args = get_parser()
+     scenario = registry.get_class(args.scenario)(args)
+     if not args.parallel:
+         scenario.run()
+     else:
+         scenario.parallel_run()
+-
+-
+-
+-
+-
+-
