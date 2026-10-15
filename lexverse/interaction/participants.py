@@ -24,7 +24,8 @@ class ModelParticipant:
         return ParticipantAction(
             actor_id=self.id,
             content=response.content,
-            metadata={"model": response.model, "usage": response.usage},
+            metadata={"model": response.model, "usage": response.usage,
+                      "finish_reason": response.finish_reason},
         )
 
 

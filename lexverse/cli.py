@@ -9,13 +9,12 @@ import logging
 import os
 import sys
 import time
-from dataclasses import asdict
 from pathlib import Path
 from contextlib import contextmanager
 
 from lexverse.benchmarks.registry import available_plugins, get_plugin
 from lexverse.config import ConfigError, load_config, parse_config
-from lexverse.providers.runtime import ModelRuntime, scoring_identity
+from lexverse.providers.runtime import ModelRuntime
 from lexverse.runtime.results import atomic_write_json
 from lexverse.runtime.orchestrator import JobSpec, Orchestrator
 from lexverse.runtime.results import finalize_run
@@ -36,10 +35,8 @@ def _read_json(path: Path) -> dict:
     return value if isinstance(value, dict) else {}
 
 
-def _tested_model(config):
-    if config.benchmark["name"] in {"dlawbench", "legalworld"}:
-        return config.models.roles.get("lawyer", config.models.default)
-    return config.models.default
+def _tested_model(config, plugin=None):
+    return (plugin or get_plugin(config.benchmark["name"])).tested_model(config)
 
 
 def _model_label(config, label):
@@ -56,6 +53,19 @@ def _model_label(config, label):
             label, label.replace("models.roles.", "roles."),
         )
     return label
+
+
+def _bind_models(config, runtime, models, *, evaluation=False):
+    """Bind providers for the models declared by the active benchmark plugin."""
+    runtime.validate_phase(list(models.values()))
+    providers = {}
+    for key, model in models.items():
+        if evaluation and model in config.models.evaluators:
+            label = f"models.evaluators.{config.models.evaluators.index(model)}"
+        else:
+            label = f"models.{key}" if key in {"default", "summary"} else f"models.roles.{key}"
+        providers[key] = runtime.provider(model, label=_model_label(config, label))
+    return providers
 
 
 def _read_task_metrics(path: Path) -> dict[str, dict[str, float]]:
@@ -134,7 +144,7 @@ def build_run(config):
                             "sample_id": task.source.sample_id} for task in bundle.tasks],
         "data_sources": [{"name": name, "path": str(path.resolve()), "sha256": _file_hash(path)}
                          for name, path in plugin.task_inputs(config, list(counts)).items()],
-        "benchmark": bundle.benchmark, "model": _tested_model(config).name,
+        "benchmark": bundle.benchmark, "model": _tested_model(config, plugin).name,
         "sample_count": len(bundle.tasks), "selection": counts,
         "bundle_hash": bundle.content_hash(),
         "coverage": {
@@ -217,38 +227,8 @@ async def _evaluate_run(config, plugin, bundle, manifest, run_root, runtime, ver
         if record.get("error") == "official evaluator returned no case result":
             record["status"] = "completed"
             record.pop("error", None)
-    verifier_context = plugin.evaluation_context(config)
-    if plugin.name == "j1bench":
-        if not config.models.evaluators:
-            raise ConfigError("J1Bench requires one model in models.evaluators")
-        runtime.validate_phase(config.models.evaluators)
-        scoring = runtime.provider(config.models.evaluators[0], label=_model_label(config, "models.evaluators.0"))
-        verifier_context.update(
-            scoring_api_key=scoring.api_key, scoring_api_base=scoring.base_url,
-            scoring_provider=scoring,
-            request_timeout_sec=request_timeout,
-            scoring_model=scoring.model, scoring_parameters=scoring.default_config,
-            python_executable=sys.executable,
-        )
-    if plugin.name == "plawbench":
-        if not config.models.evaluators:
-            raise ConfigError("PLawBench requires one model in models.evaluators")
-        runtime.validate_phase(config.models.evaluators)
-        judge = runtime.provider(config.models.evaluators[0], label=_model_label(config, "models.evaluators.0"))
-        verifier_context.update(
-            judge_provider=judge,
-            judge_model=config.models.evaluators[0].name,
-            judge_config={**asdict(config.models.evaluators[0]),
-                          "endpoint_sha256": scoring_identity(judge)["endpoint_sha256"]},
-        )
-    if plugin.name in {"dlawbench", "legalworld"}:
-        models = verifier_context.pop("judge_models")
-        runtime.validate_phase(list(models.values()))
-        verifier_context.update(
-            judge_connections={key: runtime.provider(model, label=_model_label(config, f"models.evaluators.{config.models.evaluators.index(model)}"))
-                               for key, model in models.items()},
-            timeout_sec=config.evaluation.get("timeout_sec"),
-        )
+    providers = _bind_models(config, runtime, plugin.evaluation_models(config), evaluation=True)
+    verifier_context = plugin.configure_evaluation_context(config, providers)
     evaluation_started = time.monotonic()
     logger.info("[evaluation] start")
     try:
@@ -256,13 +236,13 @@ async def _evaluate_run(config, plugin, bundle, manifest, run_root, runtime, ver
             concurrency=int(config.evaluation.get("concurrency", config.generation.get("concurrency", 1))),
             evaluation_config={key: value for key, value in config.evaluation.items() if key != "concurrency"},
             on_progress=lambda result: finalize_run(
-                run_root, manifest, plugin, model_name=_tested_model(config).name,
+                run_root, manifest, plugin, model_name=_tested_model(config, plugin).name,
                 task_metrics=result.task_metrics(), write_evaluation_csv=False,
             ),
         )
         evaluated = await verifier.evaluate_run(
             bundle.tasks, records, run_dir=run_root,
-            model_name=_tested_model(config).name, context=verifier_context,
+            model_name=_tested_model(config, plugin).name, context=verifier_context,
         )
     except Exception as exc:
         logger.error("[evaluation] failed error=%s elapsed=%.1fs",
@@ -271,13 +251,13 @@ async def _evaluate_run(config, plugin, bundle, manifest, run_root, runtime, ver
         evaluation_state.update(status="failed", error_type=type(exc).__name__)
         atomic_write_json(run_root / "evaluation.json", evaluation_state)
         finalize_run(
-            run_root, manifest, plugin, model_name=_tested_model(config).name,
+            run_root, manifest, plugin, model_name=_tested_model(config, plugin).name,
             task_metrics={}, write_evaluation_csv=False,
         )
         raise
     evaluation_data = evaluated.to_dict()
     task_metrics = evaluated.task_metrics()
-    finalize_run(run_root, manifest, plugin, model_name=_tested_model(config).name,
+    finalize_run(run_root, manifest, plugin, model_name=_tested_model(config, plugin).name,
                  task_metrics=task_metrics, write_evaluation_csv=not getattr(verifier, "grouped", False))
     logger.info("[evaluation] %s elapsed=%.1fs scored=%s/%s",
                 evaluation_data["status"], time.monotonic() - evaluation_started,
@@ -349,28 +329,8 @@ async def _generate_run(config, plugin, bundle, manifest, run_root, runtime, *, 
     task_runner = TaskRunner()
     tasks = {task.id: task for task in bundle.tasks}
     run_hash = manifest["run_hash"]
-    if plugin.name == "j1bench":
-        from lexverse.benchmarks.j1bench.scenarios import require_supported
-        role_names = dict.fromkeys(role for task in bundle.tasks for role in require_supported(task.source.task_type).roles)
-        models = {role: config.models.roles.get(role, config.models.default) for role in role_names}
-        uses_summary = any(task.source.task_type in {"KQ", "LC"} for task in bundle.tasks)
-        if uses_summary:
-            models["summary"] = config.models.summary
-        runtime.validate_phase(list(models.values()))
-        connections = {role: runtime.provider(model, label=_model_label(config,
-            "models.summary" if role == "summary" else f"models.roles.{role}"
-        )) for role, model in models.items()}
-        environment = plugin.create_environment(config, None)
-        environment.connections = connections
-    elif plugin.name in {"dlawbench", "legalworld"}:
-        models = {role: config.models.roles.get(role, config.models.default) for role in (("lawyer", "client") if plugin.name == "dlawbench" else ("lawyer", "simulation"))}
-        runtime.validate_phase(list(models.values()))
-        environment = plugin.create_environment(config, None)
-        environment.connections = {role: runtime.provider(model, label=_model_label(config, f"models.roles.{role}"))
-                                   for role, model in models.items()}
-    else:
-        runtime.validate_phase([config.models.default])
-        environment = plugin.create_environment(config, runtime.provider(config.models.default, label=_model_label(config, "models.default")))
+    providers = _bind_models(config, runtime, plugin.generation_models(config, bundle))
+    environment = plugin.configure_environment(config, providers)
     try:
         await environment.prepare({"run_root": str(run_root)})
         logger.info("[run] executing total=%s concurrency=%s",
@@ -410,7 +370,7 @@ async def _generate_run(config, plugin, bundle, manifest, run_root, runtime, *, 
                     "final_state": environment_data["final_state"],
                     "trace": environment_data["trace"],
                 },
-                "model": {"name": _tested_model(config).name},
+                "model": {"name": _tested_model(config, plugin).name},
                 "artifacts": environment_data["artifacts"],
                 "execution_artifacts": dict(environment_data["artifacts"]),
             }}
@@ -420,9 +380,9 @@ async def _generate_run(config, plugin, bundle, manifest, run_root, runtime, *, 
             sample_ids=list(tasks),
             run_dir=run_root,
             resolved_config={
-                "model": _tested_model(config).name,
-                "provider": _tested_model(config).provider,
-                "generation_parameters": _tested_model(config).generation_parameters,
+                "model": _tested_model(config, plugin).name,
+                "provider": _tested_model(config, plugin).provider,
+                "generation_parameters": _tested_model(config, plugin).generation_parameters,
                 "bundle_hash": bundle.content_hash(),
             },
             max_attempts=int(config.generation.get("max_attempts", 1)),
@@ -448,7 +408,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
     async def execute(config, plugin, bundle, manifest, run_root, runtime, resume):
         await _generate_run(config, plugin, bundle, manifest, run_root, runtime, resume=resume)
-        result = finalize_run(run_root, manifest, plugin, model_name=_tested_model(config).name,
+        result = finalize_run(run_root, manifest, plugin, model_name=_tested_model(config, plugin).name,
                               write_evaluation_csv=False)
         samples = result["samples"]
         complete = samples["completed"] == samples["expected"] and not samples["failed"] and not samples["missing"]
@@ -464,16 +424,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     run_started = time.monotonic()
 
     async def execute(config, plugin, bundle, manifest, run_root, runtime, resume):
-        if plugin.name in {"plawbench", "j1bench"} and not config.models.evaluators:
-            name = "PLawBench" if plugin.name == "plawbench" else "J1Bench"
-            raise ConfigError(f"{name} requires one model in models.evaluators")
-        if plugin.name == "plawbench":
-            plugin.evaluation_context(config)
+        # Validate evaluation model bindings up front without loading evaluators yet.
+        plugin.evaluation_models(config)
         verifier = plugin.create_verifier({**config.benchmark, "offline": bool(config.generation.get("offline", False))})
         await _generate_run(config, plugin, bundle, manifest, run_root, runtime, resume=resume)
         metrics = await _evaluate_run(config, plugin, bundle, manifest, run_root, runtime, verifier)
         result = finalize_run(
-            run_root, manifest, plugin, model_name=_tested_model(config).name, task_metrics=metrics,
+            run_root, manifest, plugin, model_name=_tested_model(config, plugin).name, task_metrics=metrics,
             write_evaluation_csv=not (run_root / "evaluation_result.csv").exists(),
         )
         logger.info("[run] %s success=%s failed=%s elapsed=%.1fs directory=%s",
@@ -499,7 +456,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         async def execute():
             try:
                 metrics = await _evaluate_run(config, plugin, bundle, manifest, run_root, runtime, verifier)
-                result = finalize_run(run_root, manifest, plugin, model_name=_tested_model(config).name,
+                result = finalize_run(run_root, manifest, plugin, model_name=_tested_model(config, plugin).name,
                                       task_metrics=metrics, write_evaluation_csv=False)
                 return 0 if result["status"] == "completed" else 4
             finally:

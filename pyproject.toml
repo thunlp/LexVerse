@@ -93,6 +93,17 @@ plawbench = [
     "json-repair>=0.30",
 ]
 
+# SimuCourt and MASER benchmark dependencies.
+simucourt = [
+    "openai>=1.0",
+]
+maser = [
+    "openai>=1.0",
+    "numpy>=1.24",
+    "tqdm>=4.66",
+    "jsonlines>=4.0",
+]
+
 # Development and testing.
 test = [
     "pytest>=7.0",
@@ -114,6 +125,8 @@ exclude = ["reference_harness*", "tests*", "data*", "docs*"]
 "lexverse.benchmarks.legalworld" = ["catalog.yaml", "patches/*.patch"]
 "lexverse.benchmarks.lexeval" = ["patches/*.patch", "catalog.yaml"]
 "lexverse.benchmarks.plawbench" = ["patches/*.patch", "catalog.yaml"]
+"lexverse.benchmarks.simucourt" = ["catalog.yaml", "patches/*.patch"]
+"lexverse.benchmarks.maser" = ["catalog.yaml", "patches/*.patch"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

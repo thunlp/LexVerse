@@ -13,7 +13,7 @@ import hashlib
 import json
 import logging
 from lexverse.runtime.results import CompletenessReport, atomic_write_json, check_completeness, safe_path_component, trial_result_paths
-from lexverse.runtime.results import trial_relative_path
+from lexverse.runtime.results import trial_relative_path, execution_artifacts_valid
 from lexverse.verifiers.base import TaskVerifier, RunEvaluationResult
 from lexverse.tasks.schema import LexVerseTask
 from lexverse.providers.runtime import scoring_identity
@@ -226,7 +226,9 @@ def _evaluation_identity(tasks, records, scoring, run_dir):
                 path = run_dir / filename
                 files[key] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
         inputs.append({"task": task.model_dump(mode="json"), "status": record.get("status"),
-                       "response": record.get("response"), "artifacts": files})
+                       "response": record.get("response"), "artifacts": files,
+                       **({"execution_artifact_hashes": record["execution_artifact_hashes"]}
+                          if "execution_artifact_hashes" in record else {})})
     value = {"inputs": inputs, "scoring": scoring}
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
@@ -484,8 +486,7 @@ class Orchestrator:
             if existing is not None and existing.is_successful():
                 state_path = _trial_dir(trials_root, sample_id, job.trial_paths.get(sample_id)) / "results.json"
                 state = json.loads(state_path.read_text())
-                artifacts = state.get("execution_artifacts", {})
-                if all((job.run_dir / path).is_file() for path in artifacts.values()):
+                if execution_artifacts_valid(state, job.run_dir):
                     counts["skipped"] += 1
                     logger.info("[task] skipped task=%s reason=already_completed", sample_id)
                     return existing
@@ -614,6 +615,8 @@ class Orchestrator:
         def publish(notify=True):
             evaluated = verifier.build_result(tasks, results)
             state = evaluated.to_dict()
+            if any(unit.get("status") == "incomplete" for unit in checkpoints.values()):
+                state["status"] = "incomplete"
             state.update(units=checkpoints, cached=len(cached), running=running)
             atomic_write_json(path, state)
             save_records(evaluated)
@@ -666,6 +669,20 @@ class Orchestrator:
                                     "task_identities": saved_tasks, "artifacts": saved_artifacts}
         publish()
 
+        def save_unit(key, result, *, partial=False):
+            result = RunEvaluationResult.from_dict(result.to_dict())
+            if result.expected_task_ids != [task.id for task in units[key]]:
+                raise ValueError("native scoring unit returned mismatched task IDs")
+            for item in [*result.groups, *result.trials.values()]:
+                artifacts = item.get("artifacts", {}) if isinstance(item, dict) else item.artifacts
+                for name, filename in list(artifacts.items()):
+                    artifacts[name] = str(Path(filename).relative_to(run_dir)) if Path(filename).is_absolute() else filename
+            artifacts = _evaluation_artifacts(result, run_dir)
+            checkpoints[key].update(status="incomplete" if partial else result.to_dict()["status"],
+                                    result=result.to_dict(), artifacts=artifacts)
+            results[key] = result
+            return result
+
         async def worker(key):
             nonlocal running
             running += 1
@@ -684,18 +701,19 @@ class Orchestrator:
                     units[key], records, run_dir=run_dir, model_name=model_name,
                     context=unit_context,
                 )
-                result = RunEvaluationResult.from_dict(result.to_dict())
-                if result.expected_task_ids != [task.id for task in units[key]]:
-                    raise ValueError("native scoring unit returned mismatched task IDs")
-                for item in [*result.groups, *result.trials.values()]:
-                    artifacts = item.get("artifacts", {}) if isinstance(item, dict) else item.artifacts
-                    for name, filename in list(artifacts.items()):
-                        artifacts[name] = str(Path(filename).relative_to(run_dir)) if Path(filename).is_absolute() else filename
-                status = result.to_dict()["status"]
-                checkpoints[key].update(status=status, result=result.to_dict(),
-                                        artifacts=_evaluation_artifacts(result, run_dir))
-                results[key] = result
-                return result
+                return save_unit(key, result)
+            except asyncio.CancelledError:
+                checkpoints[key].update(status="incomplete")
+                try:
+                    partial = verifier.collect_partial_unit(
+                        units[key], records, run_dir=run_dir, model_name=model_name,
+                        context=unit_context,
+                    )
+                    if partial is not None:
+                        save_unit(key, partial, partial=True)
+                except Exception as exc:
+                    checkpoints[key].update(partial_error_type=type(exc).__name__)
+                raise
             except Exception as exc:
                 checkpoints[key].update(status="failed", error_type=type(exc).__name__)
                 raise

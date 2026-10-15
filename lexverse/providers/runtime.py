@@ -15,6 +15,7 @@ from urllib.request import urlopen
 
 from lexverse.config import ConfigError, ModelConfig, load_profile
 from lexverse.runtime.results import atomic_write_json
+from lexverse.runtime.errors import EmptyResponseError
 from .openai_compatible import OpenAICompatibleProvider
 
 
@@ -31,6 +32,8 @@ class LocalProvider(OpenAICompatibleProvider):
     async def generate(self, messages, *, config=None):
         try:
             return await super().generate(messages, config=config)
+        except EmptyResponseError:
+            raise
         except BaseException:
             self.runtime.stop_worker()
             raise

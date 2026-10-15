@@ -35,3 +35,9 @@ class EvaluationError(TrialError):
 
 class ProviderError(TrialError):
     pass
+
+
+class EmptyResponseError(ProviderError):
+    """The model returned an empty completion without a worker failure."""
+
+    pass

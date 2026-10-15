@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lexverse.config import ModelConfig, ModelsConfig
 
 from lexverse.environments.base import ExecutionEnvironment
 from lexverse.providers.base import Provider
@@ -36,6 +39,34 @@ class BenchmarkPlugin(ABC):
     catalog_path: Path
     upstream: UpstreamSource
     adapter_version = "1.0"
+
+    def validate_model_config(self, bench: dict, models: ModelsConfig, modern: bool) -> None:
+        """Validate model role bindings supported by this benchmark plugin."""
+        from lexverse.config import ConfigError
+        if models.roles:
+            raise ConfigError("roles model overrides are currently supported only by J1Bench, DLawBench, Legal-world and MASER")
+        if len(models.evaluators) > 1:
+            raise ConfigError("this benchmark accepts one model in models.evaluators")
+        if models.summary is not None:
+            raise ConfigError("models.summary is supported only by J1Bench KQ/LC")
+
+    def generation_models(self, config: Any, bundle: TaskBundle) -> dict[str, ModelConfig]:
+        """Return models required for the generation phase."""
+        return {"default": config.models.default}
+
+    def configure_environment(self, config: Any, providers: dict[str, Provider]) -> ExecutionEnvironment:
+        return self.create_environment(config, providers.get("default"))
+
+    def evaluation_models(self, config: Any) -> dict[str, ModelConfig]:
+        """Return models required for the evaluation phase."""
+        return {}
+
+    def configure_evaluation_context(self, config: Any, providers: dict[str, Provider]) -> dict[str, Any]:
+        return self.evaluation_context(config)
+
+    def tested_model(self, config: Any) -> ModelConfig:
+        """Return the primary candidate model reported for the run."""
+        return config.models.default
 
     def create_bundle(self, config: Any) -> TaskBundle:
         benchmark = config.benchmark
@@ -114,6 +145,10 @@ class BenchmarkPlugin(ABC):
 
     @abstractmethod
     def create_aggregator(self) -> BenchmarkAggregator: ...
+
+    def summary_metadata(self, aggregate: dict[str, Any]) -> dict[str, Any]:
+        """Return benchmark-specific summary metadata without overwriting core fields."""
+        return {}
 
     def task_types(self) -> list[str]:
         return list(self.load_catalog()["tasks"])

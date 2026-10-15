@@ -62,10 +62,12 @@ class LocalBackend:
         from transformers import AutoTokenizer
         self.config = model
         config_path = path / "config.json"
-        model_type = json.loads(config_path.read_text()).get("model_type") if config_path.is_file() else None
+        native_config = json.loads(config_path.read_text()) if config_path.is_file() else {}
+        model_type = native_config.get("model_type")
         self.legacy_qwen = model_type == "qwen"
         trust = model.load_parameters.get("trust_remote_code", False)
-        self.tokenizer = AutoTokenizer.from_pretrained(str(path), trust_remote_code=trust, local_files_only=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(str(path), trust_remote_code=trust, local_files_only=True,
+                                                      use_fast=model.input.get("use_fast", True))
         if model.input.get("chat_template"):
             self.tokenizer.chat_template = Path(model.input["chat_template"]).read_text(encoding="utf-8")
         if model_type == "internlm" and not self.tokenizer.chat_template:
@@ -82,6 +84,7 @@ class LocalBackend:
         if model.provider == "transformers":
             import torch
             from transformers import AutoModelForCausalLM
+            max_model_len = loading.pop("max_model_len", None)
             dtype = loading.pop("dtype", "auto")
             dtype = "auto" if dtype == "auto" else getattr(torch, dtype)
             device = loading.pop("device_map", "auto")
@@ -94,16 +97,20 @@ class LocalBackend:
             self.model = AutoModelForCausalLM.from_pretrained(
                 str(path), torch_dtype=dtype, device_map=device, local_files_only=True, **loading,
             ).eval()
-            self.context_limit = getattr(self.model.config, "max_position_embeddings", self.tokenizer.model_max_length)
+            self.native_context_limit = getattr(self.model.config, "max_position_embeddings", self.tokenizer.model_max_length)
+            # An explicit execution limit permits position extrapolation without changing model config or RoPE.
+            self.context_limit = max_model_len if max_model_len is not None else self.native_context_limit
             self.device = str(self.model.device)
             self.dtype = str(self.model.dtype)
         else:
             from vllm import LLM
             # Render chat ourselves exactly once; vLLM receives token IDs.
             self.model = LLM(model=str(path), tokenizer=str(path), generation_config="vllm", **loading)
+            self.native_context_limit = native_config.get("max_position_embeddings", self.tokenizer.model_max_length)
             self.context_limit = self.model.llm_engine.model_config.max_model_len
             self.device = "vllm"
             self.dtype = str(self.model.llm_engine.model_config.dtype)
+        self.context_extrapolation = self.context_limit > self.native_context_limit
 
     def generate(self, messages: list[dict], options: dict) -> dict:
         validate_local_generation(options)
@@ -250,6 +257,7 @@ def main() -> None:
     atomic_write_json(Path(settings["ready_path"]), {
         "port": server.server_port, "source": source, "versions": versions,
         "device": backend.device, "dtype": backend.dtype, "context_limit": backend.context_limit,
+        "native_context_limit": backend.native_context_limit, "context_extrapolation": backend.context_extrapolation,
     })
     print(f"loaded provider={model.provider} device={backend.device} dtype={backend.dtype}", flush=True)
     server.serve_forever()

@@ -26,6 +26,48 @@ class J1BenchPlugin(BenchmarkPlugin):
         }
         return super().create_bundle(config)
 
+    def validate_model_config(self, bench, models, modern):
+        from lexverse.config import ConfigError
+        from .scenarios import SCENARIOS
+        if len(models.evaluators) > 1:
+            raise ConfigError("this benchmark accepts one model in models.evaluators")
+        if models.roles:
+            names = TaskSelection.from_config(bench, {}).select_types(list(SCENARIOS))
+            supported_roles = {role for name in names for role in SCENARIOS[name].roles}
+            if set(models.roles) - supported_roles:
+                raise ConfigError(f"roles not present in the selected scenarios: {sorted(set(models.roles) - supported_roles)}")
+
+    def generation_models(self, config, bundle):
+        role_names = dict.fromkeys(role for task in bundle.tasks
+                                   for role in require_supported(task.source.task_type).roles)
+        models = {role: config.models.roles.get(role, config.models.default) for role in role_names}
+        if any(task.source.task_type in {"KQ", "LC"} for task in bundle.tasks):
+            models["summary"] = config.models.summary
+        return models
+
+    def configure_environment(self, config, providers):
+        environment = self.create_environment(config, None)
+        environment.connections = providers
+        return environment
+
+    def evaluation_models(self, config):
+        from lexverse.config import ConfigError
+        if not config.models.evaluators:
+            raise ConfigError("J1Bench requires one model in models.evaluators")
+        return {"judge": config.models.evaluators[0]}
+
+    def configure_evaluation_context(self, config, providers):
+        import sys
+        scoring = providers["judge"]
+        return {
+            **self.evaluation_context(config),
+            "scoring_api_key": scoring.api_key, "scoring_api_base": scoring.base_url,
+            "scoring_provider": scoring,
+            "request_timeout_sec": config.evaluation.get("model_request_timeout_sec"),
+            "scoring_model": scoring.model, "scoring_parameters": scoring.default_config,
+            "python_executable": sys.executable,
+        }
+
     def create_importer(self, config=None):
         config = config or {}
         legacy_scenario = config.get("scenario")

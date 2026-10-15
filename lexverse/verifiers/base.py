@@ -169,6 +169,10 @@ class TaskVerifier(ABC):
     def prepare_unit(self, tasks, records, *, run_dir, model_name, context):
         """Adapters with native intermediate caches validate them before scoring."""
 
+    def collect_partial_unit(self, tasks, records, *, run_dir, model_name, context):
+        """Optionally collect settled native outputs after cancellation, without scoring."""
+        return None
+
     def build_result(self, tasks, results):
         trials = {key: value for result in results.values() for key, value in result.trials.items()}
         groups = ([group for result in results.values() for group in result.groups]

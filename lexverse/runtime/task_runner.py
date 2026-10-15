@@ -10,6 +10,7 @@ from lexverse.interaction.engine import InteractionEngine
 from lexverse.interaction.participants import Participant
 from lexverse.interaction.policies import InteractionPolicy
 from lexverse.interaction.schema import EnvironmentResult
+from lexverse.runtime.errors import TrialError, TrialTimeoutError
 from lexverse.tasks.schema import LexVerseTask
 
 
@@ -47,4 +48,8 @@ class TaskRunner:
                 engine=self.interaction,
             )
             env_result = await native_environment.run(task, work_dir)
+        if env_result.status == "timeout":
+            raise TrialTimeoutError("environment returned timeout")
+        if env_result.status != "completed":
+            raise TrialError(f"environment returned {env_result.status}")
         return env_result

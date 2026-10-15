@@ -18,6 +18,33 @@ class DLawBenchPlugin(BenchmarkPlugin):
     default_environment = "dlawbench_native"
     catalog_path = Path(__file__).with_name("catalog.yaml")
 
+    def validate_model_config(self, bench, models, modern):
+        if set(models.roles) - {"lawyer", "client"}:
+            raise ConfigError("DLawBench roles must be lawyer or client")
+        if models.summary is not None:
+            raise ConfigError("models.summary is supported only by J1Bench KQ/LC")
+
+    def generation_models(self, config, bundle):
+        return {role: config.models.roles.get(role, config.models.default)
+                for role in ("lawyer", "client")}
+
+    def configure_environment(self, config, providers):
+        environment = self.create_environment(config, None)
+        environment.connections = providers
+        return environment
+
+    def tested_model(self, config):
+        return config.models.roles.get("lawyer", config.models.default)
+
+    def evaluation_models(self, config):
+        return self.evaluation_context(config)["judge_models"]
+
+    def configure_evaluation_context(self, config, providers):
+        context = self.evaluation_context(config)
+        context.pop("judge_models")
+        return {**context, "judge_connections": providers,
+                "timeout_sec": config.evaluation.get("timeout_sec")}
+
     def create_importer(self, config=None):
         return DLawBenchImporter(offline=(config or {}).get("offline", False))
 

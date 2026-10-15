@@ -25,18 +25,23 @@ benchmarks and develop environment capabilities for richer agent interactions.
 
 | Benchmark                                           |               Coverage | Interaction                 | Verification                |
 | --------------------------------------------------- | ---------------------: | --------------------------- | --------------------------- |
-| [LexEval](https://github.com/CSHaitao/LexEval)       |               23 tasks | Single response             | Upstream task evaluator     |
-| [LawBench](https://github.com/open-compass/LawBench) |               20 tasks | Single response             | Upstream task evaluator     |
-| [J1Bench](https://github.com/FudanDISC/J1Bench)      | CI, CR, KQ, LC, CD, DD | Official multi-role harness | Upstream scenario evaluator |
+| [LexEval](https://github.com/CSHaitao/LexEval)           |               23 tasks | Single response             | Upstream task evaluator     |
+| [LawBench](https://github.com/open-compass/LawBench)       |               20 tasks | Single response             | Upstream task evaluator     |
+| [J1Bench](https://github.com/FudanDISC/J1Bench)            | CI, CR, KQ, LC, CD, DD | Official multi-role harness | Upstream scenario evaluator |
+| [PLawBench](https://github.com/SKYLENAGE-AI/PLawBench)     |                3 tasks | Single response             | Upstream rubric evaluator   |
+| [DLawBench](https://github.com/SKYLENAGE-AI/DLawBench)     |             4 personas | Official consultation loop  | Upstream session evaluator  |
+| [Legal-world](https://github.com/sii-research/Legal-world) |               6 stages | Official stage pipeline     | Upstream stage evaluator    |
+| [SimuCourt](https://github.com/Zhitao-He/AgentsCourt)      |             6 tasks    | Single response             | Upstream task evaluator     |
+| [MASER](https://github.com/FudanDISC/MASER)                |  complaint_generation  | Official Law_Fact runner    | Upstream scenario evaluator |
 
 ## 🚀 Quick Start
 
 ### 1. Install LexVerse
 
-Use Python 3.10 or newer. Install LexVerse with the dependencies for all three benchmarks:
+Use Python 3.10 or newer. Install LexVerse with the dependencies for the benchmarks you want to run:
 
 ```bash
-python -m pip install -e ".[lexeval,lawbench,j1bench,openai]"
+python -m pip install -e ".[lexeval,lawbench,j1bench,simucourt,maser,openai]"
 python -m lexverse --help
 ```
 
@@ -52,45 +57,43 @@ Create local configuration files from the tracked `*.example.yaml` templates.
 Configure at least one OpenAI-compatible connection in
 `configs/secrets.local.yaml`.
 
-The benchmark YAML selects the connection with `model.profile` and the actual
-model with `model.name`. J1Bench also has `evaluation.model`, because its
-official evaluator calls a scoring model. Model names belong in benchmark
-configuration, not in the secrets file.
+The benchmark YAML selects the connection with `models.default.profile` and the
+actual model with `models.default.name`. Multi-role and LLM-judged benchmarks
+also configure `models.roles` and `models.evaluators`. Model names belong in
+benchmark configuration, not in the secrets file.
 
 ### 3. Run LexEval
 
-`prepare` resolves the selected upstream cases and freezes them into a
-manifest. It does not call the model. `run` performs generation, official
-task-level evaluation, and aggregation.
+`run --dry-run` resolves the selected upstream cases and checks the
+configuration without calling the model. `generate` runs model generation only,
+`run` performs generation, official evaluation, and aggregation, and `evaluate`
+scores an existing run independently.
 
 ```bash
-python -m lexverse prepare \
-  --config configs/benchmarks/lexeval.local.yaml \
-  --output .lexverse/prepared/lexeval-all.json
-
-LEXEVAL_RUN="runs/lexeval-all-$(date +%Y%m%d-%H%M%S)"
-python -m lexverse run \
-  --prepared .lexverse/prepared/lexeval-all.json \
-  --output-root "$LEXEVAL_RUN"
+python -m lexverse run lexeval --config configs/benchmarks/lexeval.example.yaml --dry-run
+python -m lexverse run lexeval --config configs/benchmarks/lexeval.local.yaml \
+  --output-root runs/lexeval-experiment
 ```
 
 ### 4. Run LawBench
 
 ```bash
-python -m lexverse prepare \
-  --config configs/benchmarks/lawbench.local.yaml \
-  --output .lexverse/prepared/lawbench-all.json
-
-LAWBENCH_RUN="runs/lawbench-all-$(date +%Y%m%d-%H%M%S)"
-python -m lexverse run \
-  --prepared .lexverse/prepared/lawbench-all.json \
-  --output-root "$LAWBENCH_RUN"
+python -m lexverse run lawbench --config configs/benchmarks/lawbench.example.yaml --dry-run
+python -m lexverse run lawbench --config configs/benchmarks/lawbench.local.yaml \
+  --output-root runs/lawbench-experiment
 ```
 
-If a run is interrupted after model generation, set `execution.resume: true`
-in `configs/benchmarks/lawbench.local.yaml`, run `prepare` again, and reuse the
-same `--output-root`. Completed trials will be reused instead of calling the
-model again.
+If a run is interrupted, resume it from the frozen manifest snapshot:
+
+```bash
+python -m lexverse run --resume runs/lawbench-experiment
+```
+
+If generation has completed and only scoring needs to be rerun:
+
+```bash
+python -m lexverse evaluate --run-dir runs/lawbench-experiment
+```
 
 ### 5. Run J1Bench
 
@@ -102,43 +105,49 @@ and authenticate once:
 hf auth login
 ```
 
-The first `prepare` downloads the selected `J1-Eval_<SCENARIO>.jsonl` files to
-`.lexverse/datasets/j1bench/`. Later runs reuse this cache and do not modify the
-downloaded files.
+The first `run --dry-run` or `run` downloads the selected `J1-Eval_<SCENARIO>.jsonl`
+files to `.lexverse/datasets/j1bench/`. Later runs reuse this cache and do not
+modify the downloaded files.
 
 ```bash
-python -m lexverse prepare \
-  --config configs/benchmarks/j1bench.local.yaml \
-  --output .lexverse/prepared/j1bench-all.json
-
-J1BENCH_RUN="runs/j1bench-all-$(date +%Y%m%d-%H%M%S)"
-python -m lexverse run \
-  --prepared .lexverse/prepared/j1bench-all.json \
-  --output-root "$J1BENCH_RUN"
+python -m lexverse run j1bench --config configs/benchmarks/j1bench.example.yaml --dry-run
+python -m lexverse run j1bench --config configs/benchmarks/j1bench.local.yaml \
+  --output-root runs/j1bench-experiment
 ```
 
 J1Bench runs the official multi-role conversation for every case and invokes
 the official evaluator once per scenario. It is slower and more expensive than
-the two single-response benchmarks. A successful `run` has already completed
-evaluation; there is no separate eval command.
+the two single-response benchmarks.
+
+### 6. Run SimuCourt and MASER
+
+```bash
+python -m lexverse run simucourt --config configs/benchmarks/simucourt.example.yaml --dry-run
+python -m lexverse run simucourt --config configs/benchmarks/simucourt.local.yaml \
+  --output-root runs/simucourt-experiment
+
+python -m lexverse run maser --config configs/benchmarks/maser.example.yaml --dry-run
+python -m lexverse run maser --config configs/benchmarks/maser.local.yaml \
+  --output-root runs/maser-experiment
+```
 
 ## 📂 Outputs
 
 Each `--output-root` contains `manifest.json`, `summary.json`, trial records,
 and official evaluation artifacts. LexEval and LawBench report task-level
-scores in `evaluation_result.csv`; J1Bench keeps per-case intermediate results
-and a scenario-level final result under `trials/<scenario>/verifier/`.
+scores in `evaluation_result.csv`; J1Bench and MASER keep per-case intermediate
+results and a scenario-level final result under `trials/<scenario>/verifier/`.
 
 `collect` rebuilds `summary.json` from existing Trial records and the existing
 official `evaluation_result.csv`:
 
 ```bash
-python -m lexverse collect --run-dir "$LEXEVAL_RUN"
+python -m lexverse collect --run-dir runs/lexeval-experiment
 ```
 
-For a cheaper smoke test, change only `execution.limit` in a local benchmark
-YAML. Run `prepare` again after every YAML change; `run` rejects configuration
-drift by design.
+For a cheaper smoke test, adjust `benchmark.default_limit` or each task's
+`limit` in a local benchmark YAML (`null` selects all samples). Start a new run
+whenever changing models, tasks, or generation parameters.
 
 ## 🏗️ Architecture
 
@@ -150,9 +159,8 @@ management in one workflow.
 ## 📝 Notes
 
 - Do not edit files under `.lexverse/datasets/j1bench/`.
-- Re-run `prepare` whenever a local YAML changes.
-- Upstream repositories are pinned in `lexverse/runtime/upstream.py`; patches
-  make them relocatable without replacing evaluator logic.
+- Start a new run after modifying a local YAML; `--resume` reads the frozen manifest snapshot.
+- Upstream repositories are pinned in each benchmark's `catalog.yaml`; patches make them relocatable without replacing evaluator logic.
 - Benchmark and dataset licenses remain governed by their original sources.
 
 LexVerse is released under the [Apache License 2.0](LICENSE).

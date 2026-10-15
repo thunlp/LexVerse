@@ -49,7 +49,8 @@ class DirectResponsePolicy(InteractionPolicy):
         action = actions[0]
         state.answer = action.content
         state.messages.append({"role": "assistant", "content": action.content})
-        state.dialog_history.append({"actor": action.actor_id, "content": action.content})
+        state.dialog_history.append({"actor": action.actor_id, "content": action.content,
+                                     "metadata": action.metadata})
         state.step_count += 1
         return state
 
