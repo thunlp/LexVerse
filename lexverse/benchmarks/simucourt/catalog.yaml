@@ -1,0 +1,19 @@
+schema_version: 1.0
+
+source:
+  name: simucourt
+  repo_url: https://github.com/Zhitao-He/AgentsCourt.git
+  commit: 7c14d6960abfdfdd7366250905da8dbcb416d6d6
+
+dataset:
+  paths:
+    - data/SimuCourt(1).json
+    - data/SimuCourt(2).json
+
+tasks:
+  first_criminal: {output_type: text, metrics: [charge_exact, term_exact, fine_exact, law_micro_f1]}
+  first_civil: {output_type: text, metrics: [law_micro_f1, judgment_micro_f1]}
+  first_administrative: {output_type: text, metrics: [law_micro_f1, judgment_micro_f1]}
+  second_criminal: {output_type: text, metrics: [charge_exact, term_exact, fine_exact, law_micro_f1]}
+  second_civil: {output_type: text, metrics: [law_micro_f1, judgment_micro_f1]}
+  second_administrative: {output_type: text, metrics: [law_micro_f1, judgment_micro_f1]}
