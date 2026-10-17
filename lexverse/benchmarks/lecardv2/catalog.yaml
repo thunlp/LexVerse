@@ -1,0 +1,22 @@
+schema_version: 1.0
+
+source:
+  name: lecardv2
+  repo_url: https://github.com/THUIR/LeCaRDv2.git
+  commit: 3326485a6c41f8aeda15502fea24e658f8fab746
+
+dataset:
+  paths:
+    - query/query.json
+    - query/train_query.json
+    - query/test_query.json
+    - label/ranking_pool.json
+    - label/relevence.trec
+    - label/relevence_gold.trec
+    - label/test_relevence.trec
+    - label/test_relevence_gold.trec
+    - others/stopword.txt
+    - others/criminal charges.txt
+
+tasks:
+  case_retrieval: {output_type: text, metrics: [recall_at_100, recall_at_200, recall_at_500, recall_at_1000, map, mrr, p_at_1, p_at_3, ndcg_at_3, ndcg_at_5, ndcg_at_10, ndcg_at_20, ndcg_at_30]}

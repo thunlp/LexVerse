@@ -30,8 +30,9 @@ def ensure_builtin_plugins() -> None:
     from .legalworld.plugin import PLUGIN as legalworld
     from .simucourt.plugin import PLUGIN as simucourt
     from .maser.plugin import PLUGIN as maser
+    from .lecardv2.plugin import PLUGIN as lecardv2
 
-    for plugin in (lexeval, lawbench, j1bench, plawbench, dlawbench, legalworld, simucourt, maser):
+    for plugin in (lexeval, lawbench, j1bench, plawbench, dlawbench, legalworld, simucourt, maser, lecardv2):
         if plugin.name not in _PLUGINS:
             register_plugin(plugin)
     _BUILTINS_LOADED = True

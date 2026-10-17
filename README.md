@@ -33,6 +33,7 @@ benchmarks and develop environment capabilities for richer agent interactions.
 | [Legal-world](https://github.com/sii-research/Legal-world) |               6 stages | Official stage pipeline     | Upstream stage evaluator    |
 | [SimuCourt](https://github.com/Zhitao-He/AgentsCourt)      |             6 tasks    | Single response             | Upstream task evaluator     |
 | [MASER](https://github.com/FudanDISC/MASER)                |  complaint_generation  | Official Law_Fact runner    | Upstream scenario evaluator |
+| [LeCaRDv2](https://github.com/THUIR/LeCaRDv2)              |       case_retrieval   | Encoder / LLM rewrite retrieval | Recall@K & ranking evaluator |
 
 ## 🚀 Quick Start
 
@@ -41,7 +42,7 @@ benchmarks and develop environment capabilities for richer agent interactions.
 Use Python 3.10 or newer. Install LexVerse with the dependencies for the benchmarks you want to run:
 
 ```bash
-python -m pip install -e ".[lexeval,lawbench,j1bench,simucourt,maser,openai]"
+python -m pip install -e ".[lexeval,lawbench,j1bench,simucourt,maser,lecardv2,openai]"
 python -m lexverse --help
 ```
 
@@ -119,7 +120,7 @@ J1Bench runs the official multi-role conversation for every case and invokes
 the official evaluator once per scenario. It is slower and more expensive than
 the two single-response benchmarks.
 
-### 6. Run SimuCourt and MASER
+### 6. Run SimuCourt, MASER, and LeCaRDv2
 
 ```bash
 python -m lexverse run simucourt --config configs/benchmarks/simucourt.example.yaml --dry-run
@@ -129,7 +130,16 @@ python -m lexverse run simucourt --config configs/benchmarks/simucourt.local.yam
 python -m lexverse run maser --config configs/benchmarks/maser.example.yaml --dry-run
 python -m lexverse run maser --config configs/benchmarks/maser.local.yaml \
   --output-root runs/maser-experiment
+
+python -m lexverse run lecardv2 --config configs/benchmarks/lecardv2.example.yaml --dry-run
+python -m lexverse run lecardv2 --config configs/benchmarks/lecardv2.local.yaml \
+  --output-root runs/lecardv2-experiment
 ```
+
+Adapter details, configuration modes, and local reproduction results are documented in:
+- [`lexverse/benchmarks/maser/README.md`](lexverse/benchmarks/maser/README.md)
+- [`lexverse/benchmarks/simucourt/README.md`](lexverse/benchmarks/simucourt/README.md)
+- [`lexverse/benchmarks/lecardv2/README.md`](lexverse/benchmarks/lecardv2/README.md)
 
 ## 📂 Outputs
 

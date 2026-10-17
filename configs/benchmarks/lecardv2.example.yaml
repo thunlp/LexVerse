@@ -1,0 +1,90 @@
+# Copy to lecardv2.local.yaml and edit your personal settings.
+# Public release: 800 query cases and 55,192 candidate criminal cases (160 test queries).
+# Set connection URLs and keys only in secrets profiles.
+
+schema_version: 1.0
+
+benchmark:
+  name: lecardv2
+  # Retrieval mode:
+  #   - bm25_retrieval           (Mode A: direct lexical BM25 retrieval without any LLM rewrite)
+  #   - encoder_retrieval        (Mode A: local dual-encoder retrieval such as SAILER_zh / chinese-roberta-wwm-ext / bge-base-zh-v1.5 / Lawformer)
+  #   - llm_query_rewrite        (Mode B: online generative LLM query rewriting + BM25 retrieval)
+  #   - keller_subfact_retrieval (Mode B: KELLER LLM sub-fact reformulation + local SAILER_zh MaxSim ranking)
+  #   - ranked_submission        (Optional utility: score a precomputed external TREC run file)
+  mode: llm_query_rewrite
+  # Candidate scope:
+  #   - full_corpus  (55,192 candidate documents; reports recall_at_100/200/500/1000 and ranking metrics)
+  #   - labeled_pool (official test_relevence.trec pool; aligns with CCE Table 8 NDCG@10)
+  #   - keller_pool  (KELLER 160-query candidate pool; aligns with KELLER Table 2 MAP/P@3/NDCG@3/5/10)
+  candidate_scope: full_corpus
+  # Published query-rewriting prompt template for Mode B:
+  #   - when_rules_learn_human1 (When Rules Learn, ACL Findings 2026 Appendix B & Fig. 1)
+  #   - jurex_4e_fet            (JUREX-4E, EMNLP 2025 Table 14 four-element extraction)
+  #   - keller_extract          (KELLER, EMNLP 2024 Appendix B crime & sub-fact summarization)
+  #   - promptcase_summary      (PromptCase, ADC 2023 legal facts & legal issues summarization)
+  #   - custom                  (pair with custom_prompt: "...{fact}...")
+  prompt_template: when_rules_learn_human1
+  split: all
+  top_k: 1000
+  cutoffs: [100, 200, 500, 1000]
+  # Set each task's sample limit; null selects all samples.
+  tasks:
+    - {id: "case_retrieval", limit: 2}
+
+models:
+  default:
+    provider: openai_compatible
+    profile: openai
+    name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+      max_tokens: 1024
+
+generation:
+  concurrency: 2
+
+evaluation:
+  concurrency: 1
+
+# Backend alternatives apply to every model definition in models.
+# Replace only models.default below; retain any roles, summary and evaluators.
+# Complete role model overrides do not merge fields with models.default.
+# API: openai_compatible uses profile for the URL/key in secrets.local.yaml.
+# Transformers/vLLM load weights directly and must omit profile.
+# Generation and evaluation each support one distinct local loading/input configuration.
+
+# Tiny-model examples use max_tokens: 256; choose a context that fits prompt + output for real runs.
+
+# Transformers: install local-transformers; use cpu/cuda/auto instead of mps on other hardware.
+#   default:
+#     provider: transformers
+#     name: Qwen/Qwen2.5-0.5B-Instruct
+#     load_parameters:
+#       cache_dir: ../../.lexverse/model-cache
+#       local_files_only: false
+#       trust_remote_code: false
+#       device_map: mps
+#       dtype: float32
+#     input: {format: chat}
+#     generation_parameters: {temperature: 0, max_tokens: 256}
+
+# Local weights: replace name with ../../.lexverse/models/YOUR_MODEL and set local_files_only: true.
+# Cache-only HF loading: keep the HF ID/cache_dir and set local_files_only: true.
+
+# vLLM: install local-vllm and run on supported server hardware.
+#   default:
+#     provider: vllm
+#     name: Qwen/Qwen2.5-0.5B-Instruct
+#     load_parameters:
+#       cache_dir: ../../.lexverse/model-cache
+#       local_files_only: false
+#       trust_remote_code: false
+#       dtype: auto
+#       tensor_parallel_size: 1
+#       gpu_memory_utilization: 0.9
+#       max_model_len: 4096
+#     input: {format: chat}
+#     generation_parameters: {temperature: 0, max_tokens: 256}
+
+# Existing vLLM API server: use openai_compatible, its profile and served model name.
