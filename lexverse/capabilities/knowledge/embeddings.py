@@ -5,7 +5,11 @@ import math
 import sqlite3
 import struct
 
-from langchain_core.embeddings import Embeddings
+try:
+    from langchain_core.embeddings import Embeddings
+except ImportError:
+    class Embeddings:  # type: ignore[no-redef]
+        pass
 from lexverse.config import ConfigError
 from lexverse.tasks.user import (EmbeddingConfig, DEFAULT_EMBEDDING_MODEL,
                                  DEFAULT_EMBEDDING_REVISION, DEFAULT_QUERY_PREFIX)
@@ -151,7 +155,10 @@ class LocalEmbeddings(BGEEmbeddings):
         self.max_tokens = config.max_tokens or capacity
         self.model.max_seq_length = self.max_tokens
         self.tokenizer = self.model.tokenizer
-        self.embedding_dimension = self.model.get_sentence_embedding_dimension()
+        dim_fn = getattr(self.model, "get_embedding_dimension", None) or getattr(
+            self.model, "get_sentence_embedding_dimension"
+        )
+        self.embedding_dimension = dim_fn()
         if not self.embedding_dimension:
             raise ConfigError("Embedding model must have a fixed output dimension")
         self.batch_size = config.batch_size

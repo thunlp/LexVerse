@@ -21,6 +21,8 @@ class Override(Resources):
 
 class BenchmarkCapabilities(StrictModel):
     enabled: StrictBool = False
+    agent: str = "lexverse"
+    environment: str = "docker"
     registry: Path | None = None
     defaults: Resources = Field(default_factory=Resources)
     task_overrides: dict[str, Override] = Field(default_factory=dict)
@@ -44,8 +46,8 @@ def parse_capabilities(value, benchmark, model, base):
         settings = BenchmarkCapabilities.model_validate(value)
         if not settings.enabled:
             return settings.model_dump(mode="json")
-        if benchmark not in {"lawbench", "lexeval"}:
-            raise ValueError("Capability enhancement supports lawbench and lexeval only")
+        if benchmark not in {"lawbench", "lexeval", "plawbench"}:
+            raise ValueError("Capability enhancement supports lawbench, lexeval and plawbench only")
         if model.provider != "openai_compatible":
             raise ValueError("Capability enhancement requires an OpenAI-compatible service")
         import yaml

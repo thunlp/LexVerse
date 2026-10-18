@@ -4,7 +4,7 @@ import hashlib
 from pathlib import Path
 import tempfile
 
-from lexverse.agents.agent_loop import execute_agent
+from lexverse.agents.general_runner import execute_general_agent
 from lexverse.capabilities.base import AgentExecutionSpec
 from lexverse.capabilities.benchmark import BenchmarkCapabilities
 from lexverse.capabilities.knowledge.loaders import scan_source
@@ -52,9 +52,12 @@ async def execute(payload):
     preparing = payload["operation"] == "prepare"
     profile = load_profile(payload["model"]["profile"])
     connection_hash = hashlib.sha256((profile.base_url or "https://api.openai.com/v1").encode()).hexdigest()
-    if preparing:
-        from lexverse.providers.chat_model import create_chat_model
-        create_chat_model(ModelConfig(**payload["model"]), context_window_tokens=settings.context_window_tokens)
+    if preparing and settings.agent in ("lexverse", "deepagents"):
+        try:
+            from lexverse.providers.chat_model import create_chat_model
+            create_chat_model(ModelConfig(**payload["model"]), context_window_tokens=settings.context_window_tokens)
+        except ModuleNotFoundError:
+            pass
     if preparing and (run / ".internal/manifest.json").exists():
         manifest = json.loads((run / ".internal/manifest.json").read_text())
         if manifest["connection_sha256"] != connection_hash:
@@ -70,6 +73,7 @@ async def execute(payload):
             manifest = json.loads((run / ".internal/manifest.json").read_text())
             manifest["resources"] = frozen["resources"]
             manifest["resource_hash"] = frozen["resource_hash"]
+            manifest["execution"] = frozen.get("execution", {})
             atomic_write_json(run / ".internal/manifest.json", manifest)
     manifest = json.loads((run / ".internal/manifest.json").read_text())
     manifest["connection_sha256"] = connection_hash
@@ -82,7 +86,18 @@ async def execute(payload):
         context_window_tokens=settings.context_window_tokens,
         skills_root=None if preparing else Path(payload["template"]) / ".internal/agent_fs/skills",
     )
-    result = await execute_agent(spec, prepare_only=preparing)
+    if settings.agent in ("lexverse", "deepagents"):
+        from lexverse.agents.agent_loop import execute_agent
+        result = await execute_agent(spec, prepare_only=preparing)
+    else:
+        default_env_dir = Path(__file__).resolve().parents[2] / "configs/tasks/contract_review/environment"
+        result = await execute_general_agent(
+            spec,
+            agent_name=settings.agent,
+            env_type=settings.environment,
+            environment_dir=default_env_dir if default_env_dir.is_dir() else None,
+            prepare_only=preparing,
+        )
     if result["status"] != "completed":
         raise ConfigError(f"Capability execution failed: {result['stop_reason']}: {result.get('error_message', result.get('error_type', ''))}")
     result["resource_hash"] = json.loads((run / ".internal/manifest.json").read_text())["resource_hash"]

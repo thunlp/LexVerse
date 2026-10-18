@@ -65,20 +65,29 @@ Prepare the agent dependencies:
 lexverse environment setup
 ```
 
-Organize your task and files:
+Organize your task and files (or start from the built-in contract review sandbox example at `configs/tasks/contract_review/task.yaml`):
 
 ```text
-user_workspace/
-├── knowledge/              # Documents available for retrieval
-└── task/<task_name>/
-    ├── task.yaml           # Instructions, model and capability selection
-    └── inputs/             # Files provided for this task
+configs/tasks/contract_review/                  # or user_workspace/task/<task_name>/
+├── task.yaml                                   # Instructions, model and capability selection
+├── inputs/                                     # Matter files (e.g. service_agreement.md)
+├── environment/                                # Optional Dockerfile / static sandbox files
+├── solution/                                   # Optional reference solve.sh for oracle agent
+└── tests/                                      # Optional test.sh verifier scoring criteria
 ```
 
-Configure `task.yaml` using the [task configuration guide](docs/Stage2设计文档.md), then run:
+Configure `task.yaml`, then run with the built-in LexVerse agent or any Harbor-compatible general agent (`claude-code`, `codex`, `qwen-code`, `gemini-cli`, `openhands`, `opencode`, `aider`, `kimi-cli`, `goose`, `cursor-cli`, `mini-swe-agent`, `pi`, `oracle`, or custom `module:Class`):
 
 ```bash
-lexverse task run user_workspace/task/<task_name>/task.yaml
+# Default built-in LexVerse agent
+lexverse task run configs/tasks/contract_review/task.yaml
+
+# Run with external general CLI agents in local or docker sandbox
+lexverse task run configs/tasks/contract_review/task.yaml --agent claude-code --model anthropic/claude-sonnet-4-5
+lexverse task run configs/tasks/contract_review/task.yaml --agent codex --model openai/gpt-5 --env docker
+
+# Verify task pipeline with reference oracle solution
+lexverse task run configs/tasks/contract_review/task.yaml --agent oracle --no-interactive
 ```
 
 For large knowledge sources, optionally build indexes beforehand:
@@ -87,7 +96,7 @@ For large knowledge sources, optionally build indexes beforehand:
 lexverse environment build --knowledge user_workspace/knowledge --mode hybrid
 ```
 
-Results are saved to `runs/user_tasks/<task_name>/<run_id>/`. Open `result.json` for the answer and status, and `artifacts/` for generated files.
+Results are saved to `runs/user_tasks/<task_name>/<run_id>/`. Open `result.json` for the answer and status, `trajectory.json` for the standardized ATIF trajectory, and `artifacts/` for generated files.
 
 ## Commands
 
@@ -100,7 +109,8 @@ Results are saved to `runs/user_tasks/<task_name>/<run_id>/`. Open `result.json`
 | `lexverse benchmark catalog <benchmark>`         | List benchmark tasks                |
 | `lexverse task run <task.yaml>`                  | Run a user task                     |
 | `lexverse task resume <path>`                    | Resume a paused user task           |
-| `lexverse task inspect <path>`                   | Inspect task status                 |
+| `lexverse task inspect <path> [--trajectory]`    | Inspect task status and ATIF trace  |
+| `lexverse task agents`                           | List supported general agents       |
 | `lexverse environment setup`                     | Install or reuse agent dependencies |
 | `lexverse environment build --knowledge <paths>` | Build or reuse knowledge indexes    |
 
@@ -108,8 +118,10 @@ Use `--config <path>` to select a specific benchmark configuration, or `--resume
 
 Run any command with `--help` for its options.
 
-## License and contact
+## License, attributions, and contact
 
 LexVerse is licensed under [Apache License 2.0](LICENSE). Upstream code, datasets, skills and services retain their own licenses and usage terms.
+
+General agent integration, sandbox environment abstractions, installed CLI agent adapters, and ATIF trajectory models in LexVerse include components derived from [Harbor](https://github.com/laude-institute/harbor) (`v0.20.0`, Apache License 2.0). See [NOTICE](NOTICE) for full copyright and attribution details.
 
 For questions, open a GitHub Issue or email xieh@tsinghua.edu.cn.

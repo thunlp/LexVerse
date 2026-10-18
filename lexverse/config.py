@@ -194,25 +194,27 @@ def load_profile(name: str, path: Path | None = None) -> ProviderProfile:
     if path is not None and path.exists():
         import yaml
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        if name not in data:
-            raise SecretsMissing(f"profile {name!r} not found in {path}")
-        profile = data[name]
-        if not isinstance(profile, dict):
-            raise SecretsMissing(f"profile {name!r} in {path} must be a mapping")
-        if set(profile) - {"api_key", "base_url"}:
-            raise SecretsMissing(
-                f"profile {name!r} in {path}: only base_url and api_key are allowed; "
-                "put provider and model name in the new model configuration"
+        if name in data:
+            profile = data[name]
+            if not isinstance(profile, dict):
+                raise SecretsMissing(f"profile {name!r} in {path} must be a mapping")
+            if set(profile) - {"api_key", "base_url"}:
+                raise SecretsMissing(
+                    f"profile {name!r} in {path}: only base_url and api_key are allowed; "
+                    "put provider and model name in the new model configuration"
+                )
+            if not isinstance(profile.get("api_key"), str) or not profile["api_key"]:
+                raise SecretsMissing(f"profile {name!r} requires a nonempty api_key")
+            if profile.get("base_url") is not None and not isinstance(profile["base_url"], str):
+                raise SecretsMissing(f"profile {name!r}.base_url must be a URL string")
+            return ProviderProfile(
+                name=name,
+                base_url=_expand_secret(profile.get("base_url")),  # type: ignore[arg-type]
+                api_key=_expand_secret(profile["api_key"]),  # type: ignore[arg-type]
             )
-        if not isinstance(profile.get("api_key"), str) or not profile["api_key"]:
-            raise SecretsMissing(f"profile {name!r} requires a nonempty api_key")
-        if profile.get("base_url") is not None and not isinstance(profile["base_url"], str):
-            raise SecretsMissing(f"profile {name!r}.base_url must be a URL string")
-        return ProviderProfile(
-            name=name,
-            base_url=_expand_secret(profile.get("base_url")),  # type: ignore[arg-type]
-            api_key=_expand_secret(profile["api_key"]),  # type: ignore[arg-type]
-        )
+        upper_name = name.upper()
+        if not os.environ.get(f"LEXVERSE_{upper_name}_API_KEY"):
+            raise SecretsMissing(f"profile {name!r} not found in {path}")
 
     upper_name = name.upper()
     api_key = os.environ.get(f"LEXVERSE_{upper_name}_API_KEY")

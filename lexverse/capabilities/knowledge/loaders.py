@@ -9,13 +9,22 @@ import tempfile
 
 from filelock import FileLock
 
-from langchain_core.documents import Document
+try:
+    from langchain_core.documents import Document
+except ImportError:
+    from dataclasses import dataclass, field
+    from typing import Any
+
+    @dataclass
+    class Document:  # type: ignore[no-redef]
+        page_content: str
+        metadata: dict[str, Any] = field(default_factory=dict)
 
 from lexverse.config import ConfigError
 from lexverse.capabilities.knowledge.sources import MANIFEST_NAME, field_value, read_source_manifest
 
 
-SUPPORTED = {".txt", ".md", ".json", ".jsonl", ".csv", ".pdf", ".docx"}
+SUPPORTED = {".txt", ".md", ".json", ".jsonl", ".csv", ".pdf", ".docx", ".xlsx", ".pptx", ".eml"}
 KINDS = {"legal_laws", "legal_cases", "legal_concepts", "legal_qa", "legal_templates"}
 LOADER_VERSION = 5
 ANNOTATION_FILES = {
@@ -182,11 +191,77 @@ def _parse(path: Path, kind: str, mapping=None):
                 continue
             yield f"page:{number}", page.page_content, path.stem, {"page": number}
     elif suffix == ".docx":
-        from docx import Document as WordDocument
-        doc = WordDocument(path)
-        lines = [p.text for p in doc.paragraphs if p.text.strip()]
-        lines.extend(" | ".join(cell.text for cell in row.cells) for table in doc.tables for row in table.rows)
+        try:
+            from docx import Document as WordDocument
+
+            doc = WordDocument(path)
+            lines = [p.text for p in doc.paragraphs if p.text.strip()]
+            lines.extend(" | ".join(cell.text for cell in row.cells) for table in doc.tables for row in table.rows)
+            yield "text", "\n".join(lines), path.stem, {}
+        except ImportError:
+            import zipfile
+            from xml.etree import ElementTree
+
+            word_ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+            lines = []
+            with zipfile.ZipFile(path) as zf:
+                if "word/document.xml" in zf.namelist():
+                    root = ElementTree.fromstring(zf.read("word/document.xml"))
+                    for p in root.iter(f"{word_ns}p"):
+                        t = "".join(node.text for node in p.iter(f"{word_ns}t") if node.text).strip()
+                        if t:
+                            lines.append(t)
+            yield "text", "\n".join(lines), path.stem, {}
+    elif suffix == ".xlsx":
+        import zipfile
+        from xml.etree import ElementTree
+
+        lines = []
+        with zipfile.ZipFile(path) as zf:
+            shared: list[str] = []
+            if "xl/sharedStrings.xml" in zf.namelist():
+                ss_root = ElementTree.fromstring(zf.read("xl/sharedStrings.xml"))
+                for si in ss_root.iter():
+                    if si.tag.endswith("}si"):
+                        shared.append("".join(t.text or "" for t in si.iter() if t.tag.endswith("}t")))
+            for sheet_name in sorted(n for n in zf.namelist() if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")):
+                lines.append(f"=== {Path(sheet_name).stem} ===")
+                s_root = ElementTree.fromstring(zf.read(sheet_name))
+                for row in s_root.iter():
+                    if row.tag.endswith("}row"):
+                        cells = []
+                        for c in row:
+                            if not c.tag.endswith("}c"):
+                                continue
+                            c_type = c.get("t")
+                            val = ""
+                            for child in c:
+                                if child.tag.endswith("}v") and child.text:
+                                    if c_type == "s" and child.text.isdigit() and int(child.text) < len(shared):
+                                        val = shared[int(child.text)]
+                                    else:
+                                        val = child.text
+                                elif child.tag.endswith("}is"):
+                                    val = "".join(t.text or "" for t in child.iter() if t.tag.endswith("}t"))
+                            if val:
+                                cells.append(val)
+                        if cells:
+                            lines.append(" | ".join(cells))
         yield "text", "\n".join(lines), path.stem, {}
+    elif suffix == ".pptx":
+        import zipfile
+        from xml.etree import ElementTree
+
+        lines = []
+        with zipfile.ZipFile(path) as zf:
+            for slide_name in sorted(n for n in zf.namelist() if n.startswith("ppt/slides/slide") and n.endswith(".xml")):
+                s_root = ElementTree.fromstring(zf.read(slide_name))
+                texts = [t.text.strip() for t in s_root.iter() if t.tag.endswith("}t") and t.text and t.text.strip()]
+                if texts:
+                    lines.append(f"=== {Path(slide_name).stem} ===\n" + "\n".join(texts))
+        yield "text", "\n\n".join(lines), path.stem, {}
+    elif suffix == ".eml":
+        yield "text", path.read_text(encoding="utf-8", errors="replace"), path.stem, {}
     else:
         count = 0
         for index, row in _records(path, "user" if mapping is not None else kind):
