@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from functools import wraps
 import os
 from pathlib import Path
+import re
 import shlex
 from typing import Any, Callable, Literal, override
 
@@ -32,6 +33,72 @@ from lexverse.utils.templating import render_prompt_template
 
 class NonZeroAgentExitCodeError(RuntimeError):
     """Raised when an installed agent command exits with a non-zero return code."""
+
+
+class ApiError(NonZeroAgentExitCodeError):
+    """Base class for model provider API errors detected in agent output."""
+
+
+class ApiRateLimitError(ApiError):
+    pass
+
+
+class ApiUsageLimitError(ApiError):
+    pass
+
+
+class ApiInternalServerError(ApiError):
+    pass
+
+
+class ApiOverloadedError(ApiError):
+    pass
+
+
+class ApiConnectionClosedError(ApiError):
+    pass
+
+
+class ApiResponseStalledError(ApiError):
+    pass
+
+
+class OutputTokenExceededError(ApiError):
+    pass
+
+
+class ContextWindowExceededError(ApiError):
+    pass
+
+
+class UnknownApiError(ApiError):
+    pass
+
+
+class ApiProviderResourceNotFoundError(ApiError):
+    pass
+
+
+class AgentSafetyRefusalError(ApiError):
+    pass
+
+
+class AgentAuthenticationError(NonZeroAgentExitCodeError):
+    pass
+
+
+class ModelNotFoundError(NonZeroAgentExitCodeError):
+    pass
+
+
+class NetworkConnectionError(NonZeroAgentExitCodeError):
+    pass
+
+
+@dataclass
+class ErrorPattern:
+    pattern: str
+    exception: type[NonZeroAgentExitCodeError]
 
 
 @dataclass(frozen=True)
@@ -130,6 +197,16 @@ def with_prompt_template(run_method: Callable) -> Callable:
         try:
             await run_method(self, rendered_instruction, environment, context)
         finally:
+            try:
+                uid, gid = os.getuid(), os.getgid()
+                await environment.exec(
+                    f"chmod -R u+rwX /workspace /artifacts /logs/agent /logs/verifier 2>/dev/null || true; "
+                    f"chown -hR {uid}:{gid} /workspace /artifacts /logs/agent /logs/verifier 2>/dev/null || true",
+                    user="root",
+                    timeout_sec=15,
+                )
+            except Exception:
+                pass
             self.populate_context_post_run(context)
 
     return wrapper
@@ -142,6 +219,7 @@ class BaseInstalledAgent(BaseAgent, ABC):
 
     CLI_FLAGS: list[CliFlag] = []
     ENV_VARS: list[EnvVar] = []
+    ERROR_PATTERNS: list[ErrorPattern] = []
     DEFAULT_SETUP_TIMEOUT_SEC: int = 300
 
     def __init__(
@@ -198,6 +276,11 @@ class BaseInstalledAgent(BaseAgent, ABC):
                     self._resolved_env_vars[ev.env] = str(coerced)
 
         super().__init__(logs_dir, *args, **kwargs)
+        self._resolved_flags = self._resolved_cli_flags
+        self._compiled_error_patterns = [
+            (re.compile(p.pattern, re.IGNORECASE), p.exception)
+            for p in self.ERROR_PATTERNS
+        ]
         self._prompt_template_path = (
             Path(prompt_template_path) if prompt_template_path is not None else None
         )
@@ -310,6 +393,39 @@ class BaseInstalledAgent(BaseAgent, ABC):
     def populate_context_post_run(self, context: AgentContext) -> None:
         return None
 
+    def _truncate_output(self, text: str | None, max_len: int = 1000) -> str:
+        if not text:
+            return "None"
+        if len(text) <= max_len:
+            return text
+        head_len = max_len // 4
+        tail_len = max_len - head_len
+        omitted = len(text) - head_len - tail_len
+        return f"{text[:head_len]} ... [{omitted} chars truncated] ... {text[-tail_len:]}"
+
+    def _classify_exec_error(
+        self, command: str, result: Any
+    ) -> NonZeroAgentExitCodeError:
+        detail = (
+            f"Command failed (exit {result.return_code}): {command}\n"
+            f"stdout: {self._truncate_output(result.stdout)}\n"
+            f"stderr: {self._truncate_output(result.stderr)}"
+        )
+        output = f"{result.stdout or ''}\n{result.stderr or ''}"
+        last_match = None
+        for compiled, exception in self._compiled_error_patterns:
+            for match in compiled.finditer(output):
+                if last_match is None or match.end() > last_match[0]:
+                    last_match = (match.end(), compiled, exception)
+        if last_match is not None:
+            return last_match[2](detail)
+        return NonZeroAgentExitCodeError(detail)
+
+    def render_instruction(self, instruction: str) -> str:
+        if self._prompt_template_path:
+            return render_prompt_template(self._prompt_template_path, instruction)
+        return instruction
+
     def _resolve_agent_user(self, environment: BaseEnvironment) -> str | int | None:
         return environment.default_user
 
@@ -373,12 +489,7 @@ class BaseInstalledAgent(BaseAgent, ABC):
                 )
 
         if check and result.return_code != 0:
-            detail_parts = [f"Command failed (exit {result.return_code}): {command}"]
-            if result.stdout and result.stdout.strip():
-                detail_parts.append(f"stdout:\n{result.stdout.strip()[-2000:]}")
-            if result.stderr and result.stderr.strip():
-                detail_parts.append(f"stderr:\n{result.stderr.strip()[-2000:]}")
-            raise NonZeroAgentExitCodeError("\n".join(detail_parts))
+            raise self._classify_exec_error(command, result)
 
         return result
 
@@ -444,6 +555,12 @@ class BaseInstalledAgent(BaseAgent, ABC):
         return False
 
     async def setup(self, environment: BaseEnvironment) -> None:
+        root_user = None if environment.type().value == "local" else "root"
+        await environment.exec(
+            command="[ -d /installed-agent ] || mkdir -p /installed-agent 2>/dev/null || true",
+            user=root_user,
+        )
+
         setup_dir = self.logs_dir / "setup"
         setup_dir.mkdir(parents=True, exist_ok=True)
 

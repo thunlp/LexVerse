@@ -8,6 +8,7 @@ import hashlib
 import importlib.metadata
 import json
 from pathlib import Path
+import re
 import subprocess
 import time
 
@@ -17,8 +18,9 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.types import Command
 
 from lexverse.agents.atif_converter import convert_langchain_messages_to_atif, write_atif_trajectory
-from lexverse.agents.factory import build_agent
+from lexverse.agents.factory import build_agent, sandbox_exec_tool
 from lexverse.agents.general_runner import SYSTEM_PREAMBLE, collect_artifacts as _artifacts
+from lexverse.environments.base import BaseEnvironment
 from lexverse.runtime.paths import RunPaths
 from lexverse.capabilities.base import AgentExecutionSpec, execution_conditions
 from lexverse.capabilities.knowledge.index import KnowledgeIndex, TaskRetriever, build_index, preparation_report
@@ -84,7 +86,8 @@ def _pending(snapshot):
 
 
 async def execute_agent(spec: AgentExecutionSpec, *, reply=None, confirm_facts=False,
-                        model=None, cache: Path | None = None, adapter_factory=None, prepare_only=False) -> dict:
+                        model=None, cache: Path | None = None, adapter_factory=None,
+                        prepare_only=False, environment: BaseEnvironment | None = None) -> dict:
     run = spec.run_dir.resolve()
     cache = cache or Path(__file__).resolve().parents[2] / ".lexverse/capabilities"
     paths = RunPaths(run)
@@ -169,6 +172,8 @@ async def execute_agent(spec: AgentExecutionSpec, *, reply=None, confirm_facts=F
                     result.update(status="completed", stop_reason="resources_prepared")
                     return result
                 tools = knowledge_tools(retriever, spec.selection.tools) + remote
+                if environment is not None:
+                    tools.append(sandbox_exec_tool(environment, timeout_sec=spec.limits.tool_timeout_sec))
                 if "ask_user" in spec.selection.tools:
                     tools.append(ask_user)
                 chat_model = model if model is not None else create_chat_model(
@@ -227,6 +232,9 @@ async def execute_agent(spec: AgentExecutionSpec, *, reply=None, confirm_facts=F
                     answer = final.content if isinstance(final.content, str) else "\n".join(
                         block["text"] for block in final.content if isinstance(block, dict) and block.get("type") == "text"
                     )
+                    answer = re.sub(r"(?s)<think>.*?</think>\s*", "", answer)
+                    if "</think>" in answer:
+                        answer = answer.split("</think>", 1)[1].lstrip()
                     if not answer.strip():
                         raise ValueError("Agent final answer is empty")
                     artifacts, missing = _artifacts(spec)
@@ -237,7 +245,12 @@ async def execute_agent(spec: AgentExecutionSpec, *, reply=None, confirm_facts=F
                     if missing:
                         result.update(stop_reason="output_missing", artifacts=artifacts)
                     else:
-                        result.update(status="completed", stop_reason="final_answer", answer=answer, artifacts=artifacts)
+                        result.update(
+                            status="completed",
+                            stop_reason="final_answer",
+                            answer=answer,
+                            artifacts=artifacts,
+                        )
                     break
                 if messages_for_atif:
                     try:

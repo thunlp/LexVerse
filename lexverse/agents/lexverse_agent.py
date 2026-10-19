@@ -77,6 +77,7 @@ class LexVerseAgent(BaseAgent):
             cache=self.cache,
             adapter_factory=self.adapter_factory,
             prepare_only=self.prepare_only,
+            environment=environment,
         )
         self.last_result = result
         usage = result.get("usage") or {}

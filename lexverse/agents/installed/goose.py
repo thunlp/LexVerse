@@ -673,6 +673,10 @@ class Goose(BaseInstalledAgent):
                 if not api_key:
                     raise ValueError("OPENAI_API_KEY environment variable not set")
                 env["OPENAI_API_KEY"] = api_key
+                base_url = os.environ.get("OPENAI_BASE_URL")
+                if base_url:
+                    env["OPENAI_BASE_URL"] = base_url
+                    env["OPENAI_HOST"] = base_url.removesuffix("/v1").removesuffix("/")
             case "anthropic":
                 api_key = os.environ.get("ANTHROPIC_API_KEY")
                 if not api_key:

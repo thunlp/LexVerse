@@ -177,14 +177,14 @@ class KimiCli(BaseInstalledAgent):
             command="apt-get update && apt-get install -y curl",
             env={"DEBIAN_FRONTEND": "noninteractive"},
         )
-        version_spec = f"=={self._version}" if self._version else ""
+        version_spec = f"=={self._version}" if self._version else "<1.52.0"
         await self.exec_as_agent(
             environment,
             command=(
                 "set -euo pipefail; "
                 "curl -LsSf https://astral.sh/uv/install.sh | bash && "
                 'export PATH="$HOME/.local/bin:$PATH" && '
-                f"uv tool install --python 3.13 kimi-cli{version_spec} && "
+                f"uv tool install --python 3.13 'kimi-cli{version_spec}' && "
                 "kimi --version"
             ),
         )
@@ -229,7 +229,12 @@ class KimiCli(BaseInstalledAgent):
                 f"Unsupported provider '{provider}' for kimi-cli. "
                 f"Supported: {sorted(_PROVIDER_CONFIG)}"
             )
-        base_url = self._base_url or pcfg["base_url"]
+        base_url = (
+            self._base_url
+            or os.environ.get("KIMI_BASE_URL")
+            or (os.environ.get("OPENAI_BASE_URL") if provider == "openai" else None)
+            or pcfg["base_url"]
+        )
         api_key = self._resolve_api_key(provider)
         config: dict[str, Any] = {
             "default_model": "model",

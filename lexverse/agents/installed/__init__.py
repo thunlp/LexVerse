@@ -20,6 +20,7 @@ from lexverse.agents.installed.base import (
     BaseInstalledAgent,
     CliFlag,
     EnvVar,
+    ErrorPattern,
     NonZeroAgentExitCodeError,
     with_prompt_template,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "BaseInstalledAgent",
     "CliFlag",
     "EnvVar",
+    "ErrorPattern",
     "NonZeroAgentExitCodeError",
     "with_prompt_template",
 ]

@@ -130,7 +130,7 @@ class OpenHands(BaseInstalledAgent):
         # Extract api_base and model_info before passing kwargs to super()
         self._api_base = kwargs.pop("api_base", None)
         self._model_info = kwargs.pop("model_info", None)
-        raw_python_version = kwargs.pop("python_version", "3.13")
+        raw_python_version = kwargs.pop("python_version", "3.12")
         self._python_version = str(raw_python_version)
         super().__init__(disable_tool_calls=disable_tool_calls, *args, **kwargs)
         if isinstance(raw_python_version, (int, float)):
@@ -837,7 +837,7 @@ class OpenHands(BaseInstalledAgent):
         elif self._version:
             install_cmd = f"uv pip install openhands-ai=={self._version}"
         else:
-            install_cmd = "uv pip install openhands-ai"
+            install_cmd = "uv pip install 'openhands-ai<1.0'"
         await self.exec_as_agent(
             environment,
             command=(

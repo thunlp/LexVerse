@@ -129,6 +129,8 @@ class UserTaskSpec(StrictModel):
 
 def load_user_task(path: Path, registry: Path | None = None) -> UserTaskSpec:
     path = path.expanduser().resolve()
+    if path.is_dir():
+        path = path / "task.yaml"
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         _reject_credentials(data)

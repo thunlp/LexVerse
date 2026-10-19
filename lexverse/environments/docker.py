@@ -174,14 +174,13 @@ class DockerEnvironment(BaseEnvironment):
         if bge_dir.is_dir():
             run_args.extend(["-v", f"{bge_dir.resolve()}:{bge_dir.resolve()}:ro"])
 
-        # Mount host toolchains (.nvm, .local, .codex) read-only so pre-installed CLI agents
-        # (codex, claude, pi, uv) work immediately inside the container without re-downloading.
+        # Mount host toolchains (.nvm, .local, .codex) at their host paths read-only
+        # so host symlinks work, without shadowing container /root/.local or /root/.nvm.
         host_home = Path.home()
         for host_sub in (".nvm", ".local", ".codex/packages"):
             sub_path = host_home / host_sub
             if sub_path.is_dir():
                 run_args.extend(["-v", f"{sub_path.resolve()}:{sub_path.resolve()}:ro"])
-                run_args.extend(["-v", f"{sub_path.resolve()}:/root/{host_sub}:ro"])
 
         if not self.task_env_config.allow_internet:
             run_args.extend(["--network", "none"])
@@ -200,19 +199,19 @@ class DockerEnvironment(BaseEnvironment):
             raise RuntimeError(
                 f"Failed to start Docker container {self._container_name}: {res.stderr or res.stdout}"
             )
-        # Create convenience symlinks inside `/workspace` (`/workspace/artifacts -> /artifacts`, `/workspace/inputs -> /inputs`)
-        await self.exec(
-            "ln -sfn /artifacts /workspace/artifacts && "
-            "ln -sfn /artifacts /workspace/output && "
-            "ln -sfn /inputs /workspace/inputs && "
-            "ln -sfn /inputs /workspace/documents && "
-            "mkdir -p /workspace/skills /root/.agents/skills && "
-            "for f in $(find /skills -name 'SKILL.md' 2>/dev/null); do "
-            "  d=$(dirname \"$f\"); "
-            "  ln -sfn \"$d\" \"/workspace/skills/$(basename \"$d\")\" || true; "
-            "done",
-            user="root",
-        )
+        if not self.trial_paths._compact:
+            await self.exec(
+                "ln -sfn /artifacts /workspace/artifacts && "
+                "ln -sfn /artifacts /workspace/output && "
+                "ln -sfn /inputs /workspace/inputs && "
+                "ln -sfn /inputs /workspace/documents && "
+                "mkdir -p /workspace/skills /root/.agents/skills && "
+                "for f in $(find /skills -name 'SKILL.md' 2>/dev/null); do "
+                "  d=$(dirname \"$f\"); "
+                "  ln -sfn \"$d\" \"/workspace/skills/$(basename \"$d\")\" || true; "
+                "done",
+                user="root",
+            )
 
     async def stop(self, delete: bool = True) -> None:
         if self.keep_containers and not delete:
@@ -222,6 +221,7 @@ class DockerEnvironment(BaseEnvironment):
 
             uid, gid = os.getuid(), os.getgid()
             await self.exec(
+                f"chmod -R u+rwX /workspace /artifacts /logs/agent /logs/verifier 2>/dev/null || true; "
                 f"chown -hR {uid}:{gid} /workspace /artifacts /logs/agent /logs/verifier 2>/dev/null || true",
                 user="root",
                 timeout_sec=15,

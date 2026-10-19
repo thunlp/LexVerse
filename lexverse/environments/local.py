@@ -116,17 +116,18 @@ class LocalEnvironment(BaseEnvironment):
 
         # Create workspace convenience symlinks (`workspace/artifacts -> ../artifacts`, `workspace/inputs -> ../inputs`)
         # so CLI agents that write to relative `artifacts/...` paths automatically land in `/artifacts/`.
-        for rel_name, target_dir in (
-            ("artifacts", self.trial_paths.artifacts_dir),
-            ("inputs", self.trial_paths.inputs_dir),
-            ("skills", self.trial_paths.skills_dir),
-        ):
-            link_path = self.trial_paths.workspace_dir / rel_name
-            if not link_path.exists() and not link_path.is_symlink():
-                try:
-                    link_path.symlink_to(target_dir)
-                except OSError:
-                    pass
+        if not self.trial_paths._compact:
+            for rel_name, target_dir in (
+                ("artifacts", self.trial_paths.artifacts_dir),
+                ("inputs", self.trial_paths.inputs_dir),
+                ("skills", self.trial_paths.skills_dir),
+            ):
+                link_path = self.trial_paths.workspace_dir / rel_name
+                if not link_path.exists() and not link_path.is_symlink():
+                    try:
+                        link_path.symlink_to(target_dir)
+                    except OSError:
+                        pass
         if self.environment_dir.is_dir():
             for item in self.environment_dir.iterdir():
                 if item.name in ("Dockerfile", "docker-compose.yaml"):

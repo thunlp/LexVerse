@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -213,10 +215,16 @@ def _resolve_model_env_and_name(spec: AgentExecutionSpec, override_model_name: s
                 extra_env.setdefault("OPENAI_API_KEY", profile.api_key)
                 extra_env.setdefault("ANTHROPIC_API_KEY", profile.api_key)
                 extra_env.setdefault("LLM_API_KEY", profile.api_key)
+                extra_env.setdefault("MISTRAL_API_KEY", profile.api_key)
+                extra_env.setdefault("LITELLM_API_KEY", profile.api_key)
             if profile.base_url:
                 extra_env.setdefault("OPENAI_BASE_URL", profile.base_url)
                 extra_env.setdefault("OPENAI_API_BASE", profile.base_url)
                 extra_env.setdefault("LLM_BASE_URL", profile.base_url)
+                extra_env.setdefault("VIBE_API_BASE", profile.base_url)
+                extra_env.setdefault("VIBE_BACKEND", "generic")
+                extra_env.setdefault("LITELLM_BASE_URL", profile.base_url)
+                extra_env.setdefault("NVIDIA_NAT_LLM_TYPE", "openai")
         except Exception:
             pass
     known_providers = (
@@ -265,11 +273,27 @@ def extract_final_answer_from_atif(trajectory_path: Path, *, require_answer: boo
     return answer
 
 
+@contextmanager
+def _scoped_environ(extra_env: dict[str, str]):
+    prior = {k: os.environ.get(k) for k in extra_env}
+    try:
+        for k, v in extra_env.items():
+            if v is not None:
+                os.environ[k] = str(v)
+        yield
+    finally:
+        for k, old in prior.items():
+            if old is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = old
+
+
 async def execute_general_agent(
     spec: AgentExecutionSpec,
     *,
-    agent_name: str,
-    env_type: str = "docker",
+    agent_name: str = "lexverse",
+    env_type: str | None = None,
     override_model_name: str | None = None,
     agent_kwargs: dict[str, Any] | None = None,
     environment_dir: Path | None = None,
@@ -277,46 +301,43 @@ async def execute_general_agent(
     cache: Path | None = None,
     prepare_only: bool = False,
 ) -> dict[str, Any]:
-    if agent_name in ("lexverse", "deepagents"):
-        from lexverse.agents.agent_loop import execute_agent
-        return await execute_agent(spec, cache=cache, prepare_only=prepare_only)
-
+    env_type = env_type or spec.environment or "docker"
     run = spec.run_dir.resolve()
     paths = RunPaths(run)
     effective_cache = cache or Path(__file__).resolve().parents[2] / ".lexverse/capabilities"
     manifest_path = paths.internal / "manifest.json"
-    manifest = prepare_resources(spec, effective_cache, agent_name=agent_name, env_type=env_type)
-    if prepare_only:
-        return {
-            "status": "completed",
-            "stop_reason": "resources_prepared",
-            "run_dir": str(run),
-            "answer": None,
-            "artifacts": [],
-            "question": None,
-            "trace_ref": str(paths.internal / "events.jsonl"),
-            "usage": {},
-        }
+    if agent_name == "lexverse" and prepare_only:
+        from lexverse.agents.agent_loop import execute_agent
+        return await execute_agent(spec, cache=cache, prepare_only=True)
+    if agent_name != "lexverse":
+        manifest = prepare_resources(spec, effective_cache, agent_name=agent_name, env_type=env_type)
+        if prepare_only:
+            return {
+                "status": "completed",
+                "stop_reason": "resources_prepared",
+                "run_dir": str(run),
+                "answer": None,
+                "artifacts": [],
+                "question": None,
+                "trace_ref": str(paths.internal / "events.jsonl"),
+                "usage": {},
+            }
+    else:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
 
     trial_paths = TrialPaths(trial_dir=run)
     trial_paths.mkdir()
+    if spec.skills_root and spec.skills_root.exists() and spec.skills_root.resolve() != trial_paths.skills_dir.resolve():
+        shutil.copytree(spec.skills_root, trial_paths.skills_dir, dirs_exist_ok=True)
 
-    src_inputs = paths.agent_fs / "inputs"
-    if src_inputs.exists() and src_inputs.resolve() != trial_paths.inputs_dir.resolve():
-        shutil.copytree(src_inputs, trial_paths.inputs_dir, dirs_exist_ok=True)
-
-    src_skills = spec.skills_root or (paths.agent_fs / "skills")
-    if src_skills.exists() and src_skills.resolve() != trial_paths.skills_dir.resolve():
-        shutil.copytree(src_skills, trial_paths.skills_dir, dirs_exist_ok=True)
-
-    mcp_servers = build_mcp_server_configs(spec, manifest_path, cache_dir=effective_cache, env_type=env_type)
+    mcp_servers = (
+        []
+        if agent_name == "lexverse"
+        else build_mcp_server_configs(spec, manifest_path, cache_dir=effective_cache, env_type=env_type)
+    )
     task_source_dir = Path(manifest["task_source"]).parent if manifest.get("task_source") else run
     resolved_env_dir = environment_dir or (task_source_dir / "environment")
-    resolved_tests_dir = tests_dir or (
-        task_source_dir / "verifier"
-        if (task_source_dir / "verifier").is_dir()
-        else task_source_dir / "tests"
-    )
+    resolved_tests_dir = tests_dir or (task_source_dir / "tests")
 
     environment = EnvironmentFactory.create_environment(
         env_type=EnvironmentType(env_type) if ":" not in env_type else env_type,
@@ -328,100 +349,117 @@ async def execute_general_agent(
     )
 
     model_name, extra_env = _resolve_model_env_and_name(spec, override_model_name)
+    if env_type == "docker":
+        for k, v in list(extra_env.items()):
+            if "BASE" in k or "URL" in k:
+                extra_env[k] = v.replace("://127.0.0.1:", "://host.docker.internal:").replace("://localhost:", "://host.docker.internal:")
     kwargs = dict(agent_kwargs or {})
-    if agent_name == "oracle":
+    if agent_name == "lexverse":
+        kwargs.update(spec=spec, cache=cache)
+    elif agent_name == "oracle":
         kwargs.setdefault("task_dir", task_source_dir)
         kwargs.setdefault("solution_dir", task_source_dir / "solution")
 
-    agent = AgentFactory.create_agent_from_name(
-        agent_name,
-        logs_dir=trial_paths.agent_dir,
-        model_name=model_name,
-        extra_env=extra_env,
-        mcp_servers=mcp_servers,
-        skills_dir="/skills",
-        session_id=spec.thread_id,
-        timeout_sec=spec.limits.active_timeout_sec,
-        **kwargs,
-    )
-
-    user_messages = [m["content"] for m in spec.messages if isinstance(m, dict) and m.get("content")]
-    knowledge_sources = [
-        {
-            "id": rec.get("preparation", {}).get("source_id") or rec.get("index_hash", "")[:12],
-            "index_hash": rec.get("index_hash", ""),
-            "path": rec["path"],
-        }
-        for rec in manifest.get("resources", {}).get("knowledge", [])
-    ]
-    full_instruction = (
-        SYSTEM_PREAMBLE
-        + json.dumps(knowledge_sources, ensure_ascii=False)
-        + "\n\n"
-        + "\n\n".join(str(c) for c in user_messages)
-    )
-
-    context = AgentContext()
-    result: dict[str, Any] = {
-        "status": "failed",
-        "stop_reason": "execution_failed",
-        "run_dir": str(run),
-        "agent": agent.name(),
-        "environment": env_type,
-        "answer": None,
-        "artifacts": [],
-        "question": None,
-        "trace_ref": str(paths.internal / "events.jsonl"),
-    }
-
-    started_at = time.monotonic()
-    try:
-        await environment.start()
-        try:
-            await agent.setup(environment)
-            await agent.run(full_instruction, environment, context)
-
-            agent_traj = trial_paths.agent_dir / "trajectory.json"
-            root_traj = run / "trajectory.json"
-            if agent_traj.exists():
-                shutil.copy2(agent_traj, root_traj)
-                result["trajectory_ref"] = str(root_traj)
-
-            artifacts, missing = collect_artifacts(spec, strict=True)
-            result["artifacts"] = artifacts
-
-            verifier = SandboxVerifier(tests_dir=resolved_tests_dir, trial_paths=trial_paths, environment=environment)
-            if verifier.has_tests():
-                result["verifier"] = (await verifier.verify()).model_dump(mode="json")
-
-            require_atif_answer = agent.name() not in ("oracle", "nop")
-            answer = extract_final_answer_from_atif(root_traj, require_answer=require_atif_answer)
-
-            if missing:
-                result.update(status="failed", stop_reason="output_missing")
-            else:
-                result.update(status="completed", stop_reason="final_answer", answer=answer)
-        finally:
-            await environment.stop()
-    except TimeoutError:
-        result.update(status="limit_reached", stop_reason="active_timeout")
-    except Exception as exc:
-        result.update(
-            status="failed",
-            stop_reason="execution_failed",
-            error_type=type(exc).__name__,
-            error_message=str(exc),
+    with _scoped_environ(extra_env):
+        agent = AgentFactory.create_agent_from_name(
+            agent_name,
+            logs_dir=trial_paths.agent_dir,
+            model_name=model_name,
+            extra_env=extra_env,
+            mcp_servers=mcp_servers,
+            skills_dir="/skills",
+            session_id=spec.thread_id,
+            timeout_sec=spec.limits.active_timeout_sec,
+            **kwargs,
         )
-    finally:
-        result["usage"] = {
+
+        user_messages = [m["content"] for m in spec.messages if isinstance(m, dict) and m.get("content")]
+        knowledge_sources = [
+            {
+                "id": rec.get("preparation", {}).get("source_id") or rec.get("index_hash", "")[:12],
+                "index_hash": rec.get("index_hash", ""),
+                "path": rec["path"],
+            }
+            for rec in manifest.get("resources", {}).get("knowledge", [])
+        ]
+        full_instruction = (
+            SYSTEM_PREAMBLE
+            + json.dumps(knowledge_sources, ensure_ascii=False)
+            + "\n\n"
+            + "\n\n".join(str(c) for c in user_messages)
+        )
+
+        context = AgentContext()
+        result: dict[str, Any] = {
+            "status": "failed",
+            "stop_reason": "execution_failed",
+            "run_dir": str(run),
+            "agent": agent.name(),
+            "environment": env_type,
+            "answer": None,
+            "artifacts": [],
+            "question": None,
+            "trace_ref": str(paths.internal / "events.jsonl"),
+        }
+
+        started_at = time.monotonic()
+        try:
+            await environment.start()
+            try:
+                await agent.setup(environment)
+                await agent.run(full_instruction, environment, context)
+                verifier = SandboxVerifier(tests_dir=resolved_tests_dir, trial_paths=trial_paths, environment=environment)
+
+                if hasattr(agent, "last_result") and agent.last_result is not None:
+                    result = agent.last_result
+                    result["agent"] = agent_name
+                    result["environment"] = env_type
+                    if result.get("status") == "completed" and verifier.has_tests():
+                        result["verifier"] = (await verifier.verify()).model_dump(mode="json")
+                else:
+                    agent_traj = trial_paths.agent_dir / "trajectory.json"
+                    root_traj = run / "trajectory.json"
+                    if agent_traj.exists():
+                        shutil.copy2(agent_traj, root_traj)
+                        result["trajectory_ref"] = str(root_traj)
+                    artifacts, missing = collect_artifacts(spec, strict=True)
+                    result["artifacts"] = artifacts
+                    if verifier.has_tests():
+                        result["verifier"] = (await verifier.verify()).model_dump(mode="json")
+                    has_verified_artifacts = bool(artifacts and not missing)
+                    answer = extract_final_answer_from_atif(
+                        root_traj,
+                        require_answer=agent.name() not in ("oracle", "nop") and not has_verified_artifacts,
+                    )
+                    result.update(
+                        status="failed" if missing else "completed",
+                        stop_reason="output_missing" if missing else "final_answer",
+                        answer=None if missing else answer,
+                    )
+            finally:
+                await environment.stop()
+        except TimeoutError:
+            result.update(status="limit_reached", stop_reason="active_timeout")
+        except Exception as exc:
+            result.update(
+                status="failed",
+                stop_reason="execution_failed",
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+
+    result.setdefault(
+        "usage",
+        {
             "active_elapsed_sec": time.monotonic() - started_at,
             "input_tokens": context.n_input_tokens or 0,
             "output_tokens": context.n_output_tokens or 0,
             "cache_tokens": context.n_cache_tokens or 0,
             "cost_usd": context.cost_usd,
-        }
-        if not paths.compact:
-            atomic_write_json(run / "artifacts.json", result["artifacts"])
-        atomic_write_json(run / "result.json", result)
+        },
+    )
+    if not paths.compact:
+        atomic_write_json(run / "artifacts.json", result["artifacts"])
+    atomic_write_json(run / "result.json", result)
 
     return result

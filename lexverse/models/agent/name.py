@@ -19,15 +19,11 @@ from enum import Enum
 
 class AgentName(str, Enum):
     LEXVERSE = "lexverse"
-    DEEPAGENTS = "deepagents"
     ORACLE = "oracle"
     NOP = "nop"
     ACP = "acp"
     CLAUDE_CODE = "claude-code"
     CLINE_CLI = "cline-cli"
-    TERMINUS = "terminus"
-    TERMINUS_1 = "terminus-1"
-    TERMINUS_2 = "terminus-2"
     AIDER = "aider"
     CODEX = "codex"
     CURSOR_CLI = "cursor-cli"
@@ -49,14 +45,11 @@ class AgentName(str, Enum):
     DEERFLOW = "deerflow"
     MIMO = "mimo"
     PI = "pi"
-    QWEN_CODE = "qwen-code"
-    QWEN_CODER = "qwen-coder"
+    QWEN_CODE = "qwen-coder"
     COPILOT_CLI = "copilot-cli"
     DEVIN = "devin"
     TRAE_AGENT = "trae-agent"
-    COMPUTER_1 = "computer-1"
     EVE = "eve"
-    DSPY_RLM = "dspy-rlm"
     VIBE = "vibe"
 
     @classmethod

@@ -1,14 +1,14 @@
 # Purpose: Example Legal Contract Review Task in LexVerse Sandbox
 # Usage:
 #   Run with default built-in LexVerse agent:
-#     lexverse task run configs/tasks/contract_review/task.yaml
+#     lexverse task run user_workspace/task/example/task.yaml
 #   Run with external general CLI agent in Docker sandbox:
-#     lexverse task run configs/tasks/contract_review/task.yaml --agent claude-code --env docker
+#     lexverse task run user_workspace/task/example/task.yaml --agent claude-code --env docker
 #   Verify task pipeline & rubric criteria with reference oracle solution:
-#     lexverse task run configs/tasks/contract_review/task.yaml --agent oracle --env local --no-interactive
+#     lexverse task run user_workspace/task/example/task.yaml --agent oracle --env local --no-interactive
 
 schema_version: 1
-id: contract_review
+id: example
 agent: lexverse
 environment: docker
 
@@ -28,6 +28,8 @@ model:
   name: gpt-4o
   generation_parameters:
     temperature: 0
+
+context_window_tokens: 131072
 
 capabilities:
   knowledge: []

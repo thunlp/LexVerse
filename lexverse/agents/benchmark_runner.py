@@ -52,7 +52,7 @@ async def execute(payload):
     preparing = payload["operation"] == "prepare"
     profile = load_profile(payload["model"]["profile"])
     connection_hash = hashlib.sha256((profile.base_url or "https://api.openai.com/v1").encode()).hexdigest()
-    if preparing and settings.agent in ("lexverse", "deepagents"):
+    if preparing and settings.agent == "lexverse":
         try:
             from lexverse.providers.chat_model import create_chat_model
             create_chat_model(ModelConfig(**payload["model"]), context_window_tokens=settings.context_window_tokens)
@@ -83,21 +83,17 @@ async def execute(payload):
         run_dir=run, thread_id=run.name, messages=payload.get("messages", []), model=model,
         selection=selection, retrieval=settings.retrieval, limits=limits,
         outputs=OutputContract(), interactive=False, mode="benchmark",
+        environment=settings.environment,
         context_window_tokens=settings.context_window_tokens,
         skills_root=None if preparing else Path(payload["template"]) / ".internal/agent_fs/skills",
     )
-    if settings.agent in ("lexverse", "deepagents"):
-        from lexverse.agents.agent_loop import execute_agent
-        result = await execute_agent(spec, prepare_only=preparing)
-    else:
-        default_env_dir = Path(__file__).resolve().parents[2] / "configs/tasks/contract_review/environment"
-        result = await execute_general_agent(
-            spec,
-            agent_name=settings.agent,
-            env_type=settings.environment,
-            environment_dir=default_env_dir if default_env_dir.is_dir() else None,
-            prepare_only=preparing,
-        )
+    default_env_dir = Path(__file__).resolve().parents[2] / "user_workspace/task/example/environment"
+    result = await execute_general_agent(
+        spec,
+        agent_name=settings.agent,
+        environment_dir=default_env_dir if default_env_dir.is_dir() else None,
+        prepare_only=preparing,
+    )
     if result["status"] != "completed":
         raise ConfigError(f"Capability execution failed: {result['stop_reason']}: {result.get('error_message', result.get('error_type', ''))}")
     result["resource_hash"] = json.loads((run / ".internal/manifest.json").read_text())["resource_hash"]

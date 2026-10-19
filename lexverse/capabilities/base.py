@@ -38,6 +38,7 @@ class AgentExecutionSpec:
     outputs: OutputContract
     interactive: bool
     mode: str = "user_task"
+    environment: str = "docker"
     context_window_tokens: int | None = None
     skills_root: Path | None = None
 

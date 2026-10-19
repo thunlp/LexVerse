@@ -79,6 +79,17 @@ class TaskEnvConfig(BaseModel):
     env: dict[str, str] = Field(default_factory=dict)
 
 
+class ModelInfo(BaseModel):
+    name: str
+    provider: str | None = None
+
+
+class AgentInfo(BaseModel):
+    name: str
+    version: str
+    model_info: ModelInfo | None = None
+
+
 class AgentConfig(BaseModel):
     name: str | None = "lexverse"
     import_path: str | None = None
@@ -145,6 +156,14 @@ class TrialPaths:
 
     trial_dir: Path
 
+    @property
+    def _compact(self) -> bool:
+        return (self.trial_dir / ".internal").exists()
+
+    @property
+    def _agent_fs(self) -> Path:
+        return self.trial_dir / ".internal" / "agent_fs"
+
     def mkdir(self) -> None:
         self.agent_dir.mkdir(parents=True, exist_ok=True)
         self.verifier_dir.mkdir(parents=True, exist_ok=True)
@@ -181,15 +200,15 @@ class TrialPaths:
 
     @property
     def workspace_dir(self) -> Path:
-        return self.trial_dir / "workspace"
+        return self._agent_fs / "workspace" if self._compact else self.trial_dir / "workspace"
 
     @property
     def inputs_dir(self) -> Path:
-        return self.trial_dir / "inputs"
+        return self._agent_fs / "inputs" if self._compact else self.trial_dir / "inputs"
 
     @property
     def skills_dir(self) -> Path:
-        return self.trial_dir / "skills"
+        return self._agent_fs / "skills" if self._compact else self.trial_dir / "skills"
 
     @property
     def verifier_dir(self) -> Path:
@@ -209,7 +228,8 @@ class TrialPaths:
 
     @property
     def reward_json_path(self) -> Path:
-        return self.verifier_dir / "reward.json"
+        rewards = self.verifier_dir / "rewards.json"
+        return rewards if rewards.is_file() else self.verifier_dir / "reward.json"
 
     @property
     def result_path(self) -> Path:

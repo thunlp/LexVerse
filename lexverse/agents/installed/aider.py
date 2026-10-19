@@ -148,6 +148,9 @@ class Aider(BaseInstalledAgent):
         env = {
             "AIDER_API_KEY": f"{provider}={api_key}",
         }
+        for key in ("OPENAI_API_KEY", "OPENAI_API_BASE", "OPENAI_BASE_URL", "ANTHROPIC_API_KEY"):
+            if key in os.environ:
+                env[key] = os.environ[key]
 
         cli_flags = self.build_cli_flags()
         extra_flags = (cli_flags + " ") if cli_flags else ""

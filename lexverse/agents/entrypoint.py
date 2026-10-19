@@ -11,11 +11,11 @@ def main():
         # dependency bundle has not been installed via `lexverse environment setup`.
         args = sys.argv[1:]
         needs_stage2 = True
-        if args and args[0] in ("inspect", "agents", "benchmark", "-h", "--help"):
+        if args and args[0] in ("init", "inspect", "agents", "benchmark", "-h", "--help"):
             needs_stage2 = False
         elif "--agent" in args:
             idx = args.index("--agent")
-            if idx + 1 < len(args) and args[idx + 1] not in ("lexverse", "deepagents"):
+            if idx + 1 < len(args) and args[idx + 1] != "lexverse":
                 needs_stage2 = False
         if needs_stage2:
             print(f"Task setup failed: {exc}", file=sys.stderr)

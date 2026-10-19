@@ -65,10 +65,14 @@ Prepare the agent dependencies:
 lexverse environment setup
 ```
 
-Organize your task and files (or start from the built-in contract review sandbox example at `configs/tasks/contract_review/task.yaml`):
+Initialize a new task or start from the built-in sandbox example at `user_workspace/task/example/task.yaml`:
+
+```bash
+lexverse task init my_task
+```
 
 ```text
-configs/tasks/contract_review/                  # or user_workspace/task/<task_name>/
+user_workspace/task/<task_name>/
 ├── task.yaml                                   # Instructions, model and capability selection
 ├── inputs/                                     # Matter files (e.g. service_agreement.md)
 ├── environment/                                # Optional Dockerfile / static sandbox files
@@ -76,18 +80,18 @@ configs/tasks/contract_review/                  # or user_workspace/task/<task_n
 └── tests/                                      # Optional test.sh verifier scoring criteria
 ```
 
-Configure `task.yaml`, then run with the built-in LexVerse agent or any Harbor-compatible general agent (`claude-code`, `codex`, `qwen-code`, `gemini-cli`, `openhands`, `opencode`, `aider`, `kimi-cli`, `goose`, `cursor-cli`, `mini-swe-agent`, `pi`, `oracle`, or custom `module:Class`):
+Configure `task.yaml`, then run with the built-in LexVerse agent or any Harbor-compatible general agent (`claude-code`, `codex`, `qwen-coder`, `gemini-cli`, `openhands`, `opencode`, `aider`, `kimi-cli`, `goose`, `cursor-cli`, `mini-swe-agent`, `pi`, `oracle`, or custom `module:Class`):
 
 ```bash
 # Default built-in LexVerse agent
-lexverse task run configs/tasks/contract_review/task.yaml
+lexverse task run user_workspace/task/example/task.yaml
 
 # Run with external general CLI agents in local or docker sandbox
-lexverse task run configs/tasks/contract_review/task.yaml --agent claude-code --model anthropic/claude-sonnet-4-5
-lexverse task run configs/tasks/contract_review/task.yaml --agent codex --model openai/gpt-5 --env docker
+lexverse task run user_workspace/task/example/task.yaml --agent claude-code --model claude-sonnet-4-5
+lexverse task run user_workspace/task/example/task.yaml --agent codex --model gpt-5 --env docker
 
 # Verify task pipeline with reference oracle solution
-lexverse task run configs/tasks/contract_review/task.yaml --agent oracle --no-interactive
+lexverse task run user_workspace/task/example/task.yaml --agent oracle --no-interactive
 ```
 
 For large knowledge sources, optionally build indexes beforehand:
@@ -107,6 +111,7 @@ Results are saved to `runs/user_tasks/<task_name>/<run_id>/`. Open `result.json`
 | `lexverse benchmark evaluate --run-dir <path>`   | Evaluate saved answers              |
 | `lexverse benchmark collect --run-dir <path>`    | Rebuild result summaries            |
 | `lexverse benchmark catalog <benchmark>`         | List benchmark tasks                |
+| `lexverse task init <task_name>`                 | Initialize a new user task folder   |
 | `lexverse task run <task.yaml>`                  | Run a user task                     |
 | `lexverse task resume <path>`                    | Resume a paused user task           |
 | `lexverse task inspect <path> [--trajectory]`    | Inspect task status and ATIF trace  |

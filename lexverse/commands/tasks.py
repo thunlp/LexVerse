@@ -4,6 +4,8 @@ import argparse
 import asyncio
 import json
 from pathlib import Path
+import re
+import shutil
 import sys
 
 from lexverse.agents.general_runner import execute_general_agent
@@ -27,6 +29,7 @@ def execution_spec(run: Path) -> AgentExecutionSpec:
         run_dir=run, thread_id=manifest["thread_id"], messages=[{"role": "user", "content": instruction}],
         model=task.model_config_value(Path(manifest.get("task_source", run)).parent), selection=task.capabilities,
         retrieval=task.retrieval, limits=task.limits, outputs=task.outputs, interactive=task.interactive,
+        environment=task.environment,
         context_window_tokens=task.context_window_tokens,
     )
 
@@ -42,16 +45,14 @@ def _parse_inputs(run: Path):
             continue
         documents = list(load_documents(paths.inputs, {relative: files[relative]}, "inputs", use_manifest=False))
         content = "\n\n".join(f"[{doc.metadata['position']}]\n{doc.page_content}" for doc in documents)
-        target = paths.agent_fs / "inputs" / (relative + ".parsed.md")
-        target.write_text(content, encoding="utf-8")
-        top_target = paths.inputs / (relative + ".parsed.md")
-        if top_target.resolve() != target.resolve():
-            top_target.write_text(content, encoding="utf-8")
+        (paths.agent_fs / "inputs" / (relative + ".parsed.md")).write_text(content, encoding="utf-8")
 
 
 async def _execute(args):
     if args.command == "run":
         task_path = Path(args.task).expanduser().resolve()
+        if task_path.is_dir():
+            task_path = task_path / "task.yaml"
         task = load_user_task(task_path, Path(args.registry) if args.registry else None)
         if args.no_interactive:
             task.interactive = False
@@ -69,20 +70,14 @@ async def _execute(args):
                       "trace_ref": str(paths.internal / "events.jsonl"), "usage": {}}
             atomic_write_json(run / "result.json", result)
             return result
-        agent_name = getattr(args, "agent", None) or task.agent or "lexverse"
-        env_type = getattr(args, "env", None) or task.environment or "docker"
-        override_model = getattr(args, "model", None)
-        if agent_name in ("lexverse", "deepagents"):
-            from lexverse.agents.agent_loop import execute_agent
-
-            result = await execute_agent(execution_spec(run))
-        else:
-            result = await execute_general_agent(
-                execution_spec(run),
-                agent_name=agent_name,
-                env_type=env_type,
-                override_model_name=override_model,
-            )
+        spec = execution_spec(run)
+        spec.environment = getattr(args, "env", None) or task.environment or "docker"
+        if getattr(args, "model", None):
+            spec.model.name = args.model
+        result = await execute_general_agent(
+            spec,
+            agent_name=getattr(args, "agent", None) or task.agent or "lexverse",
+        )
     else:
         from lexverse.agents.agent_loop import execute_agent
 
@@ -90,6 +85,7 @@ async def _execute(args):
         result = await execute_agent(execution_spec(run), reply=args.reply, confirm_facts=args.confirm_facts)
     spec = execution_spec(run)
     while result["status"] == "needs_input" and spec.interactive and not result.get("resume_error"):
+        from lexverse.agents.agent_loop import execute_agent
         questions = result["question"]
         for question in questions:
             print(question["question"], file=sys.stderr)
@@ -114,6 +110,58 @@ async def _execute(args):
             break
         result = await execute_agent(spec, reply=reply, confirm_facts=confirm)
     return result
+
+
+def _prompt_yes_no(prompt: str) -> bool:
+    try:
+        answer = input(f"{prompt} [y/N] ").strip().lower()
+    except EOFError:
+        return False
+    return answer in {"y", "yes"}
+
+
+def init_user_task(
+    task_name: str,
+    *,
+    root: Path = Path("user_workspace/task"),
+    docker_env: bool | None = None,
+    oracle_solution: bool | None = None,
+    verifier_script: bool | None = None,
+) -> dict:
+    if not re.match(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$", task_name):
+        raise ConfigError(f"Invalid task name: {task_name!r}")
+    task_dir = root.expanduser().resolve() / task_name
+    if task_dir.exists() and any(task_dir.iterdir()):
+        raise ConfigError(f"Task directory already exists and is not empty: {task_dir}")
+
+    create_docker = _prompt_yes_no("Create a custom Docker environment?") if docker_env is None else docker_env
+    create_oracle = _prompt_yes_no("Create a reference solution for Oracle testing?") if oracle_solution is None else oracle_solution
+    create_verifier = _prompt_yes_no("Create an automatic scoring script?") if verifier_script is None else verifier_script
+
+    template_dir = Path(__file__).resolve().parents[2] / "user_workspace/task/example"
+    (task_dir / "inputs").mkdir(parents=True, exist_ok=True)
+    task_yaml = task_dir / "task.yaml"
+    yaml_text = (template_dir / "task.yaml").read_text(encoding="utf-8")
+    task_yaml.write_text(re.sub(r"^id:\s*\S+", f"id: {task_name}", yaml_text, count=1, flags=re.MULTILINE), encoding="utf-8")
+    created_files = [str(task_yaml), str(task_dir / "inputs")]
+
+    for enabled, rel in (
+        (create_docker, "environment/Dockerfile"),
+        (create_oracle, "solution/solve.sh"),
+        (create_verifier, "tests/test.sh"),
+    ):
+        if enabled:
+            dest = task_dir / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(template_dir / rel, dest)
+            created_files.append(str(dest))
+
+    return {
+        "task_id": task_name,
+        "task_dir": str(task_dir),
+        "task_yaml": str(task_yaml),
+        "created": created_files,
+    }
 
 
 def summarize_atif_trajectory(trajectory_path: Path) -> dict:
@@ -150,14 +198,17 @@ def summarize_atif_trajectory(trajectory_path: Path) -> dict:
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="lexverse task")
     commands = parser.add_subparsers(dest="command", required=True)
+    init_cmd = commands.add_parser("init", help="initialize a new user task directory under user_workspace/task/<task_name>/")
+    init_cmd.add_argument("task_name", help="Name of the task directory to create")
+    init_cmd.add_argument("--root", default="user_workspace/task", help="Parent directory for user tasks (default: user_workspace/task)")
     run = commands.add_parser("run", help="run a legal task in a local or docker sandbox")
     run.add_argument("task")
     run.add_argument("--registry")
     run.add_argument("--output-root", default="runs/user_tasks")
     run.add_argument("--no-interactive", action="store_true")
-    run.add_argument("--agent", default=None, help="Agent name (e.g. lexverse, claude-code, codex, qwen-code, gemini-cli, openhands, opencode, aider, oracle) or module:Class")
+    run.add_argument("--agent", default=None, help="Agent name (e.g. lexverse, claude-code, codex, qwen-coder, gemini-cli, openhands, opencode, aider, oracle) or module:Class")
     run.add_argument("--env", default=None, help="Execution environment type (local or docker)")
-    run.add_argument("--model", default=None, help="Optional model name override for external CLI agents (provider/model_name)")
+    run.add_argument("--model", default=None, help="Optional model name override")
     resume = commands.add_parser("resume", help="resume a paused interactive task run")
     resume.add_argument("run_dir")
     resume.add_argument("--reply", required=True)
@@ -168,6 +219,10 @@ def main(argv=None):
     agents_cmd = commands.add_parser("agents", help="list all supported built-in and general CLI agents")
     args = parser.parse_args(argv)
     try:
+        if args.command == "init":
+            payload = init_user_task(args.task_name, root=Path(args.root))
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+            return 0
         if args.command == "agents":
             from lexverse.agents.factory import AgentFactory
             payload = {
