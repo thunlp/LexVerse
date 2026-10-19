@@ -4,7 +4,7 @@
 
 *A universe where legal agents learn, act, and are evaluated.*
 
-![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12%2B-blue?logo=python&logoColor=white)
 ![Benchmarks](https://img.shields.io/badge/Benchmarks-6-334155)
 ![License](https://img.shields.io/badge/License-Apache%202.0-yellow)
 
@@ -27,7 +27,7 @@ Model backends include OpenAI-compatible APIs, Transformers and vLLM.
 
 ## Quick start
 
-Use Python 3.11 or newer.
+Use Python 3.12 or newer.
 
 ```bash
 git clone https://github.com/thunlp/LexVerse.git

@@ -5,17 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "lexverse"
 version = "1.0"
-description = "Task-oriented legal benchmark runtime for legal agents"
+description = "A universe where legal agents learn, act, and are evaluated."
 license = { text = "Apache-2.0" }
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0.0",
     "pyyaml>=6.0",
     "filelock>=3.0",
+    "jinja2>=3.1",
 ]
 
 [project.optional-dependencies]
-# Agent tasks require Python 3.11 or newer.
 capability-task = [
     "deepagents==0.7.22; python_version >= '3.11'",
     "langchain[mcp]==1.4.3; python_version >= '3.11'",
