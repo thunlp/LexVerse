@@ -10,9 +10,9 @@
 
 </div>
 
-LexVerse is a **unified environment** for legal language models and agents. It supports user-defined legal tasks with knowledge retrieval, domain skills, and MCP tools, helping agents read legal materials and produce deliverables. It also brings existing legal benchmarks into a shared workflow for task preparation, execution, and evaluation, while preserving their original task formats, interaction harnesses, and evaluators.
+LexVerse is **a unified environment** for legal language models and agents, spanning from benchmark evaluation to real-world legal tasks. On the evaluation side, it brings existing legal benchmarks into a shared workflow for task preparation, execution, and result management, while preserving each benchmark's original task formats, interaction harnesses, and evaluators. On the practice side, it connects agents to legal knowledge retrieval, domain skills, and MCP tools, so they can read legal materials, ground their reasoning in authoritative sources, and produce real deliverables.
 
-Researchers can use it to compare models, developers can use it to build legal agents, and legal professionals can use it to test AI in practice. The same capabilities can also be enabled for supported benchmark tasks.
+Researchers can use it to compare models, developers can use it to build legal agents, and legal professionals can use it to test whether AI holds up in practice. **Whoever you are, LexVerse is a place to start.** We are continuing to integrate more benchmarks and expand environment capabilities to support richer agent interactions.
 
 ## Supported benchmarks
 
