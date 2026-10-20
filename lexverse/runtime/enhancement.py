@@ -38,7 +38,7 @@ async def run_worker(payload, control_dir):
                     process.kill()
                     await process.wait()
     if process.returncode:
-        message = json.loads(error.read_text())["error"] if error.exists() else f"Stage2 worker failed; see {control_dir / 'worker.log'}"
+        message = json.loads(error.read_text())["error"] if error.exists() else f"Agent worker failed; see {control_dir / 'worker.log'}"
         raise ConfigError(message)
     return json.loads((Path(payload["run_dir"]) / "result.json").read_text())
 

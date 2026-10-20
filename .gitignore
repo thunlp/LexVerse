@@ -44,5 +44,7 @@ docs/*.drawio
 /api_tests/
 /local_tests/
 /docs/
-/knowledge/
 /.vscode/
+
+# Independently managed Hugging Face dataset repository
+/hf-dataset/

@@ -1,0 +1,65 @@
+# Purpose: Example Legal Contract Review Task in LexVerse Sandbox
+# Usage:
+#   Run with default built-in LexVerse agent:
+#     lexverse task run user_workspace/task/example/task.yaml
+#   Run with external general CLI agent in Docker sandbox:
+#     lexverse task run user_workspace/task/example/task.yaml --agent claude-code --env docker
+#   Verify task pipeline & rubric criteria with reference oracle solution:
+#     lexverse task run user_workspace/task/example/task.yaml --agent oracle --env local --no-interactive
+
+schema_version: 1
+id: example
+agent: lexverse
+environment: docker
+
+instruction: |
+  You are a senior commercial counsel reviewing the draft Technology Services Agreement located at `/inputs/service_agreement.md`.
+  
+  Please review the agreement and write a structured legal risk review memorandum to `/artifacts/review_memo.md` covering:
+  1. **Liability Cap & Consequential Damages** (Section 4): Identify the uncapped liability exposure for the Customer and recommend a mutual cap (e.g., 12 months of fees paid).
+  2. **Unilateral Termination Without Notice** (Section 5): Identify the asymmetric termination right and recommend at least 30 days' prior written notice and a cure period.
+  3. **Governing Law & Dispute Resolution** (Section 6): Note the governing law and arbitration venue, and provide a clear summary conclusion.
+
+inputs: ./inputs
+
+model:
+  provider: openai_compatible
+  profile: openai
+  name: gpt-4o
+  generation_parameters:
+    temperature: 0
+
+context_window_tokens: 131072
+
+capabilities:
+  knowledge: []
+  skills:
+    - dispute-and-performance-risk
+    - legal-element-extraction
+  mcp: []
+  tools:
+    - search_knowledge
+    - fetch_knowledge
+
+retrieval:
+  mode: keyword
+
+limits:
+  model_calls: 20
+  tool_calls: 30
+  active_timeout_sec: 600
+  tool_timeout_sec: 60
+
+outputs:
+  required:
+    - artifacts/review_memo.md
+  allowed_formats:
+    - md
+    - markdown
+    - json
+    - csv
+    - txt
+    - docx
+    - xlsx
+    - pptx
+    - pdf

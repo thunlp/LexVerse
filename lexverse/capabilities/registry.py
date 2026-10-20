@@ -15,6 +15,14 @@ class SkillSource(StrictModel):
     repository: str | None = None
     commit: str | None = None
     local_path: Path | None = None
+    path: str | None = None
+
+    @field_validator("path")
+    @classmethod
+    def validate_path(cls, value):
+        if value is not None and (not value or Path(value).is_absolute() or ".." in Path(value).parts or "\\" in value or value == "."):
+            raise ValueError("Skill source path must be a relative directory")
+        return value
 
 
 class SkillDefinition(StrictModel):
@@ -83,6 +91,10 @@ def load_registry(path: Path | None = None) -> ResourceRegistry:
                     merged["repository"] = None
                     merged["commit"] = None
                 data[section][name] = merged
+    return validate_registry(data)
+
+
+def validate_registry(data: dict) -> ResourceRegistry:
     try:
         registry = ResourceRegistry.model_validate(data)
     except ValueError as exc:

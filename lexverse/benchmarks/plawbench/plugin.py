@@ -4,7 +4,7 @@ from pathlib import Path
 
 from lexverse.benchmarks.plugin import BenchmarkPlugin
 from lexverse.environments import DirectResponseEnvironment
-from lexverse.interaction.participants import ModelParticipant
+from lexverse.interaction.participants import ModelParticipant, AgentParticipant
 from lexverse.interaction.policies import DirectResponsePolicy
 from . import UPSTREAM
 from .evaluation import PLawBenchAggregator, PLawBenchTaskVerifier
@@ -27,6 +27,12 @@ class PLawBenchPlugin(BenchmarkPlugin):
         return {filename: importer.files[filename] for kind in task_types for filename in FILES[kind].values()}
 
     def create_environment(self, config, provider):
+        from lexverse.runtime.enhancement import enabled
+        if enabled(config):
+            return DirectResponseEnvironment(
+                policy=DirectResponsePolicy(),
+                participants={"assistant": AgentParticipant("assistant", config)},
+            )
         return DirectResponseEnvironment(policy=DirectResponsePolicy(),
                                          participants={"assistant": ModelParticipant("assistant", provider)})
 

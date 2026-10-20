@@ -17,15 +17,16 @@ class FetchArgs(BaseModel):
     limit: int = Field(default=4000, ge=1, le=8000)
 
 
-def knowledge_tools(retriever, selected: list[str]):
+def knowledge_tools(retriever, selected: list[str], *, top_k: int = 8):
     sources = tuple(retriever.indexes)
     source_type = list[Literal[sources]] if sources else list[str]
     source_field = Field(default=None) if sources else Field(default=None, max_length=0)
     search_args = create_model("TaskSearchArgs", __base__=SearchArgs,
+                               top_k=(int, Field(default=top_k, ge=1, le=20)),
                                source_ids=(source_type | None, source_field))
 
     @tool(args_schema=search_args)
-    def search_knowledge(query: str, source_ids: list[str] | None = None, top_k: int = 8,
+    def search_knowledge(query: str, source_ids: list[str] | None = None, top_k: int = top_k,
                          filters: KnowledgeFilters | None = None) -> list[dict]:
         """Search allowed knowledge sources and return excerpts with citation IDs."""
         return retriever.search(query, top_k=top_k, source_ids=source_ids,

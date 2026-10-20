@@ -4,14 +4,16 @@ import hashlib
 from pathlib import Path
 import tempfile
 
-from lexverse.agents.agent_loop import execute_agent
+from lexverse.agents.general_runner import execute_general_agent
 from lexverse.capabilities.base import AgentExecutionSpec
 from lexverse.capabilities.benchmark import BenchmarkCapabilities
 from lexverse.capabilities.knowledge.loaders import scan_source
+from lexverse.capabilities.knowledge.index import is_index_directory, verify_index
 from lexverse.capabilities.registry import load_registry
 from lexverse.capabilities.skills import prepare_skills
 from lexverse.config import ConfigError, ModelConfig, SecretsMissing, load_profile
 from lexverse.runtime.results import atomic_write_json
+from lexverse.runtime.paths import CAPABILITIES_ROOT
 from lexverse.tasks.user import OutputContract
 
 
@@ -35,7 +37,11 @@ def check_sources(run, selection, cache):
         raise ConfigError("Capability registry changed; start a new run")
     for source, record in zip(selection.knowledge, saved["knowledge"], strict=True):
         manifest = json.loads((Path(record["path"]) / "manifest.json").read_text())
-        if scan_source(source)[0] != manifest["identity"]["files"]:
+        if is_index_directory(source):
+            unchanged = verify_index(source)["index_hash"] == manifest["index_hash"]
+        else:
+            unchanged = scan_source(source)[0] == manifest["identity"]["files"]
+        if not unchanged:
             raise ConfigError("Knowledge source changed; start a new run")
     with tempfile.TemporaryDirectory() as temporary:
         current = prepare_skills(registry, selection.skills, cache, Path(temporary), interactive=False)
@@ -48,13 +54,16 @@ async def execute(payload):
     settings = BenchmarkCapabilities.model_validate(payload["capabilities"])
     selection, limits = settings.effective(payload["task_type"])
     run = Path(payload["run_dir"])
-    cache = Path(__file__).resolve().parents[2] / ".lexverse/capabilities"
+    cache = CAPABILITIES_ROOT
     preparing = payload["operation"] == "prepare"
     profile = load_profile(payload["model"]["profile"])
     connection_hash = hashlib.sha256((profile.base_url or "https://api.openai.com/v1").encode()).hexdigest()
-    if preparing:
-        from lexverse.providers.chat_model import create_chat_model
-        create_chat_model(ModelConfig(**payload["model"]), context_window_tokens=settings.context_window_tokens)
+    if preparing and settings.agent == "lexverse":
+        try:
+            from lexverse.providers.chat_model import create_chat_model
+            create_chat_model(ModelConfig(**payload["model"]), context_window_tokens=settings.context_window_tokens)
+        except ModuleNotFoundError:
+            pass
     if preparing and (run / ".internal/manifest.json").exists():
         manifest = json.loads((run / ".internal/manifest.json").read_text())
         if manifest["connection_sha256"] != connection_hash:
@@ -70,6 +79,7 @@ async def execute(payload):
             manifest = json.loads((run / ".internal/manifest.json").read_text())
             manifest["resources"] = frozen["resources"]
             manifest["resource_hash"] = frozen["resource_hash"]
+            manifest["execution"] = frozen.get("execution", {})
             atomic_write_json(run / ".internal/manifest.json", manifest)
     manifest = json.loads((run / ".internal/manifest.json").read_text())
     manifest["connection_sha256"] = connection_hash
@@ -79,10 +89,17 @@ async def execute(payload):
         run_dir=run, thread_id=run.name, messages=payload.get("messages", []), model=model,
         selection=selection, retrieval=settings.retrieval, limits=limits,
         outputs=OutputContract(), interactive=False, mode="benchmark",
+        environment=settings.environment,
         context_window_tokens=settings.context_window_tokens,
         skills_root=None if preparing else Path(payload["template"]) / ".internal/agent_fs/skills",
     )
-    result = await execute_agent(spec, prepare_only=preparing)
+    default_env_dir = Path(__file__).resolve().parents[2] / "user_workspace/task/example/environment"
+    result = await execute_general_agent(
+        spec,
+        agent_name=settings.agent,
+        environment_dir=default_env_dir if default_env_dir.is_dir() else None,
+        prepare_only=preparing,
+    )
     if result["status"] != "completed":
         raise ConfigError(f"Capability execution failed: {result['stop_reason']}: {result.get('error_message', result.get('error_type', ''))}")
     result["resource_hash"] = json.loads((run / ".internal/manifest.json").read_text())["resource_hash"]

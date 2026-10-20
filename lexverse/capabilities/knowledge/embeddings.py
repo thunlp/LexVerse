@@ -5,7 +5,11 @@ import math
 import sqlite3
 import struct
 
-from langchain_core.embeddings import Embeddings
+try:
+    from langchain_core.embeddings import Embeddings
+except ImportError:
+    class Embeddings:  # type: ignore[no-redef]
+        pass
 from lexverse.config import ConfigError
 from lexverse.tasks.user import (EmbeddingConfig, DEFAULT_EMBEDDING_MODEL,
                                  DEFAULT_EMBEDDING_REVISION, DEFAULT_QUERY_PREFIX)
@@ -32,11 +36,11 @@ class BGEEmbeddings(Embeddings):
         files = ["config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json",
                  "special_tokens_map.json", "vocab.txt"]
         try:
-            snapshot = snapshot_download(MODEL, revision=REVISION, cache_dir=str(cache / "models"), local_files_only=True)
+            snapshot = snapshot_download(MODEL, revision=REVISION, cache_dir=str(cache / "cache" / "models"), local_files_only=True)
             if not all((Path(snapshot) / name).is_file() for name in files):
                 raise LocalEntryNotFoundError("Incomplete embedding model cache")
         except LocalEntryNotFoundError:
-            snapshot = snapshot_download(MODEL, revision=REVISION, cache_dir=str(cache / "models"), allow_patterns=files)
+            snapshot = snapshot_download(MODEL, revision=REVISION, cache_dir=str(cache / "cache" / "models"), allow_patterns=files)
         transformer = models.Transformer(snapshot, max_seq_length=self.max_tokens,
                                          model_args={"local_files_only": True}, tokenizer_args={"local_files_only": True})
         pooling = models.Pooling(transformer.get_word_embedding_dimension(), pooling_mode="cls")
@@ -50,7 +54,7 @@ class BGEEmbeddings(Embeddings):
         from lexverse.capabilities.knowledge.loaders import hash_file
         self.identity["files"] = {name: hash_file(Path(snapshot) / name) for name in files}
         identity_hash = hashlib.sha256(json.dumps(self.identity, sort_keys=True).encode()).hexdigest()
-        self.vector_cache = cache / "embedding_cache" / (identity_hash + ".sqlite")
+        self.vector_cache = cache / "cache" / "embedding_cache" / (identity_hash + ".sqlite")
         self.embedding_dimension = transformer.get_word_embedding_dimension()
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
@@ -131,14 +135,14 @@ class LocalEmbeddings(BGEEmbeddings):
         if not snapshot.is_dir():
             try:
                 snapshot = Path(snapshot_download(config.model, revision=config.revision,
-                                cache_dir=str(cache / "models"), local_files_only=True))
+                                cache_dir=str(cache / "cache" / "models"), local_files_only=True))
             except LocalEntryNotFoundError:
                 snapshot = Path(snapshot_download(config.model, revision=config.revision,
-                                cache_dir=str(cache / "models"),
+                                cache_dir=str(cache / "cache" / "models"),
                                 allow_patterns=["*.json", "*.safetensors", "*.bin", "*.txt", "*.model"]))
             if not (snapshot / "modules.json").is_file():
                 snapshot = Path(snapshot_download(config.model, revision=config.revision,
-                                cache_dir=str(cache / "models"),
+                                cache_dir=str(cache / "cache" / "models"),
                                 allow_patterns=["*.json", "*.safetensors", "*.bin", "*.txt", "*.model"]))
             revision = snapshot.name
         if not (snapshot / "modules.json").is_file():
@@ -151,7 +155,10 @@ class LocalEmbeddings(BGEEmbeddings):
         self.max_tokens = config.max_tokens or capacity
         self.model.max_seq_length = self.max_tokens
         self.tokenizer = self.model.tokenizer
-        self.embedding_dimension = self.model.get_sentence_embedding_dimension()
+        dim_fn = getattr(self.model, "get_embedding_dimension", None) or getattr(
+            self.model, "get_sentence_embedding_dimension"
+        )
+        self.embedding_dimension = dim_fn()
         if not self.embedding_dimension:
             raise ConfigError("Embedding model must have a fixed output dimension")
         self.batch_size = config.batch_size
@@ -167,7 +174,7 @@ class LocalEmbeddings(BGEEmbeddings):
                          "query_prefix": self.query_prefix, "document_prefix": self.document_prefix,
                          "max_tokens": self.max_tokens}
         identity_hash = hashlib.sha256(json.dumps(self.identity, sort_keys=True).encode()).hexdigest()
-        self.vector_cache = cache / "embedding_cache" / (identity_hash + ".sqlite")
+        self.vector_cache = cache / "cache" / "embedding_cache" / (identity_hash + ".sqlite")
 
 
 def create_embeddings(config: EmbeddingConfig, cache: Path, *, recorder=None):

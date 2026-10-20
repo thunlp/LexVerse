@@ -18,3 +18,7 @@ def main(argv=None):
         return subprocess.call([sys.executable, "-m", "lexverse.commands.environment", *remaining])
     from lexverse.commands.benchmarks import main as benchmark_main
     return benchmark_main(remaining)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

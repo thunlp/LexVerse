@@ -79,8 +79,8 @@ class RetrievalConfig(StrictModel):
 
 class OutputContract(StrictModel):
     required: list[str] = Field(default_factory=list)
-    allowed_formats: list[Literal["md", "json", "csv", "txt"]] = Field(
-        default_factory=lambda: ["md", "json", "csv", "txt"]
+    allowed_formats: list[Literal["md", "markdown", "json", "csv", "txt", "docx", "xlsx", "pptx", "pdf", "html"]] = Field(
+        default_factory=lambda: ["md", "markdown", "json", "csv", "txt", "docx", "xlsx", "pptx", "pdf", "html"]
     )
 
     @field_validator("required")
@@ -107,6 +107,8 @@ class UserTaskSpec(StrictModel):
     instruction: str = Field(min_length=1)
     inputs: Path
     model: dict
+    agent: str = "lexverse"
+    environment: str = "docker"
     context_window_tokens: int | None = Field(default=None, gt=0, strict=True)
     capabilities: TaskCapabilities = Field(default_factory=TaskCapabilities)
     retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
@@ -127,6 +129,8 @@ class UserTaskSpec(StrictModel):
 
 def load_user_task(path: Path, registry: Path | None = None) -> UserTaskSpec:
     path = path.expanduser().resolve()
+    if path.is_dir():
+        path = path / "task.yaml"
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         _reject_credentials(data)

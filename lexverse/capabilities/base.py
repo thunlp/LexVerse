@@ -1,29 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Protocol, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from dataclasses import dataclass
 from pathlib import Path
-
-from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from lexverse.config import ModelConfig
     from lexverse.tasks.user import AgentLimits, OutputContract, RetrievalConfig, TaskCapabilities
-
-
-class CapabilitySelection(BaseModel):
-    enabled: bool = False
-    knowledge: list[str] = Field(default_factory=list)
-    tools: list[str] = Field(default_factory=list)
-    skills: list[str] = Field(default_factory=list)
-    workflows: list[str] = Field(default_factory=list)
-    mcp: list[str] = Field(default_factory=list)
-
-
-class Capability(Protocol):
-    name: str
-
-    async def invoke(self, payload: dict[str, Any]) -> dict[str, Any]: ...
 
 
 @dataclass
@@ -38,6 +21,7 @@ class AgentExecutionSpec:
     outputs: OutputContract
     interactive: bool
     mode: str = "user_task"
+    environment: str = "docker"
     context_window_tokens: int | None = None
     skills_root: Path | None = None
 

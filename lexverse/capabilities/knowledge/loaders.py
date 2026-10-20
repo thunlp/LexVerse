@@ -9,15 +9,24 @@ import tempfile
 
 from filelock import FileLock
 
-from langchain_core.documents import Document
+try:
+    from langchain_core.documents import Document
+except ImportError:
+    from dataclasses import dataclass, field
+    from typing import Any
+
+    @dataclass
+    class Document:  # type: ignore[no-redef]
+        page_content: str
+        metadata: dict[str, Any] = field(default_factory=dict)
 
 from lexverse.config import ConfigError
 from lexverse.capabilities.knowledge.sources import MANIFEST_NAME, field_value, read_source_manifest
 
 
-SUPPORTED = {".txt", ".md", ".json", ".jsonl", ".csv", ".pdf", ".docx"}
+SUPPORTED = {".txt", ".md", ".json", ".jsonl", ".csv", ".pdf", ".docx", ".xlsx", ".pptx", ".eml"}
 KINDS = {"legal_laws", "legal_cases", "legal_concepts", "legal_qa", "legal_templates"}
-LOADER_VERSION = 5
+LOADER_VERSION = 7
 ANNOTATION_FILES = {
     ("legal_cases", "lexchain/test_reference.json"),
     ("legal_cases", "legal_world/light_case_dataset.json"),
@@ -26,8 +35,8 @@ FIELDS = {
     "legal_laws": ["law_name", "article", "text", "effective_from", "effective_to"],
     "legal_concepts": ["term", "category", "domain", "concept", "entity_name", "facts"],
     "legal_templates": ["template_type", "title", "content", "case_type"],
-    "legal_qa": ["question", "answer", "opening", "facts", "roles", "topic_list", "theme"],
-    "legal_cases": ["caseID", "content", "first_instance", "second_instance", "qw", "fact", "reason",
+    "legal_qa": ["question", "answer", "input", "instruction", "history", "output", "opening", "facts", "roles", "topic_list", "theme"],
+    "legal_cases": ["caseID", "input", "query", "content", "first_instance", "second_instance", "qw", "fact", "reason",
                     "案件名", "法院", "案由", "案号", "发布时间", "基本案情", "法院意见", "文书",
                     "case_r_f", "laws", "claim", "evidence", "text", "plaintiff_claim",
                     "plaintiff_case_details", "defendant_defence", "other_statement", "court_information",
@@ -87,7 +96,7 @@ def _parsed_records(path: Path, kind: str, content_hash: str, cache: Path | None
     identity = [LOADER_VERSION, kind, path.suffix.lower(), path.stem, content_hash,
                 mapping.model_dump() if mapping is not None else None]
     key = hashlib.sha256(json.dumps(identity, ensure_ascii=False).encode()).hexdigest()
-    destination = cache / "parsed_documents" / (key + ".sqlite")
+    destination = cache / "cache" / "document_parse_cache" / (key + ".sqlite")
     destination.parent.mkdir(parents=True, exist_ok=True)
     with FileLock(str(destination) + ".lock"):
         if not destination.exists():
@@ -182,11 +191,77 @@ def _parse(path: Path, kind: str, mapping=None):
                 continue
             yield f"page:{number}", page.page_content, path.stem, {"page": number}
     elif suffix == ".docx":
-        from docx import Document as WordDocument
-        doc = WordDocument(path)
-        lines = [p.text for p in doc.paragraphs if p.text.strip()]
-        lines.extend(" | ".join(cell.text for cell in row.cells) for table in doc.tables for row in table.rows)
+        try:
+            from docx import Document as WordDocument
+
+            doc = WordDocument(path)
+            lines = [p.text for p in doc.paragraphs if p.text.strip()]
+            lines.extend(" | ".join(cell.text for cell in row.cells) for table in doc.tables for row in table.rows)
+            yield "text", "\n".join(lines), path.stem, {}
+        except ImportError:
+            import zipfile
+            from xml.etree import ElementTree
+
+            word_ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+            lines = []
+            with zipfile.ZipFile(path) as zf:
+                if "word/document.xml" in zf.namelist():
+                    root = ElementTree.fromstring(zf.read("word/document.xml"))
+                    for p in root.iter(f"{word_ns}p"):
+                        t = "".join(node.text for node in p.iter(f"{word_ns}t") if node.text).strip()
+                        if t:
+                            lines.append(t)
+            yield "text", "\n".join(lines), path.stem, {}
+    elif suffix == ".xlsx":
+        import zipfile
+        from xml.etree import ElementTree
+
+        lines = []
+        with zipfile.ZipFile(path) as zf:
+            shared: list[str] = []
+            if "xl/sharedStrings.xml" in zf.namelist():
+                ss_root = ElementTree.fromstring(zf.read("xl/sharedStrings.xml"))
+                for si in ss_root.iter():
+                    if si.tag.endswith("}si"):
+                        shared.append("".join(t.text or "" for t in si.iter() if t.tag.endswith("}t")))
+            for sheet_name in sorted(n for n in zf.namelist() if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")):
+                lines.append(f"=== {Path(sheet_name).stem} ===")
+                s_root = ElementTree.fromstring(zf.read(sheet_name))
+                for row in s_root.iter():
+                    if row.tag.endswith("}row"):
+                        cells = []
+                        for c in row:
+                            if not c.tag.endswith("}c"):
+                                continue
+                            c_type = c.get("t")
+                            val = ""
+                            for child in c:
+                                if child.tag.endswith("}v") and child.text:
+                                    if c_type == "s" and child.text.isdigit() and int(child.text) < len(shared):
+                                        val = shared[int(child.text)]
+                                    else:
+                                        val = child.text
+                                elif child.tag.endswith("}is"):
+                                    val = "".join(t.text or "" for t in child.iter() if t.tag.endswith("}t"))
+                            if val:
+                                cells.append(val)
+                        if cells:
+                            lines.append(" | ".join(cells))
         yield "text", "\n".join(lines), path.stem, {}
+    elif suffix == ".pptx":
+        import zipfile
+        from xml.etree import ElementTree
+
+        lines = []
+        with zipfile.ZipFile(path) as zf:
+            for slide_name in sorted(n for n in zf.namelist() if n.startswith("ppt/slides/slide") and n.endswith(".xml")):
+                s_root = ElementTree.fromstring(zf.read(slide_name))
+                texts = [t.text.strip() for t in s_root.iter() if t.tag.endswith("}t") and t.text and t.text.strip()]
+                if texts:
+                    lines.append(f"=== {Path(slide_name).stem} ===\n" + "\n".join(texts))
+        yield "text", "\n\n".join(lines), path.stem, {}
+    elif suffix == ".eml":
+        yield "text", path.read_text(encoding="utf-8", errors="replace"), path.stem, {}
     else:
         count = 0
         for index, row in _records(path, "user" if mapping is not None else kind):
@@ -202,6 +277,17 @@ def _parse(path: Path, kind: str, mapping=None):
                 text = _text({field: field_value(row, field) for field in mapping.text_fields}, exclude=excluded)
                 title = str(field_value(row, mapping.title_field)) if mapping.title_field else path.stem
                 extra = {name: str(field_value(row, field)) for name, field in mapping.metadata_fields.items()}
+            elif isinstance(row, dict) and kind == "legal_cases" and "messages" in row:
+                messages = row["messages"]
+                if not isinstance(messages, list) or not all(
+                    isinstance(message, dict) and isinstance(message.get("role"), str)
+                    and isinstance(message.get("content"), str) for message in messages
+                ):
+                    raise ValueError("Invalid case conversation schema")
+                inputs = [message["content"] for message in messages if message["role"] == "user"]
+                if not inputs:
+                    raise ValueError("Case conversation has no user facts")
+                text = _text({"input": inputs})
             elif isinstance(row, dict) and kind != "user":
                 if not any(key in row for key in FIELDS[kind]):
                     raise ValueError("Unknown legal record schema; provide a reviewed field mapping")

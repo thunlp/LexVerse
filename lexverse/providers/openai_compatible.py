@@ -31,6 +31,8 @@ class OpenAICompatibleProvider:
             content = response.choices[0].message.content
             if not content:
                 raise ProviderError("model returned an empty response")
+            if "</think>" in content:
+                content = content.split("</think>", 1)[1].lstrip()
             usage = response.usage.model_dump() if response.usage else {}
             return ModelResponse(
                 content=content, model=self.model, usage=usage,
