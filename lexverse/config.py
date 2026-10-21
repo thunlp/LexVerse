@@ -76,9 +76,15 @@ def resolve_path(name: str, base_dir: Path | None) -> str:
     return str((path if path.is_absolute() else (base_dir or Path.cwd()) / path).resolve())
 
 
-def validate_local_generation(options: dict, *, field: str = "generation_parameters") -> None:
-    if set(options) - {"temperature", "max_tokens", "top_p"}:
-        raise ConfigError(f"{field}: local generation supports temperature, max_tokens and top_p only")
+def validate_local_generation(options: dict, *, provider: str = "transformers", field: str = "generation_parameters") -> None:
+    if set(options) - {"temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty"}:
+        raise ConfigError(f"{field}: local generation supports temperature, max_tokens, top_p, frequency_penalty and presence_penalty only")
+    for key in ("frequency_penalty", "presence_penalty"):
+        value = options.get(key, 0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not -2 <= value <= 2:
+            raise ConfigError(f"{field}.{key} must be a finite number in [-2, 2]")
+        if provider == "transformers" and value != 0:
+            raise ConfigError(f"{field}.{key}: nonzero values are supported only by vllm")
     for key, default in (("temperature", 0), ("top_p", 1)):
         value = options.get(key, default)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not (0 <= value if key == "temperature" else 0 < value <= 1):
@@ -176,7 +182,7 @@ def parse_model_config(value: object, *, field: str, base_dir: Path | None = Non
             if not isinstance(input_config["chat_template"], str) or not input_config["chat_template"]:
                 raise ConfigError(f"{field}.input.chat_template must be a template file path")
             input_config["chat_template"] = resolve_path(input_config["chat_template"], base_dir)
-        validate_local_generation(generation, field=field)
+        validate_local_generation(generation, provider=provider, field=field)
     return ModelConfig(provider=provider, profile=profile, name=name,
                        load_parameters=loading, generation_parameters=generation, input=input_config)
 
@@ -270,10 +276,14 @@ def parse_config(data: dict, *, source_path: Path) -> ResolvedConfig:
         plugin = get_plugin(bench["name"])
     except (KeyError, TypeError) as exc:
         raise ConfigError(f"unknown benchmark: {bench['name']!r}") from exc
-    if bench.get("data_dir"):
-        if not isinstance(bench["data_dir"], str):
-            raise ConfigError("benchmark.data_dir must be a path string")
-        bench["data_dir"] = resolve_path(bench["data_dir"], source_path.parent)
+    path_keys = ("data_dir",)
+    if bench["name"] == "lecardv2":
+        path_keys += ("submission_path", "candidate_pool_path", "decomposed_query_path", "decomposed_doc_path")
+    for key in path_keys:
+        if bench.get(key):
+            if not isinstance(bench[key], str):
+                raise ConfigError(f"benchmark.{key} must be a path string")
+            bench[key] = resolve_path(bench[key], source_path.parent)
     for name in ("case_database", "few_shot_path"):
         if bench.get(name):
             bench[name] = str(Path(bench[name]).resolve())

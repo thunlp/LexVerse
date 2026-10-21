@@ -1,10 +1,8 @@
 """LeCaRDv2 benchmark plugin supporting Mode A (encoder/submission) and Mode B (LLM query rewrite)."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from lexverse.benchmarks.plugin import BenchmarkPlugin
-from lexverse.config import ConfigError, resolve_path
+from lexverse.config import ConfigError
 from . import CATALOG_PATH, UPSTREAM
 from .environment import LeCaRDv2Environment
 from .evaluation import LeCaRDv2Aggregator, LeCaRDv2TaskVerifier
@@ -34,15 +32,6 @@ class LeCaRDv2Plugin(BenchmarkPlugin):
             raise ConfigError("models.summary is supported only by J1Bench KQ/LC")
         if modern and models.evaluators:
             raise ConfigError("this benchmark uses its native scorer without models.evaluators")
-
-    def create_bundle(self, config):
-        for key in ("submission_path", "candidate_pool_path", "decomposed_query_path", "decomposed_doc_path"):
-            if config.benchmark.get(key):
-                config.benchmark[key] = resolve_path(
-                    config.benchmark[key], config.source_path.parent
-                )
-                config.raw["benchmark"][key] = config.benchmark[key]
-        return super().create_bundle(config)
 
     def generation_models(self, config, bundle):
         mode = config.benchmark.get("mode", "ranked_submission")

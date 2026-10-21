@@ -86,9 +86,14 @@ def load_trial_ranking(task, record, run_dir, allowed_pids, *, expected_top_k=10
     if set(parsed) != {qid}:
         raise ValueError(f"trial TREC must contain exactly query {qid}")
     ranked = [pid for _, pid, _, _ in parsed[qid]]
+    pool = task.raw_payload.get("candidate_pids")
+    if pool is not None and not set(ranked).issubset(pool):
+        raise ValueError("ranking contains documents outside the candidate pool")
     if meta.get("top_10_pids") != ranked[:10]:
         raise ValueError("ranking.json top_10_pids mismatch against TREC")
-    return ranked
+    # Match trec_eval: score descending, then document ID descending as a string.
+    rows = sorted(parsed[qid], key=lambda row: (row[2], str(row[1])), reverse=True)
+    return [pid for _, pid, _, _ in rows]
 
 
 def _build_aggregations(per_query_metrics, per_query_hits, gold_counts, primary_charge, cutoffs):

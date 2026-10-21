@@ -7,8 +7,6 @@ import json
 import math
 from pathlib import Path
 
-import numpy as np
-
 from lexverse.environments.base import ExecutionEnvironment
 from lexverse.interaction.schema import EnvironmentResult
 from lexverse.runtime.results import atomic_write_json
@@ -38,6 +36,9 @@ def parse_trec_submission(path, allowed_pids, *, top_k=1000):
             raise ValueError(f"query {qid} has {len(rows)} rows, expected {top_k}")
         if [r for r, _, _, _ in rows] != list(range(1, len(rows) + 1)):
             raise ValueError(f"query {qid} ranks are not 1..{len(rows)}")
+        for previous, current in zip(rows, rows[1:]):
+            if current[2] > previous[2]:
+                raise ValueError(f"query {qid}: scores must be non-increasing by rank")
     return runs
 
 
@@ -68,6 +69,8 @@ class BM25CorpusIndex:
         return [t for t in self._jieba.cut(text) if t.strip() and t not in self.stopwords]
 
     def _load_or_build(self):
+        import numpy as np
+
         csr_dir = self.paths["root"] / "baseline" / f"csr_cache_{self.document_field}"
         required = ("pids.npy", "doc_lens.npy", "offsets.npy", "doc_indices.npy", "tfs.npy", "vocab.json")
         if all((csr_dir / name).is_file() for name in required):
@@ -140,6 +143,8 @@ class BM25CorpusIndex:
         self.norm = self.k1 * (1.0 - self.b + self.b * (self.doc_lens / max(avgdl, 1e-9)))
 
     def search(self, query_text, *, top_k=1000, candidate_pids=None, tie_break="pid_asc"):
+        import numpy as np
+
         n_docs = len(self.pids)
         scores = np.zeros(n_docs, dtype=np.float32)
         for term, q_tf in Counter(self.tokenize(query_text)).items():
@@ -202,6 +207,7 @@ class EncoderRetriever:
         self._doc_vecs = {}
 
     def encode_texts(self, texts):
+        import numpy as np
         import torch
         import torch.nn.functional as F
 
@@ -228,6 +234,8 @@ class EncoderRetriever:
         return np.concatenate(out, axis=0) if out else np.empty((0, 768), dtype=np.float32)
 
     def score_query(self, query_text, candidate_pids):
+        import numpy as np
+
         missing = sorted(set(candidate_pids) - set(self._doc_vecs))
         if missing:
             cdir = self.paths["candidate_dir"]
@@ -290,6 +298,8 @@ class KellerSubfactRetriever:
         return slots, mask
 
     def score_query(self, qid, candidate_pids):
+        import numpy as np
+
         q_slots, q_mask = self._build_slots(self.qf_raw.get(str(qid), {}))
         d_slots_by_pid, d_masks_by_pid = {}, {}
         all_strs = list(q_slots)
@@ -403,6 +413,11 @@ class LeCaRDv2Environment(ExecutionEnvironment):
                     pool_pids, scores, tie_break=self.tie_break, top_k=min(self.top_k, len(pool_pids)), tag="bm25",
                 )
             else:
+                if self._bm25_index is None:
+                    self._bm25_index = BM25CorpusIndex(
+                        self.paths, document_field=self.bench.get("document_field", "qw"),
+                        k1=float(self.bench.get("bm25_k1", 1.2)), b=float(self.bench.get("bm25_b", 0.75)),
+                    )
                 ranked = [
                     (r, p, s, "bm25")
                     for r, p, s, _ in self._bm25_index.search(fact, top_k=self.top_k, candidate_pids=pool_pids, tie_break=self.tie_break)

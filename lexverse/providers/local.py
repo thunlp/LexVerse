@@ -113,7 +113,7 @@ class LocalBackend:
         self.context_extrapolation = self.context_limit > self.native_context_limit
 
     def generate(self, messages: list[dict], options: dict) -> dict:
-        validate_local_generation(options)
+        validate_local_generation(options, provider=self.config.provider)
         ids = self.encode(messages)
         max_tokens = options.get("max_tokens", 512)
         if not ids or len(ids) + max_tokens > self.context_limit:
@@ -138,7 +138,11 @@ class LocalBackend:
             finish = "length" if len(tokens) >= max_tokens and not stopped else "stop"
         else:
             from vllm import SamplingParams
-            params = SamplingParams(temperature=temperature, max_tokens=max_tokens, top_p=options.get("top_p", 1))
+            params = SamplingParams(
+                temperature=temperature, max_tokens=max_tokens, top_p=options.get("top_p", 1),
+                frequency_penalty=options.get("frequency_penalty", 0),
+                presence_penalty=options.get("presence_penalty", 0),
+            )
             result = self.model.generate([{"prompt_token_ids": ids}], params, use_tqdm=False)[0].outputs[0]
             tokens, text, finish = result.token_ids, result.text, result.finish_reason
         return {"content": text, "finish_reason": finish,
