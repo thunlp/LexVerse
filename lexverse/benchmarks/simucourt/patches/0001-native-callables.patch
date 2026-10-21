@@ -1,0 +1,813 @@
+diff --git a/AgentsCourt/evaluation_crimial.py b/AgentsCourt/evaluation_crimial.py
+index fe824e6..e606982 100644
+--- a/AgentsCourt/evaluation_crimial.py
++++ b/AgentsCourt/evaluation_crimial.py
+@@ -1,45 +1,34 @@
+-import json
++def score(gold_judge, model_judge):
++    total_num = total_name = total_sentence = total_fine = 0
++    
++    for number, gold_result in gold_judge.items():
++        #print(number)
++        if gold_result["案件类型"] == '刑事案件':
++            total_num += 1
++            pred_result = model_judge[number]
++    
++            gold_name = gold_result.get('罪名')
++            gold_sentence = gold_result.get('刑期')
++            gold_fine = gold_result.get('罚金')
++    
++            pred_name = pred_result["判决结果"].get('罪名')
++            pred_sentence = pred_result["判决结果"].get('刑期')
++            pred_fine = pred_result["判决结果"].get('罚金')
++    
++            
++    
++            if gold_name == pred_name:
++                total_name += 1
++            if gold_sentence == pred_sentence:
++                total_sentence += 1
++            if gold_fine == pred_fine:
++                total_fine += 1
++            
++    total_name_p = total_name/total_num
++    total_sentence_p = total_sentence/total_num
++    total_fine_p = total_fine/total_num
++    
++    
++    
++    return {"charge_exact": total_name_p, "term_exact": total_sentence_p, "fine_exact": total_fine_p}
+ 
+-# 数据集的gold result
+-gold_judge_path = 'judge_result.json'
+-with open(gold_judge_path, 'r', encoding='utf-8') as file:
+-    gold_judge = json.load(file)
+-
+-# 输出结果
+-model_judge_path = 'refine_eval.json'
+-with open(model_judge_path, 'r', encoding='utf-8') as file:
+-    model_judge = json.load(file)
+-
+-total_num = total_name = total_sentence = total_fine = 0
+-
+-for number, gold_result in gold_judge.items():
+-    #print(number)
+-    if gold_result["案件类型"] == '刑事案件':
+-        total_num += 1
+-        pred_result = model_judge[number]
+-
+-        gold_name = gold_result.get('罪名')
+-        gold_sentence = gold_result.get('刑期')
+-        gold_fine = gold_result.get('罚金')
+-
+-        pred_name = pred_result["判决结果"].get('罪名')
+-        pred_sentence = pred_result["判决结果"].get('刑期')
+-        pred_fine = pred_result["判决结果"].get('罚金')
+-
+-        
+-
+-        if gold_name == pred_name:
+-            total_name += 1
+-        if gold_sentence == pred_sentence:
+-            total_sentence += 1
+-        if gold_fine == pred_fine:
+-            total_fine += 1
+-        
+-total_name_p = total_name/total_num
+-total_sentence_p = total_sentence/total_num
+-total_fine_p = total_fine/total_num
+-
+-
+-print('total_name', total_name_p)
+-print('total_sentence', total_sentence_p)
+-print('total_fine', total_fine_p)
+diff --git a/AgentsCourt/evaluation_laws.py b/AgentsCourt/evaluation_laws.py
+index 41729a8..d82930f 100644
+--- a/AgentsCourt/evaluation_laws.py
++++ b/AgentsCourt/evaluation_laws.py
+@@ -1,5 +1,3 @@
+-import json
+-
+ def remove_special_characters(law_list):
+     cleaned_list = []
+     for law in law_list:
+@@ -31,110 +29,92 @@ def calculate_single_metrics(gold_list, pred_list):
+ 
+     return tp, fp, fn
+ 
+-gold_judge_path = 'judge_result.json'
+-with open(gold_judge_path, 'r', encoding='utf-8') as file:
+-    gold_judge = json.load(file)
+-
+-GPT4_path = 'refine_eval.json'
+-with open(GPT4_path, 'r', encoding='utf-8') as file:
+-    model_judge = json.load(file)
+-
+-total_tp = total_fp = total_fn = 0
+-
+-for number, gold_result in gold_judge.items():
+-            pred_result = model_judge[number]
+-
+-            gold_law_list = gold_result["审判依据"]
+-            pred_law_list = pred_result["审判依据"]
+-
+-            tp, fp, fn = calculate_single_metrics(gold_law_list, pred_law_list)
+-            # 累加到总数
+-            total_tp += tp
+-            total_fp += fp
+-            total_fn += fn
+-
+-precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
+-recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
+-f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+-
+-print('all_precision', precision)
+-print('all_recall', recall)
+-print('all_f1', f1)
+-print('=====================================')
+-
+-total_tp_x = total_fp_x = total_fn_x = 0
+-
+-for number, gold_result in gold_judge.items():
+-    #if number in model_judge:
+-        if gold_result["案件类型"] == '刑事案件':
+-            #print('number:', number)
+-            pred_result = model_judge[number]
+-
+-            gold_law_list = gold_result["审判依据"]
+-            pred_law_list = pred_result["审判依据"]
+-
+-            tp, fp, fn = calculate_single_metrics(gold_law_list, pred_law_list)
+-            # 累加到总数
+-            total_tp_x += tp
+-            total_fp_x += fp
+-            total_fn_x += fn
+-
+-
+-precision = total_tp_x / (total_tp_x + total_fp_x) if (total_tp_x + total_fp_x) > 0 else 0
+-recall = total_tp_x / (total_tp_x + total_fn_x) if (total_tp_x + total_fn_x) > 0 else 0
+-f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+-
+-print('X_precision', precision)
+-print('X_recall', recall)
+-print('X_f1', f1)
+-print('=====================================')
+-
+-total_tp_m = total_fp_m = total_fn_m = 0
+-
+-for number, gold_result in gold_judge.items():
+-    #if number in model_judge:
+-        if gold_result["案件类型"] == '民事案件':
+-            #print('number:', number)
+-            pred_result = model_judge[number]
+-
+-            gold_law_list = gold_result["审判依据"]
+-            pred_law_list = pred_result["审判依据"]
+-
+-            tp, fp, fn = calculate_single_metrics(gold_law_list, pred_law_list)
+-            # 累加到总数
+-            total_tp_m += tp
+-            total_fp_m += fp
+-            total_fn_m += fn
+-
+-precision = total_tp_m / (total_tp_m + total_fp_m) if (total_tp_m + total_fp_m) > 0 else 0
+-recall = total_tp_m / (total_tp_m + total_fn_m) if (total_tp_m + total_fn_m) > 0 else 0
+-f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+-
+-print('m_precision', precision)
+-print('m_recall', recall)
+-print('m_f1', f1)
+-print('=====================================')
+-
+-total_tp_z = total_fp_z = total_fn_z = 0
+-
+-for number, gold_result in gold_judge.items():
+-        if gold_result["案件类型"] == '行政案件':
+-            #print('number:', number)
+-            pred_result = model_judge[number]
+-
+-            gold_law_list = gold_result["审判依据"]
+-            pred_law_list = pred_result["审判依据"]
+-
+-            tp, fp, fn = calculate_single_metrics(gold_law_list, pred_law_list)
+-            # 累加到总数
+-            total_tp_z += tp
+-            total_fp_z += fp
+-            total_fn_z += fn
+-
+-precision = total_tp_z / (total_tp_z + total_fp_z) if (total_tp_z + total_fp_z) > 0 else 0
+-recall = total_tp_z / (total_tp_z + total_fn_z) if (total_tp_z + total_fn_z) > 0 else 0
+-f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
++def score(gold_judge, model_judge):
++    total_tp = total_fp = total_fn = 0
++    
++    for number, gold_result in gold_judge.items():
++                pred_result = model_judge[number]
++    
++                gold_law_list = gold_result["审判依据"]
++                pred_law_list = pred_result["审判依据"]
++    
++                tp, fp, fn = calculate_single_metrics(gold_law_list, pred_law_list)
++                # 累加到总数
++                total_tp += tp
++                total_fp += fp
++                total_fn += fn
++    
++    precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
++    recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
++    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
++    
++    all_metrics = {"precision": precision, "recall": recall, "f1": f1}
++    
++    total_tp_x = total_fp_x = total_fn_x = 0
++    
++    for number, gold_result in gold_judge.items():
++        #if number in model_judge:
++            if gold_result["案件类型"] == '刑事案件':
++                #print('number:', number)
++                pred_result = model_judge[number]
++    
++                gold_law_list = gold_result["审判依据"]
++                pred_law_list = pred_result["审判依据"]
++    
++                tp, fp, fn = calculate_single_metrics(gold_law_list, pred_law_list)
++                # 累加到总数
++                total_tp_x += tp
++                total_fp_x += fp
++                total_fn_x += fn
++    
++    
++    precision = total_tp_x / (total_tp_x + total_fp_x) if (total_tp_x + total_fp_x) > 0 else 0
++    recall = total_tp_x / (total_tp_x + total_fn_x) if (total_tp_x + total_fn_x) > 0 else 0
++    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
++    
++    
++    total_tp_m = total_fp_m = total_fn_m = 0
++    
++    for number, gold_result in gold_judge.items():
++        #if number in model_judge:
++            if gold_result["案件类型"] == '民事案件':
++                #print('number:', number)
++                pred_result = model_judge[number]
++    
++                gold_law_list = gold_result["审判依据"]
++                pred_law_list = pred_result["审判依据"]
++    
++                tp, fp, fn = calculate_single_metrics(gold_law_list, pred_law_list)
++                # 累加到总数
++                total_tp_m += tp
++                total_fp_m += fp
++                total_fn_m += fn
++    
++    precision = total_tp_m / (total_tp_m + total_fp_m) if (total_tp_m + total_fp_m) > 0 else 0
++    recall = total_tp_m / (total_tp_m + total_fn_m) if (total_tp_m + total_fn_m) > 0 else 0
++    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
++    
++    
++    total_tp_z = total_fp_z = total_fn_z = 0
++    
++    for number, gold_result in gold_judge.items():
++            if gold_result["案件类型"] == '行政案件':
++                #print('number:', number)
++                pred_result = model_judge[number]
++    
++                gold_law_list = gold_result["审判依据"]
++                pred_law_list = pred_result["审判依据"]
++    
++                tp, fp, fn = calculate_single_metrics(gold_law_list, pred_law_list)
++                # 累加到总数
++                total_tp_z += tp
++                total_fp_z += fp
++                total_fn_z += fn
++    
++    precision = total_tp_z / (total_tp_z + total_fp_z) if (total_tp_z + total_fp_z) > 0 else 0
++    recall = total_tp_z / (total_tp_z + total_fn_z) if (total_tp_z + total_fn_z) > 0 else 0
++    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
++    
++    
++    return all_metrics
+ 
+-print('z_precision', precision)
+-print('z_recall', recall)
+-print('z_f1', f1)
+diff --git a/AgentsCourt/evaluation_other.py b/AgentsCourt/evaluation_other.py
+index 252ff38..611f8d7 100644
+--- a/AgentsCourt/evaluation_other.py
++++ b/AgentsCourt/evaluation_other.py
+@@ -1,65 +1,23 @@
+-# -*- coding: utf-8 -*-
+ import json
+-from openai import OpenAI
+-from tqdm import tqdm 
+-#from transformers import AutoTokenizer
+-
+ import re
+-import httpx
++GPT_4 = None
+ 
+-# 评价民事、行政的结果
+-# 分为准确率（生成内容正确的比例）和召回率（生成内容匹配的比例）
++def score(data, gold_judge, model_judge, stage):
++    judge_other_result = {}
++    judge_other_result_score = {}
+     
+-def GPT_4(system_massage, prompt):
+-    client = OpenAI(
+-        base_url="https://oneapi.xty.app/v1", 
+-        api_key="xxx",
+-        http_client=httpx.Client(
+-            base_url="https://oneapi.xty.app/v1",
+-            follow_redirects=True,
+-        ),
+-    )
+-
+-    completion = client.chat.completions.create(
+-        #model="gpt-3.5-turbo-1106",
+-        model="gpt-4-1106-preview",
+-        messages=[
+-            {"role": "system", "content": '你是一个专业的法律助手'},
+-            {"role": "user", "content": prompt}
+-        ]
+-    )
+-
+-    return completion.choices[0].message.content.strip()
++    error_list = []
++    gold_keys = 0
++    pred_results = 0
++    pred_keys = 0
++    pred_right = 0
+     
+-data_path = 'SimuCourt1.18(2).json'
+-with open(data_path, 'r', encoding='utf-8') as file:
+-    data = json.load(file)
+-
+-# 数据集的gold result
+-gold_judge_path = 'judge_result.json'
+-with open(gold_judge_path, 'r', encoding='utf-8') as file:
+-    gold_judge = json.load(file)
+-
+-model_judge_path = 'record_eval.json'
+-with open(model_judge_path, 'r', encoding='utf-8') as file:
+-    model_judge = json.load(file)
+-
+-
+-judge_other_result = {}
+-judge_other_result_score = {}
+-
+-error_list = []
+-gold_keys = 0
+-pred_results = 0
+-pred_keys = 0
+-pred_right = 0
+-
+-for number, gold_result in tqdm(gold_judge.items()):
+-        if gold_result["案件类型"] == '民事案件' or gold_result["案件类型"] == '行政案件':
+-            
+-            pred_result = model_judge[number]
+-
+-            CASE_TEMPLATE1 = """
++    for number, gold_result in gold_judge.items():
++            if gold_result["案件类型"] == '民事案件' or gold_result["案件类型"] == '行政案件':
++                
++                pred_result = model_judge[number]
++    
++                CASE_TEMPLATE1 = """
+             我希望你帮助我对比和评估两组文本——一组“标准答案”和一组“生成答案”。你需要根据以下标准来计算生成答案的“内容匹配度”和“内容准确性”，“标准答案”和 “生成答案”分别包含多个结果。 
+ 
+             内容匹配度：这是针对生成答案中的每个关键点来评估的。请检查生成答案中有多少关键信息点与标准答案中的关键信息点相匹配。对于生成答案中的每一个匹配的关键信息点，给予1分，请进行严格判断，得分只有0或者1。例如，如果标准答案包含4个关键点，生成答案匹配了其中2个，则内容匹配度得分为2分。 
+@@ -103,8 +61,8 @@ for number, gold_result in tqdm(gold_judge.items()):
+             标准答案：<gold_result>
+             生成答案：<model_result>
+             """
+-
+-            CASE_TEMPLATE2 = """
++    
++                CASE_TEMPLATE2 = """
+             我希望你帮助我对比和评估两组文本——一组“标准答案”和一组“生成答案”。你需要根据以下标准来计算生成答案的“内容匹配度”和“内容准确性”，“标准答案”和 “生成答案”分别包含多个结果。 
+ 
+             内容匹配度：这是针对生成答案中的每个关键点来评估的。请检查生成答案中有多少关键信息点与标准答案中的关键信息点相匹配。对于生成答案中的每一个匹配的关键信息点，给予1分，请进行严格判断，得分只有0或者1。例如，如果标准答案包含4个关键点，生成答案匹配了其中2个，则内容匹配度得分为2分。 
+@@ -149,57 +107,70 @@ for number, gold_result in tqdm(gold_judge.items()):
+             标准答案：<gold_result>
+             生成答案：<model_result>
+             """
+-            
+-            gold_result_dict = {}
+-
+-            if "结果1" in gold_result:
+-                gold_result_dict["结果1"] = gold_result["结果1"]
+-            if "结果2" in gold_result:
+-                gold_result_dict["结果2"] = gold_result["结果2"]
+-            if "结果3" in gold_result:
+-                gold_result_dict["结果3"] = gold_result["结果3"]
+-            for case in data:
+-                if case["案号"] == number:
+-                    current_case = case
+-            first_result = current_case["一审法院审判结果"]
+-            # 基本案情
+-            task_prompt = CASE_TEMPLATE2.replace('<gold_result>', str(gold_result_dict))
+-            task_prompt = task_prompt.replace('<model_result>', str(pred_result["判决结果"]))
+-            task_prompt = task_prompt.replace('<first_result>', first_result)
+-            #print(task_prompt)
+-            try:
+-                judge_analysis = GPT_4('judge_final_system', task_prompt)
++                
++                gold_result_dict = {}
++    
++                if "结果1" in gold_result:
++                    gold_result_dict["结果1"] = gold_result["结果1"]
++                if "结果2" in gold_result:
++                    gold_result_dict["结果2"] = gold_result["结果2"]
++                if "结果3" in gold_result:
++                    gold_result_dict["结果3"] = gold_result["结果3"]
++                for case in data:
++                    if case["案号"] == number:
++                        current_case = case
++                first_result = current_case.get("一审法院审判结果", "未提供")
++                # 基本案情
++                task_prompt = (CASE_TEMPLATE2 if stage == "second" else CASE_TEMPLATE1).replace('<gold_result>', str(gold_result_dict))
++                task_prompt = task_prompt.replace('<model_result>', str(pred_result["判决结果"]))
++                task_prompt = task_prompt.replace('<first_result>', first_result)
++                #print(task_prompt)
+                 try:
+-                    json_str = re.search(r'输出结果：(.+)', judge_analysis).group(1)
+-                    result_dict = json.loads(json_str)
+-                    judge_other_result_score[number] = result_dict
+-                    #print(result_dict)
+-                    gold_keys += result_dict["标准答案关键点"]
+-                    pred_results += result_dict["生成答案结果数"]
+-                    pred_keys += result_dict["内容匹配度"]
+-                    pred_right += result_dict["内容准确性"]
+-                    judge_other_result[number] = judge_analysis
++                    judge_analysis = GPT_4('judge_final_system', task_prompt)
++                    try:
++                        json_str = re.search(r'输出结果：(.+)', judge_analysis).group(1)
++                        result_dict = json.loads(json_str)
++                        #print(result_dict)
++                        # Read all required keys before accumulation: failed rows must not pollute denominators.
++                        values = tuple(result_dict[key] for key in ("标准答案关键点", "生成答案结果数", "内容匹配度", "内容准确性"))
++                        gold_keys += values[0]
++                        pred_results += values[1]
++                        pred_keys += values[2]
++                        pred_right += values[3]
++                        judge_other_result_score[number] = result_dict
++                        judge_other_result[number] = judge_analysis
++                    except:
++                        error_list.append(number) 
+                 except:
+-                    print('Extract error', number)
+-                    error_list.append(number) 
+-            except:
+-                print('Error:', number)
+-                error_list.append(number)
+-
+-print(error_list)
+-try:
+-    p = pred_right/pred_results
+-    r = pred_keys/gold_keys
+-    f = 2*p*r/(p+r)
+-except:
+-    p, r, f = 0, 0, 0
++                    error_list.append(number)
+     
+-print('P:', p)
+-print('R:', r)
+-print('F1:', f)
+-
+-
+-
+-
++    try:
++        p = pred_right/pred_results
++        r = pred_keys/gold_keys
++        f = 2*p*r/(p+r)
++    except:
++        p, r, f = 0, 0, 0
++        
++    
++    
++    
++    
++    
++        
++    return {"precision": p, "recall": r, "f1": f}, judge_other_result_score
++
++
++def aggregate_counts(counts):
++    gold_keys = sum(x["标准答案关键点"] for x in counts)
++    pred_results = sum(x["生成答案结果数"] for x in counts)
++    pred_keys = sum(x["内容匹配度"] for x in counts)
++    pred_right = sum(x["内容准确性"] for x in counts)
++    try:
++        p = pred_right/pred_results
++        r = pred_keys/gold_keys
++        f = 2*p*r/(p+r)
++    except:
++        p, r, f = 0, 0, 0
++        
++    return {"precision": p, "recall": r, "f1": f}
+ 
+-    
+\ No newline at end of file
+diff --git a/AgentsCourt/judge_result_process.py b/AgentsCourt/judge_result_process.py
+index ff60081..28a3880 100644
+--- a/AgentsCourt/judge_result_process.py
++++ b/AgentsCourt/judge_result_process.py
+@@ -1,17 +1,13 @@
+-# -*- coding: utf-8 -*-
++"""Callable public formatter: remove debug whitelist/I/O, fix label boundaries and unsafe eval."""
++import ast
+ import json
+-from openai import OpenAI
+-from tqdm import tqdm 
+-#from transformers import AutoTokenizer
+ import re
+-import time
+-import httpx
+ 
+ def extract_sections(text):
+     # Regular expressions for each section
+     patterns = {
+-        "法官分析": r"\[法官分析\](.*?)(?=\n\[)",
+-        "审判依据": r"\[审判依据\](.*?)(?=\n\[)",
++        "法官分析": r"\[法官分析\](.*?)(?=\s*\[(?:法官分析|审判依据|最终判决)\]|$)",
++        "审判依据": r"\[审判依据\](.*?)(?=\s*\[(?:法官分析|审判依据|最终判决)\]|$)",
+         "最终判决": r"\[最终判决\](.*?)$"
+     }
+ 
+@@ -26,196 +22,46 @@ def extract_sections(text):
+ 
+     return extracted
+ 
+-def GPT_4(prompt):
+-    time.sleep(10)
+-    client = OpenAI(
+-        base_url="https://oneapi.xty.app/v1", 
+-        api_key="sk-",
+-        http_client=httpx.Client(
+-            base_url="https://oneapi.xty.app/v1",
+-            follow_redirects=True,
+-        ),
+-    )
+-
+-    completion = client.chat.completions.create(
+-        model="gpt-3.5-turbo-1106",
+-        #model="gpt-4-1106-preview",
+-        messages=[
+-            {"role": "system", "content": '你是一个专业的法律助手'},
+-            {"role": "user", "content": prompt}
+-        ]
+-    )
+-
+-    return completion.choices[0].message.content.strip()
+-
+-# 二审数据集
+-second_judge_path = 'SimuCourt1.18(2).json'
+-with open(second_judge_path, 'r', encoding='utf-8') as file:
+-    second_judge = json.load(file)
+-
+-GPT4_judge_path = 'case_refine.json'
+-with open(GPT4_judge_path, 'r', encoding='utf-8') as file:
+-    GPT4_judge = json.load(file)
+-
+-
+-prompt_laws = """
+-    请将所给文本整理成需要的格式。
+-    示例1：
+-    当前文本：综上所述，依据《中华人民共和国刑法》第三百四十七条、第三百五十四条、第二十五条、第二十七条、第六十九条、第六十七条、第六十四条；《最高人民法院关于审理毒品犯罪案件适用法律若干问题的解释》第四条。
+-    输出列表：['《中华人民共和国刑法》第三百四十七条','《中华人民共和国刑法》第三百五十四条','《中华人民共和国刑法》第二十五条','《中华人民共和国刑法》第二十七条','《中华人民共和国刑法》第六十九条','《中华人民共和国刑法》第六十七条','《中华人民共和国刑法》第六十四条','《最高人民法院关于审理毒品犯罪案件适用法律若干问题的解释》第四条']
+-    示例2：
+-    当前文本：综上所述，依照《中华人民共和国刑法》第二百六十四条、第五十二条、第五十三条、第六十一条、第六十七条第三款的规定。根据《中华人民共和国刑法》第二百六十四条，盗窃公私财物，数额较大的，应判处有期徒刑，且可以处罚金。同时，《最高人民法院、最高人民检察院〈关于办理盗窃刑事案件适用法律若干问题的解释〉》第一条规定，盗窃公私财物价值一千元至三千元以上、三万元至十万元以上、三十万元至五十万元以上的，应当分别认定为“数额较大”、“数额巨大”、“数额特别巨大”。
+-    输出列表：['《中华人民共和国刑法》第二百六十四条','《中华人民共和国刑法》第五十二条','《中华人民共和国刑法》第五十三条','《中华人民共和国刑法》第六十一条','《中华人民共和国刑法》第六十七条第三款','《最高人民法院、最高人民检察院〈关于办理盗窃刑事案件适用法律若干问题的解释〉》第一条']
+-    示例3：
+-    当前文本：综上所述，依照《中华人民共和国刑法》第一百三十三条之一第一款第（二）项、第六十七条第三款、第七十二条第一款、第七十二条第二款、第七十三条第一款、《中华人民共和国刑法》第四十二条、第四十四条、第五十二条、第五十三条第一款第（一）项。
+-    输出列表：['《中华人民共和国刑法》第一百三十三条之一第一款第（二）项','《中华人民共和国刑法》第六十七条第三款','《中华人民共和国刑法》第七十二条第一款','《中华人民共和国刑法》第七十二条第二款','《中华人民共和国刑法》第七十三条第一款','《中华人民共和国刑法》第四十二条','《中华人民共和国刑法》第四十四条','《中华人民共和国刑法》第五十二条','《中华人民共和国刑法》第五十三条第一款第（一）项']
+-    示例4：
+-    当前文本：根据《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》第二十九条第二款第（一）项规定，借贷双方既未约定借期内的利率，也未约定逾期利率，出借人主张借款人自逾期还款之日起按照年利率6%支付资金占用期间利息的，人民法院应予支持。同时，根据《中华人民共和国合同法》第二百一十一条第二款规定，自然人之间的借款合同约定支付利息的，借款的利率不得违反国家有关限制借款利率的规定。
+-    输出列表：['《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》第二十九条第二款第（一）项','《中华人民共和国合同法》第二百一十一条第二款']
+-    示例5：
+-    当前文本：综上所述，依照：《中华人民共和国刑法》第三百一十九条、第二十五条第三款、第二十七条、第六十四条。"
+-    输出列表：['《中华人民共和国刑法》第三百一十九条','《中华人民共和国刑法》第二十五条第三款','《中华人民共和国刑法》第二十七条','《中华人民共和国刑法》第六十四条',]
+-    示例6：
+-    当前文本：综上所述，依照：《中华人民共和国行政诉讼法》第五十九条、第六十条；《工伤保险条例》第九条第六项；《中华人民共和国社会保险法》第十五条、第十七条。",
+-    输出列表：['《中华人民共和国行政诉讼法》第五十九条','《中华人民共和国行政诉讼法》第六十条','《工伤保险条例》第九条第六项', '《中华人民共和国社会保险法》第十五条', '《中华人民共和国社会保险法》第十七条']
+-
+-    请整理以下内容：
+-    当前文本：<RAW_LAWS>
+-    输出列表：
+-    """
+-
+-prompt_crime_result = """
+-    请将所给文本整理成需要的格式。
+-    示例1：
+-    当前文本：原审法院审判结果：被告人李文胜犯危险驾驶罪，判处拘役二个月，并处罚金人民币3000元\n 二审法院审判结果：维持岷县人民法院（2022）甘1126刑初150号刑事判决，即判处被告人李文胜拘役二个月，并处罚金人民币3000元。
+-    输出列表：{"罪名":"上诉人犯危险驾驶罪","刑期":"判处拘役二个月","罚金":"处罚金人民币三千元"}
+-    示例2：
+-    当前文本：原审法院审判结果：被告人柳玉昊犯诈骗罪，判处有期徒刑二年四个月，并处罚金人民币三万元\n 二审法院审判结果：一、维持鞍山市铁西区人民法院（2022)辽0303刑初328号刑事判决，驳回上诉人柳玉昊的上诉请求。
+-    输出列表：{"罪名":"上诉人犯诈骗罪","刑期":"判处有期徒刑二年四个月","罚金":"处罚金人民币三万元"}
+-    示例3：
+-    当前文本：原审法院审判结果：被告人刘泽佳犯合同诈骗罪，判处有期徒刑十年六个月，并处罚金十万元\n 二审法院审判结果：维持原判，驳回上诉。
+-    输出列表：{"罪名":"上诉人犯合同诈骗罪","刑期":"判处有期徒刑十年六个月","罚金":"处罚金十万元"}
+-    示例4：
+-    当前文本：原审法院审判结果：被告人陈其洋犯故意伤害罪，判处有期徒刑六个月\n 二审法院审判结果：上诉人（原审被告人）陈其洋犯故意伤害罪，判处有期徒刑三个月，缓刑一年。
+-    输出列表：{"罪名":"上诉人陈其洋犯故意伤害罪","刑期":"判处有期徒刑三个月，缓刑一年"}
+-    示例4：
+-    当前文本：原审法院审判结果：被告人赵某犯开设赌场罪，判处有期徒刑三年六个月，并处罚金人民币十万元\n 二审法院审判结果：对上诉人赵某犯开设赌场罪，判处有期徒刑三年，缓刑四年。
+-    输出列表：{"罪名":"上诉人犯开设赌场罪","刑期":"判处有期徒刑三年，缓刑四年","罚金":"处罚金人民币十万元"}
+-    示例5：
+-    当前文本：原审法院审判结果：一、被告人王卫新犯职务侵占罪，判处有期徒刑一年九个月，并处罚金人民币5000元。\n 二审法院审判结果：由于涉案事实较为复杂，需要进一步审查被告人王卫新提出的合作协议书内容以及款项数额的真实性，本院决定裁定案件发回审查，并要求补充相关证据，以便进行进一步审理。
+-    输出列表：{"罪名":"无","刑期":"无","罚金":"无"}
+-    示例6：
+-    当前文本：原审法院审判结果：被告人孙合理犯抢夺枪支罪，判处有期徒刑五年。\n 二审法院审判结果：撤销原审判决，维持被告人孙合理犯抢夺枪支罪的定性，判处有期徒刑三年。
+-    输出列表：{"罪名":"上诉人犯抢夺枪支罪","刑期":"判处有期徒刑三年"}
+-    示例7：
+-    当前文本：原审法院审判结果：以交通肇事罪判处被告人李沅珂有期徒刑十个月\n 二审法院审判结果：撤销广东省佛山市南海区人民法院（2021）粤0605刑初3492号刑事判决；对上诉人李沅珂犯交通肇事罪一案，判处有期徒刑七个月，缓刑一年。
+-    输出列表：{"罪名":"上诉人犯交通肇事罪","刑期":"判处有期徒刑七个月，缓刑一年"}
+-    示例8：
+-    当前文本：原审法院审判结果：被告人白某某犯盗窃罪，判处有期徒刑三年，并处罚金20000元\n 二审法院审判结果：一、撤销陕西省澄城县人民法院（2021）陕0525刑初168号刑事判决；二、对被告人白某某犯盗窃罪，判处有期徒刑三年，缓刑三年。
+-    输出列表：{"罪名":"上诉人犯盗窃罪","刑期":"判处有期徒刑三年，缓刑三年"}
+-    
+-    请整理以下内容：
+-    当前文本：<RAW_RESULTS>
+-    输出列表：
+-    """
+-
+-prompt_other_result = """
+-    请将所给文本整理成需要的格式。
+-    示例1：
+-    当前文本：判决如下：被告杜跃胜应向原告章建返还借款200000元；被告杜跃胜应自2021年12月20日至2023年10月19日按照年利率6%支付资金占用期间的利息；三、被告杜跃胜应承担本案的全部诉讼费用。\n\n以上是本院的最终判决，请被告杜跃胜按判决给出的期限履行还款义务，并依法支付利息和诉讼费用。
+-    输出列表：{"结果1":"被告应向原告章建返还借款200000元","结果2":"被告杜跃胜应自2021年12月20日至2023年10月19日按照年利率6%支付资金占用期间的利息"}
+-    示例2：
+-    当前文本：判决如下：驳回牛来金的诉讼请求。案件受理费50元，由牛来金负担。
+-    输出列表：{"结果1":"驳回牛来金的诉讼请求"}
+-    示例3：
+-    当前文本：判决如下：撤销1995年3月10日舒城县民政局为潘祖明与段贤翠作出的结婚登记行为。案件受理费50元，由被告舒城县民政局负担。\n\n如不服本判决,可在判决书送达之日起十五日内,向本院递交上诉状，上诉于**中级人民法院。\n\n以上判决结果仅限于当前案件的裁决，判决具有法律效力。
+-    输出列表：{"结果1":"撤销1995年3月10日舒城县民政局为潘祖明与段贤翠作出的结婚登记行为"}
+-    示例4：
+-    当前文本：判决如下：一、驳回原告宁波远东汽车部件制造有限公司的诉讼请求。二、本案案件受理费200元，由原告宁波远东汽车部件制造有限公司负担。
+-    输出列表：{"结果1":"驳回原告宁波远东汽车部件制造有限公司的诉讼请求"}
+-    示例5：
+-    当前文本：判决如下：一、被告代毅支付原告上海泉臣国际贸易有限公司货款72,000元；二、被告支付自2022年1月16日起至付清欠款之日止的逾期利息；三、驳回原告要求被告赔偿律师费的诉讼请求。
+-    输出列表：{"结果1":"被告代毅支付原告上海泉臣国际贸易有限公司货款72,000元","结果2":"被告支付自2022年1月16日起至付清欠款之日止的逾期利息"}
+-    示例6：
+-    当前文本：判决如下：一、解除原告与被告杭州康贝教育咨询有限公司签订的《玛尔比恩开园VIP系列早教服务协议》及《玛尔比恩开园特惠帕特鲁入园过渡班服务协议》；二、判令被告向原告返还服务费共计21303.61元；三、本案诉讼费由被告承担。
+-    输出列表：{"结果1":"解除原告与被告杭州康贝教育咨询有限公司签订的《玛尔比恩开园VIP系列早教服务协议》及《玛尔比恩开园特惠帕特鲁入园过渡班服务协议》","结果2":"判令被告向原告返还服务费共计21303.61元"}
+-
+-    请整理以下内容：
+-    当前文本：<RAW_RESULTS>
+-    输出列表：
+-    """
+-
+-model_judge_eval = {}
+-error_list = []
+-error_list1 = ['(2021)桂05刑终275号', '（2023）赣02行终78号', '（2023）沪01民终15530号']
+-for number, model_judge in tqdm(GPT4_judge.items()):
+-    if number in error_list1:
+-        current_model_judge = {}
+-        if '[法官分析]' in model_judge and '[审判依据]' in model_judge and '[最终判决]' in model_judge:
+-            contents = extract_sections(model_judge)
+-            error_str = ['继续审理', '暂无法', '核实后', '调查核实','决定暂时','鼓励','不支持原告','建议需要','需要进一步','决定支持','发回','审　判　长']
+-            i = 0
+-            
+-            if i == 0:
+-                try:
+-                    # 法院意见
+-                    current_model_judge["法院意见"] = contents['法官分析']
+-
+-                    # 审判结果
+-                    for case in second_judge:
+-                        if case['案号'] == number:
+-                            current_case = case
+-
+-                    if current_case['类别'] == '刑事':
+-                        first_result = current_case['一审法院审判结果']
+-                        result_all = '原审法院审判结果：' + first_result + '\n 二审法院审判结果：' + contents['最终判决']
+-                        result_prompt = prompt_crime_result.replace('<RAW_RESULTS>', result_all)
+-                    else:
+-                        result_all = contents['最终判决']
+-                        result_prompt = prompt_other_result.replace('<RAW_RESULTS>', result_all)
+-
+-                    reslut_dict_str = GPT_4(result_prompt)
+-                    try:
+-                        
+-                        reslut_dict = eval(reslut_dict_str)
+-                        current_model_judge["判决结果"] = reslut_dict
+-                        # 审判依据
+-                        try:
+-                            laws_prompt = prompt_laws.replace('<RAW_LAWS>', contents['审判依据'])
+-                            laws_list_str = GPT_4(laws_prompt)
+-                            try:
+-                                laws_list = eval(laws_list_str)
+-                                current_model_judge["审判依据"] = laws_list
+-                                model_judge_eval[number] = current_model_judge
+-                            except:
+-                                print('laws_list_str:', laws_list_str)
+-                                print('Error laws (transfer to dict):', number)
+-                                error_list.append(number)
+-                        except:
+-                            print('Error laws (transfer to right form):', number)
+-                            error_list.append(number)
+-                    except:
+-                        print('reslut_dict_str:', reslut_dict_str)
+-                        print('Error result (transfer to dict):', number)
+-                        error_list.append(number)
+-                except:
+-                    print('Error result (transfer to right form):', number)
+-                    error_list.append(number)
+-
+-            else:
+-                print('无明确判决：', number)
+-                error_list.append(number)
+-                
+-        else:
+-            print('格式错误：', number)
+-            error_list.append(number)
+-
+-
+-        with open('case_refine_.json', 'w', encoding='utf-8') as file:
+-            json.dump(model_judge_eval, file, ensure_ascii=False, indent=4)
+-
+-print(error_list)
+-
+-
+-
+-    
++def parse_literal(text, expected):
++    text = text.strip().removeprefix("输出列表：").removeprefix("输出列表:").strip()
++    if text.startswith("```") and text.endswith("```"):
++        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
++    try:
++        value = json.loads(text)
++    except json.JSONDecodeError:
++        value = ast.literal_eval(text)
++    if not isinstance(value, expected):
++        raise ValueError("native extraction type mismatch")
++    if expected is list and any(not isinstance(x, str) for x in value):
++        raise ValueError("native laws must be strings")
++    if expected is dict and any(not isinstance(k, str) or not isinstance(v, str) for k, v in value.items()):
++        raise ValueError("native judgment must be string fields")
++    return value
++
++prompt_laws = '\n    请将所给文本整理成需要的格式。\n    示例1：\n    当前文本：综上所述，依据《中华人民共和国刑法》第三百四十七条、第三百五十四条、第二十五条、第二十七条、第六十九条、第六十七条、第六十四条；《最高人民法院关于审理毒品犯罪案件适用法律若干问题的解释》第四条。\n    输出列表：[\'《中华人民共和国刑法》第三百四十七条\',\'《中华人民共和国刑法》第三百五十四条\',\'《中华人民共和国刑法》第二十五条\',\'《中华人民共和国刑法》第二十七条\',\'《中华人民共和国刑法》第六十九条\',\'《中华人民共和国刑法》第六十七条\',\'《中华人民共和国刑法》第六十四条\',\'《最高人民法院关于审理毒品犯罪案件适用法律若干问题的解释》第四条\']\n    示例2：\n    当前文本：综上所述，依照《中华人民共和国刑法》第二百六十四条、第五十二条、第五十三条、第六十一条、第六十七条第三款的规定。根据《中华人民共和国刑法》第二百六十四条，盗窃公私财物，数额较大的，应判处有期徒刑，且可以处罚金。同时，《最高人民法院、最高人民检察院〈关于办理盗窃刑事案件适用法律若干问题的解释〉》第一条规定，盗窃公私财物价值一千元至三千元以上、三万元至十万元以上、三十万元至五十万元以上的，应当分别认定为“数额较大”、“数额巨大”、“数额特别巨大”。\n    输出列表：[\'《中华人民共和国刑法》第二百六十四条\',\'《中华人民共和国刑法》第五十二条\',\'《中华人民共和国刑法》第五十三条\',\'《中华人民共和国刑法》第六十一条\',\'《中华人民共和国刑法》第六十七条第三款\',\'《最高人民法院、最高人民检察院〈关于办理盗窃刑事案件适用法律若干问题的解释〉》第一条\']\n    示例3：\n    当前文本：综上所述，依照《中华人民共和国刑法》第一百三十三条之一第一款第（二）项、第六十七条第三款、第七十二条第一款、第七十二条第二款、第七十三条第一款、《中华人民共和国刑法》第四十二条、第四十四条、第五十二条、第五十三条第一款第（一）项。\n    输出列表：[\'《中华人民共和国刑法》第一百三十三条之一第一款第（二）项\',\'《中华人民共和国刑法》第六十七条第三款\',\'《中华人民共和国刑法》第七十二条第一款\',\'《中华人民共和国刑法》第七十二条第二款\',\'《中华人民共和国刑法》第七十三条第一款\',\'《中华人民共和国刑法》第四十二条\',\'《中华人民共和国刑法》第四十四条\',\'《中华人民共和国刑法》第五十二条\',\'《中华人民共和国刑法》第五十三条第一款第（一）项\']\n    示例4：\n    当前文本：根据《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》第二十九条第二款第（一）项规定，借贷双方既未约定借期内的利率，也未约定逾期利率，出借人主张借款人自逾期还款之日起按照年利率6%支付资金占用期间利息的，人民法院应予支持。同时，根据《中华人民共和国合同法》第二百一十一条第二款规定，自然人之间的借款合同约定支付利息的，借款的利率不得违反国家有关限制借款利率的规定。\n    输出列表：[\'《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》第二十九条第二款第（一）项\',\'《中华人民共和国合同法》第二百一十一条第二款\']\n    示例5：\n    当前文本：综上所述，依照：《中华人民共和国刑法》第三百一十九条、第二十五条第三款、第二十七条、第六十四条。"\n    输出列表：[\'《中华人民共和国刑法》第三百一十九条\',\'《中华人民共和国刑法》第二十五条第三款\',\'《中华人民共和国刑法》第二十七条\',\'《中华人民共和国刑法》第六十四条\',]\n    示例6：\n    当前文本：综上所述，依照：《中华人民共和国行政诉讼法》第五十九条、第六十条；《工伤保险条例》第九条第六项；《中华人民共和国社会保险法》第十五条、第十七条。",\n    输出列表：[\'《中华人民共和国行政诉讼法》第五十九条\',\'《中华人民共和国行政诉讼法》第六十条\',\'《工伤保险条例》第九条第六项\', \'《中华人民共和国社会保险法》第十五条\', \'《中华人民共和国社会保险法》第十七条\']\n\n    请整理以下内容：\n    当前文本：<RAW_LAWS>\n    输出列表：\n    '
++
++prompt_crime_result = '\n    请将所给文本整理成需要的格式。\n    示例1：\n    当前文本：原审法院审判结果：被告人李文胜犯危险驾驶罪，判处拘役二个月，并处罚金人民币3000元\n 二审法院审判结果：维持岷县人民法院（2022）甘1126刑初150号刑事判决，即判处被告人李文胜拘役二个月，并处罚金人民币3000元。\n    输出列表：{"罪名":"上诉人犯危险驾驶罪","刑期":"判处拘役二个月","罚金":"处罚金人民币三千元"}\n    示例2：\n    当前文本：原审法院审判结果：被告人柳玉昊犯诈骗罪，判处有期徒刑二年四个月，并处罚金人民币三万元\n 二审法院审判结果：一、维持鞍山市铁西区人民法院（2022)辽0303刑初328号刑事判决，驳回上诉人柳玉昊的上诉请求。\n    输出列表：{"罪名":"上诉人犯诈骗罪","刑期":"判处有期徒刑二年四个月","罚金":"处罚金人民币三万元"}\n    示例3：\n    当前文本：原审法院审判结果：被告人刘泽佳犯合同诈骗罪，判处有期徒刑十年六个月，并处罚金十万元\n 二审法院审判结果：维持原判，驳回上诉。\n    输出列表：{"罪名":"上诉人犯合同诈骗罪","刑期":"判处有期徒刑十年六个月","罚金":"处罚金十万元"}\n    示例4：\n    当前文本：原审法院审判结果：被告人陈其洋犯故意伤害罪，判处有期徒刑六个月\n 二审法院审判结果：上诉人（原审被告人）陈其洋犯故意伤害罪，判处有期徒刑三个月，缓刑一年。\n    输出列表：{"罪名":"上诉人陈其洋犯故意伤害罪","刑期":"判处有期徒刑三个月，缓刑一年"}\n    示例4：\n    当前文本：原审法院审判结果：被告人赵某犯开设赌场罪，判处有期徒刑三年六个月，并处罚金人民币十万元\n 二审法院审判结果：对上诉人赵某犯开设赌场罪，判处有期徒刑三年，缓刑四年。\n    输出列表：{"罪名":"上诉人犯开设赌场罪","刑期":"判处有期徒刑三年，缓刑四年","罚金":"处罚金人民币十万元"}\n    示例5：\n    当前文本：原审法院审判结果：一、被告人王卫新犯职务侵占罪，判处有期徒刑一年九个月，并处罚金人民币5000元。\n 二审法院审判结果：由于涉案事实较为复杂，需要进一步审查被告人王卫新提出的合作协议书内容以及款项数额的真实性，本院决定裁定案件发回审查，并要求补充相关证据，以便进行进一步审理。\n    输出列表：{"罪名":"无","刑期":"无","罚金":"无"}\n    示例6：\n    当前文本：原审法院审判结果：被告人孙合理犯抢夺枪支罪，判处有期徒刑五年。\n 二审法院审判结果：撤销原审判决，维持被告人孙合理犯抢夺枪支罪的定性，判处有期徒刑三年。\n    输出列表：{"罪名":"上诉人犯抢夺枪支罪","刑期":"判处有期徒刑三年"}\n    示例7：\n    当前文本：原审法院审判结果：以交通肇事罪判处被告人李沅珂有期徒刑十个月\n 二审法院审判结果：撤销广东省佛山市南海区人民法院（2021）粤0605刑初3492号刑事判决；对上诉人李沅珂犯交通肇事罪一案，判处有期徒刑七个月，缓刑一年。\n    输出列表：{"罪名":"上诉人犯交通肇事罪","刑期":"判处有期徒刑七个月，缓刑一年"}\n    示例8：\n    当前文本：原审法院审判结果：被告人白某某犯盗窃罪，判处有期徒刑三年，并处罚金20000元\n 二审法院审判结果：一、撤销陕西省澄城县人民法院（2021）陕0525刑初168号刑事判决；二、对被告人白某某犯盗窃罪，判处有期徒刑三年，缓刑三年。\n    输出列表：{"罪名":"上诉人犯盗窃罪","刑期":"判处有期徒刑三年，缓刑三年"}\n    \n    请整理以下内容：\n    当前文本：<RAW_RESULTS>\n    输出列表：\n    '
++
++prompt_other_result = '\n    请将所给文本整理成需要的格式。\n    示例1：\n    当前文本：判决如下：被告杜跃胜应向原告章建返还借款200000元；被告杜跃胜应自2021年12月20日至2023年10月19日按照年利率6%支付资金占用期间的利息；三、被告杜跃胜应承担本案的全部诉讼费用。\n\n以上是本院的最终判决，请被告杜跃胜按判决给出的期限履行还款义务，并依法支付利息和诉讼费用。\n    输出列表：{"结果1":"被告应向原告章建返还借款200000元","结果2":"被告杜跃胜应自2021年12月20日至2023年10月19日按照年利率6%支付资金占用期间的利息"}\n    示例2：\n    当前文本：判决如下：驳回牛来金的诉讼请求。案件受理费50元，由牛来金负担。\n    输出列表：{"结果1":"驳回牛来金的诉讼请求"}\n    示例3：\n    当前文本：判决如下：撤销1995年3月10日舒城县民政局为潘祖明与段贤翠作出的结婚登记行为。案件受理费50元，由被告舒城县民政局负担。\n\n如不服本判决,可在判决书送达之日起十五日内,向本院递交上诉状，上诉于**中级人民法院。\n\n以上判决结果仅限于当前案件的裁决，判决具有法律效力。\n    输出列表：{"结果1":"撤销1995年3月10日舒城县民政局为潘祖明与段贤翠作出的结婚登记行为"}\n    示例4：\n    当前文本：判决如下：一、驳回原告宁波远东汽车部件制造有限公司的诉讼请求。二、本案案件受理费200元，由原告宁波远东汽车部件制造有限公司负担。\n    输出列表：{"结果1":"驳回原告宁波远东汽车部件制造有限公司的诉讼请求"}\n    示例5：\n    当前文本：判决如下：一、被告代毅支付原告上海泉臣国际贸易有限公司货款72,000元；二、被告支付自2022年1月16日起至付清欠款之日止的逾期利息；三、驳回原告要求被告赔偿律师费的诉讼请求。\n    输出列表：{"结果1":"被告代毅支付原告上海泉臣国际贸易有限公司货款72,000元","结果2":"被告支付自2022年1月16日起至付清欠款之日止的逾期利息"}\n    示例6：\n    当前文本：判决如下：一、解除原告与被告杭州康贝教育咨询有限公司签订的《玛尔比恩开园VIP系列早教服务协议》及《玛尔比恩开园特惠帕特鲁入园过渡班服务协议》；二、判令被告向原告返还服务费共计21303.61元；三、本案诉讼费由被告承担。\n    输出列表：{"结果1":"解除原告与被告杭州康贝教育咨询有限公司签订的《玛尔比恩开园VIP系列早教服务协议》及《玛尔比恩开园特惠帕特鲁入园过渡班服务协议》","结果2":"判令被告向原告返还服务费共计21303.61元"}\n\n    请整理以下内容：\n    当前文本：<RAW_RESULTS>\n    输出列表：\n    '
++
++
++def format_prediction(case, prediction, stage, call_judge):
++    if not all(label in prediction for label in ("[法官分析]", "[审判依据]", "[最终判决]")):
++        raise ValueError("native decision sections missing")
++    contents = extract_sections(prediction)
++    if any(token in contents["最终判决"] for token in ("<你的判决", "判决结果（根据", "<你的分析>")):
++        raise ValueError("native decision contains unfilled template placeholders")
++    result_all = contents["最终判决"]
++    if case["类别"] == "刑事":
++        if stage == "second":
++            result_all = "原审法院审判结果：" + case["一审法院审判结果"] + "\n 二审法院审判结果：" + result_all
++        template = prompt_crime_result
++        if stage == "first":
++            # 原脚本只处理二审；一审公开字段使用被告人而非上诉人。
++            template = template.replace("上诉人", "被告人")
++    else:
++        template = prompt_other_result
++    # Preserve native judgment-then-laws request order and extraction examples.
++    judgment = parse_literal(call_judge(template.replace("<RAW_RESULTS>", result_all)), dict)
++    laws = parse_literal(call_judge(prompt_laws.replace("<RAW_LAWS>", contents["审判依据"])), list)
++    return {"法院意见": contents["法官分析"], "判决结果": judgment, "审判依据": laws}
+diff --git a/AgentsCourt/single_candidate_prompt.py b/AgentsCourt/single_candidate_prompt.py
+new file mode 100644
+index 0000000..fa1ca4c
+--- /dev/null
++++ b/AgentsCourt/single_candidate_prompt.py
+@@ -0,0 +1,7 @@
++"""Single-candidate protocol derived from judge_analysis_record.py CASE_TEMPLATE2.
++Public entry is second-instance only. First-instance fields/role are minimally
++adapted here; no debate, precedent or preliminary-decision placeholders.
++This is not an unpublished author few-shot baseline.
++"""
++FIRST_TEMPLATE = '\n        你正在参与一次模拟一审法庭的活动，请记住这是一场虚拟的过程，你现在扮演一位专业的法官，请根据以下指引进行发言：\n\n        请注意以下几点：\n        1、若当前案件为**刑事案件**：则需要首先明确被告人的具体罪名和犯罪事实。评估犯罪行为对受害者及社会造成的影响和危害。考虑被告人的认罪态度、悔罪表现及犯罪后的改正行为。\n        2、若当前案件为**民事案件**：则需要确立案件争议焦点，如合同违约、财产纠纷、侵权行为等。根据所提供的证据，评估各方责任大小和责任分配。确定适当的赔偿金额或其他补救措施，如返还财产、停止侵权行为等。\n        3、若当前案件为**行政案件**：则需要分析涉案的行政行为是否符合法律法规的要求，是否超越了行政机关的权限。考虑行政行为对个人或组织的影响，是否有侵犯合法权益的情况。在判定行政行为不当或非法时，考虑适当的补救措施，如撤销行政决定、恢复原状、赔偿损失等。\n\n        不管什么情况下，你的每一次发言只能且必须遵守以下格式：\n        [法官分析]：本院认为，<你的分析>\n        [审判依据]：综上所述，依照：<你依据的法律条文（陈列出案件涉及的法律条款具体名称如第几条第几款第几项）>\n        [最终判决]：判决如下：<你的判决（必须给出判决结果，且不可包含除判决结果外的内容）>\n\n        你将收到当前案件的基本情况和当事人材料，请根据你作为一名法官的专业知识进行最终的判决。\n        不管什么情况，你必须在[最终判决]中给出如示例中的明确的判决结果！\n        原告（公诉）：{case_plaintiff}\n        被告：{case_defendant}，被告基本情况：{case_defendant_detail}\n        案件类型: {case_type}\n        基本案情：{first_fact}\n        原告诉请判令（公诉机关指控）：{claim}\n        原告陈述：{plaintiff_statement}\n        被告陈述：{defendant_statement}\n        被告代理人辩护：{defense}\n        最终裁决：'
++SECOND_TEMPLATE = '\n        你正在参与一次模拟二审法庭的活动，请记住这是一场虚拟的过程，你现在扮演一位专业的法官，请根据以下指引进行发言：\n\n        请注意以下几点：\n        1、若当前案件为**刑事案件**：则需要首先明确被告人的具体罪名和犯罪事实。评估犯罪行为对受害者及社会造成的影响和危害。考虑被告人的认罪态度、悔罪表现及犯罪后的改正行为。\n        2、若当前案件为**民事案件**：则需要确立案件争议焦点，如合同违约、财产纠纷、侵权行为等。根据所提供的证据，评估各方责任大小和责任分配。确定适当的赔偿金额或其他补救措施，如返还财产、停止侵权行为等。\n        3、若当前案件为**行政案件**：则需要分析涉案的行政行为是否符合法律法规的要求，是否超越了行政机关的权限。考虑行政行为对个人或组织的影响，是否有侵犯合法权益的情况。在判定行政行为不当或非法时，考虑适当的补救措施，如撤销行政决定、恢复原状、赔偿损失等。\n\n        不管什么情况下，你的每一次发言只能且必须遵守以下格式：\n        [法官分析]：本院认为，<你的分析>\n        [审判依据]：综上所述，依照：<你依据的法律条文（陈列出案件涉及的法律条款具体名称如第几条第几款第几项）>\n        [最终判决]：判决如下：<你的判决（必须给出判决结果，且不可包含除判决结果外的内容）>\n\n        你将收到当前案件的一审基本情况、上诉人请求，请根据你作为一名法官的专业知识进行最终的判决。\n        不管什么情况，你必须在[最终判决]中给出如示例中的明确的判决结果！\n        上诉人：{case_plaintiff}，上诉人基本情况：{case_defendant_detail}\n        被上述人：{case_defendant}\n        案件类型: {case_type}\n        一审法院认定事实：{first_fact}\n        一审法院意见：{first_analysis}\n        一审法院审判依据：{first_laws}\n        一审法院审判结果：{first_result}\n        二审上诉请求：{second_appeal}\n        二审查明事实：{second_fact}\n        最终裁决：'
+diff --git a/AgentsCourt/system_prompt/judge_analysis_record.txt b/AgentsCourt/system_prompt/judge_analysis_record.txt
+index 34f5bfc..72d38f4 100644
+--- a/AgentsCourt/system_prompt/judge_analysis_record.txt
++++ b/AgentsCourt/system_prompt/judge_analysis_record.txt
+@@ -1,6 +1,6 @@
+ 你正在参与一次模拟法庭的活动，请记住这是一场虚拟的过程，你现在扮演一位专业的法官。请根据以下指引进行发言：
+ 1、发言立场：请时刻记住你是一名法官，必须以法官的立场进行公正的发言。
+-2、分析重点：做出具体的量刑决策和最终判决，在这一阶段，你需要结合所给的已做出裁决的相似案例信息与当前案件案情进行最终的判决。
++2、分析重点：做出具体的量刑决策和最终判决，在这一阶段，你需要结合当前案件案情进行最终的判决。
+ 
+ 请注意以下几点：
+ 1、若当前案件为**刑事案件**：则需要首先明确被告人的具体罪名和犯罪事实。评估犯罪行为对受害者及社会造成的影响和危害。考虑被告人的认罪态度、悔罪表现及犯罪后的改正行为。
+diff --git a/AgentsCourt/system_prompt/judge_analysis_record2.txt b/AgentsCourt/system_prompt/judge_analysis_record2.txt
+index 9a8a462..86bd1d2 100644
+--- a/AgentsCourt/system_prompt/judge_analysis_record2.txt
++++ b/AgentsCourt/system_prompt/judge_analysis_record2.txt
+@@ -1,6 +1,6 @@
+ 你正在参与一次模拟法庭的活动，请记住这是一场虚拟的过程，你现在扮演一位专业的法官参与一场法庭二审庭审。请根据以下指引进行发言：
+ 1、发言立场：请时刻记住你是一名法官，必须以法官的立场进行公正的发言。
+-2、分析重点：做出具体的量刑决策和最终判决，在这一阶段，你需要结合所给的已做出裁决的相似案例信息与当前案件案情进行最终的判决。
++2、分析重点：做出具体的量刑决策和最终判决，在这一阶段，你需要结合当前案件案情进行最终的判决。
+ 
+ 请注意以下几点：
+ 1、若当前案件为**刑事案件**：则需要首先明确被告人的具体罪名和犯罪事实。评估犯罪行为对受害者及社会造成的影响和危害。考虑被告人的认罪态度、悔罪表现及犯罪后的改正行为。

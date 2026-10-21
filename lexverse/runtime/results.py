@@ -92,6 +92,30 @@ def _read_json(path: Path) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def execution_artifacts_valid(record: dict[str, Any], run_dir: Path) -> bool:
+    """Verify that declared execution artifacts exist and match any saved SHA256 hashes."""
+    import hashlib
+
+    artifacts = record.get("execution_artifacts", {})
+    hashes = record.get("execution_artifact_hashes")
+    if not isinstance(artifacts, dict):
+        return False
+    if hashes is not None and (not isinstance(hashes, dict) or set(hashes) != set(artifacts)):
+        return False
+    for name, filename in artifacts.items():
+        if not isinstance(filename, str):
+            return False
+        path = run_dir / filename
+        try:
+            if not path.is_file():
+                return False
+            if hashes is not None and hashlib.sha256(path.read_bytes()).hexdigest() != hashes[name]:
+                return False
+        except OSError:
+            return False
+    return True
+
+
 def check_completeness(
     expected_ids: list[str],
     present_ids: list[str],
@@ -262,7 +286,13 @@ def finalize_run(
     completed = sum(record.get("status") == "completed" for record in records)
     failed = sum(record.get("status") == "failed" for record in records)
     missing = [record["id"] for record in records if record.get("status") == "missing"]
-    complete = completed == expected and not failed and not missing
+    invalid_artifacts = [
+        record["id"] for record in records
+        if record.get("status") == "completed"
+        and "execution_artifact_hashes" in record
+        and not execution_artifacts_valid(record, run_dir)
+    ]
+    complete = completed == expected and not failed and not missing and not invalid_artifacts
     evaluation = _read_json(run_dir / "evaluation.json")
     if (evaluation and evaluation.get("status") != "completed") or (
         manifest.get("provenance") and not evaluation
@@ -285,11 +315,17 @@ def finalize_run(
             "completed": completed,
             "failed": failed,
             "missing": missing,
+            **({"invalid_artifact_task_ids": invalid_artifacts} if invalid_artifacts else {}),
         },
         "tasks": aggregate["tasks"],
     }
     if plugin.name == "dlawbench":
         job_result.update(overall=aggregate["overall"], by_jurisdiction=aggregate["by_jurisdiction"])
+    extra = plugin.summary_metadata(aggregate)
+    reserved = set(job_result) | {"coverage", "evaluation"}
+    if set(extra) & reserved:
+        raise ValueError("plugin summary metadata cannot overwrite runtime status or coverage")
+    job_result.update(extra)
     if "coverage" in manifest:
         job_result["coverage"] = manifest["coverage"]
     if evaluation:

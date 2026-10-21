@@ -20,6 +20,12 @@ class LexEvalPlugin(BenchmarkPlugin):
     default_environment = "direct_response"
     catalog_path = Path(__file__).with_name("catalog.yaml")
 
+    def validate_model_config(self, bench, models, modern):
+        from lexverse.config import ConfigError
+        super().validate_model_config(bench, models, modern)
+        if modern and models.evaluators:
+            raise ConfigError("this benchmark uses its native scorer without models.evaluators")
+
     def create_importer(self, config=None):
         config = config or {}
         return LexEvalImporter(

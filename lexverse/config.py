@@ -76,9 +76,15 @@ def resolve_path(name: str, base_dir: Path | None) -> str:
     return str((path if path.is_absolute() else (base_dir or Path.cwd()) / path).resolve())
 
 
-def validate_local_generation(options: dict, *, field: str = "generation_parameters") -> None:
-    if set(options) - {"temperature", "max_tokens", "top_p"}:
-        raise ConfigError(f"{field}: local generation supports temperature, max_tokens and top_p only")
+def validate_local_generation(options: dict, *, provider: str = "transformers", field: str = "generation_parameters") -> None:
+    if set(options) - {"temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty"}:
+        raise ConfigError(f"{field}: local generation supports temperature, max_tokens, top_p, frequency_penalty and presence_penalty only")
+    for key in ("frequency_penalty", "presence_penalty"):
+        value = options.get(key, 0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not -2 <= value <= 2:
+            raise ConfigError(f"{field}.{key} must be a finite number in [-2, 2]")
+        if provider == "transformers" and value != 0:
+            raise ConfigError(f"{field}.{key}: nonzero values are supported only by vllm")
     for key, default in (("temperature", 0), ("top_p", 1)):
         value = options.get(key, default)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not (0 <= value if key == "temperature" else 0 < value <= 1):
@@ -129,9 +135,9 @@ def parse_model_config(value: object, *, field: str, base_dir: Path | None = Non
     else:
         if "profile" in value:
             raise ConfigError(f"{field}: local providers do not accept profile")
-        shared = {"revision", "cache_dir", "local_files_only", "trust_remote_code", "dtype"}
+        shared = {"revision", "cache_dir", "local_files_only", "trust_remote_code", "dtype", "max_model_len"}
         allowed = shared | ({"device_map"} if provider == "transformers" else {
-            "tensor_parallel_size", "gpu_memory_utilization", "max_model_len",
+            "tensor_parallel_size", "gpu_memory_utilization",
         })
         if set(loading) - allowed:
             raise ConfigError(f"{field}.load_parameters: unsupported fields for {provider}: {sorted(set(loading) - allowed)}")
@@ -162,19 +168,21 @@ def parse_model_config(value: object, *, field: str, base_dir: Path | None = Non
                 raise ConfigError(f"{field}.load_parameters.{key} must be a nonempty string")
         if "cache_dir" in loading:
             loading["cache_dir"] = resolve_path(loading["cache_dir"], base_dir)
-        if set(input_config) - {"format", "chat_template", "chat_template_kwargs"}:
+        if set(input_config) - {"format", "chat_template", "chat_template_kwargs", "use_fast"}:
             raise ConfigError(f"{field}.input contains unsupported fields")
+        if not isinstance(input_config.get("use_fast", True), bool):
+            raise ConfigError(f"{field}.input.use_fast must be boolean")
         if not isinstance(input_config.get("format", "chat"), str) or input_config.get("format", "chat") not in {"chat", "text"}:
             raise ConfigError(f"{field}.input.format must be chat or text")
         if not isinstance(input_config.get("chat_template_kwargs", {}), dict):
             raise ConfigError(f"{field}.input.chat_template_kwargs must be a mapping")
-        if input_config.get("format") == "text" and set(input_config) - {"format"}:
+        if input_config.get("format") == "text" and set(input_config) - {"format", "use_fast"}:
             raise ConfigError(f"{field}: text input does not accept chat template options")
         if "chat_template" in input_config:
             if not isinstance(input_config["chat_template"], str) or not input_config["chat_template"]:
                 raise ConfigError(f"{field}.input.chat_template must be a template file path")
             input_config["chat_template"] = resolve_path(input_config["chat_template"], base_dir)
-        validate_local_generation(generation, field=field)
+        validate_local_generation(generation, provider=provider, field=field)
     return ModelConfig(provider=provider, profile=profile, name=name,
                        load_parameters=loading, generation_parameters=generation, input=input_config)
 
@@ -262,8 +270,20 @@ def parse_config(data: dict, *, source_path: Path) -> ResolvedConfig:
     bench = data.get("benchmark")
     if not isinstance(bench, dict) or "name" not in bench:
         raise ConfigError("benchmark.name is required")
-    if bench["name"] not in {"lexeval", "j1bench", "lawbench", "plawbench", "dlawbench", "legalworld"}:
-        raise ConfigError(f"unknown benchmark: {bench['name']!r}")
+    # Import lazily to avoid a circular dependency between config and plugins.
+    from lexverse.benchmarks.registry import get_plugin
+    try:
+        plugin = get_plugin(bench["name"])
+    except (KeyError, TypeError) as exc:
+        raise ConfigError(f"unknown benchmark: {bench['name']!r}") from exc
+    path_keys = ("data_dir",)
+    if bench["name"] == "lecardv2":
+        path_keys += ("submission_path", "candidate_pool_path", "decomposed_query_path", "decomposed_doc_path")
+    for key in path_keys:
+        if bench.get(key):
+            if not isinstance(bench[key], str):
+                raise ConfigError(f"benchmark.{key} must be a path string")
+            bench[key] = resolve_path(bench[key], source_path.parent)
     for name in ("case_database", "few_shot_path"):
         if bench.get(name):
             bench[name] = str(Path(bench[name]).resolve())
@@ -317,8 +337,6 @@ def parse_config(data: dict, *, source_path: Path) -> ResolvedConfig:
     roles = models.get("roles", {}) or {}
     if not isinstance(roles, dict):
         raise ConfigError("models.roles must be a mapping")
-    if roles and bench["name"] not in {"j1bench", "dlawbench", "legalworld"}:
-        raise ConfigError("roles model overrides are currently supported only by J1Bench, DLawBench and Legal-world")
     role_models = {role: parse_model_config(value, field=f"models.roles.{role}", base_dir=source_path.parent)
                    for role, value in roles.items()}
     evaluators = models.get("evaluators", [])
@@ -326,45 +344,28 @@ def parse_config(data: dict, *, source_path: Path) -> ResolvedConfig:
         raise ConfigError("models.evaluators must be a list of model mappings")
     evaluator_models = [parse_model_config(value, field=f"models.evaluators.{index}", base_dir=source_path.parent)
                         for index, value in enumerate(evaluators)]
-    if bench["name"] != "dlawbench" and len(evaluator_models) > 1:
-        raise ConfigError("this benchmark accepts one model in models.evaluators")
-    if modern and bench["name"] in {"lexeval", "lawbench"} and evaluator_models:
-        raise ConfigError("this benchmark uses its native scorer without models.evaluators")
     summary_model = None
-    if "summary" in models and bench["name"] != "j1bench":
-        raise ConfigError("models.summary is supported only by J1Bench KQ/LC")
     if bench["name"] == "j1bench":
         # Upstream KQ/LC summaries use this fixed model independently of role models.
-        summary = models.setdefault("summary", {
+        models.setdefault("summary", {
             "provider": "openai_compatible", "profile": model.profile or "openai",
             "name": "gpt-4o-2024-08-06",
             "generation_parameters": {"temperature": 0, "max_tokens": 4096},
         })
+    if "summary" in models:
         summary_model = parse_model_config(
-            summary, field="models.summary", base_dir=source_path.parent,
+            models["summary"], field="models.summary", base_dir=source_path.parent,
         )
+    resolved_models = ModelsConfig(default=model, roles=role_models, summary=summary_model,
+                                   evaluators=evaluator_models)
     for scope in (generation, evaluation):
         for key in ("timeout_sec", "model_startup_timeout_sec", "model_request_timeout_sec"):
             if key in scope and (isinstance(scope[key], bool) or not isinstance(scope[key], (int, float)) or not math.isfinite(scope[key]) or scope[key] <= 0):
                 raise ConfigError(f"{key} must be positive")
     from lexverse.tasks.bundle import TaskSelection
     try:
-        selection = TaskSelection.from_config(bench, generation)
-        if bench["name"] == "legalworld":
-            from lexverse.benchmarks.legalworld.tasks import task_ranges
-            if "start_stage" in bench or "end_stage" in bench:
-                raise ConfigError("put Legal-world start_stage and end_stage inside each benchmark.tasks entry")
-            task_ranges(bench.get("tasks"))
-        if roles and bench["name"] == "dlawbench" and set(roles) - {"lawyer", "client"}:
-            raise ConfigError("DLawBench roles must be lawyer or client")
-        if roles and bench["name"] == "legalworld" and set(roles) - {"lawyer", "simulation"}:
-            raise ConfigError("Legal-world roles must be lawyer or simulation")
-        if roles and bench["name"] == "j1bench":
-            from lexverse.benchmarks.j1bench.scenarios import SCENARIOS
-            names = selection.select_types(list(SCENARIOS))
-            supported_roles = {role for name in names for role in SCENARIOS[name].roles}
-            if set(roles) - supported_roles:
-                raise ConfigError(f"roles not present in the selected scenarios: {sorted(set(roles) - supported_roles)}")
+        TaskSelection.from_config(bench, generation)
+        plugin.validate_model_config(bench, resolved_models, modern)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
 
@@ -373,7 +374,7 @@ def parse_config(data: dict, *, source_path: Path) -> ResolvedConfig:
         benchmark=bench,
         generation=generation,
         evaluation=evaluation,
-        models=ModelsConfig(default=model, roles=role_models, summary=summary_model, evaluators=evaluator_models),
+        models=resolved_models,
         raw=data,
         source_path=source_path,
     )

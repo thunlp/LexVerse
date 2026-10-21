@@ -19,6 +19,24 @@ class PLawBenchPlugin(BenchmarkPlugin):
     default_environment = "direct_response"
     catalog_path = Path(__file__).with_name("catalog.yaml")
 
+    def evaluation_models(self, config):
+        from lexverse.config import ConfigError
+        if not config.models.evaluators:
+            raise ConfigError("PLawBench requires one model in models.evaluators")
+        self.evaluation_context(config)
+        return {"judge": config.models.evaluators[0]}
+
+    def configure_evaluation_context(self, config, providers):
+        from dataclasses import asdict
+        from lexverse.providers.runtime import scoring_identity
+        judge = providers["judge"]
+        return {
+            **self.evaluation_context(config), "judge_provider": judge,
+            "judge_model": config.models.evaluators[0].name,
+            "judge_config": {**asdict(config.models.evaluators[0]),
+                             "endpoint_sha256": scoring_identity(judge)["endpoint_sha256"]},
+        }
+
     def create_importer(self, config=None):
         return PLawBenchImporter(offline=(config or {}).get("offline", False))
 
