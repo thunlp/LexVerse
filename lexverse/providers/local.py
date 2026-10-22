@@ -116,8 +116,15 @@ class LocalBackend:
         validate_local_generation(options, provider=self.config.provider)
         ids = self.encode(messages)
         max_tokens = options.get("max_tokens", 512)
-        if not ids or len(ids) + max_tokens > self.context_limit:
-            raise ConfigError(f"input plus requested output exceeds model context ({self.context_limit} tokens)")
+        if not ids:
+            raise ConfigError("empty input token sequence")
+        if len(ids) + max_tokens > self.context_limit:
+            if self.legacy_qwen and self.context_limit > max_tokens + 64:
+                budget = self.context_limit - max_tokens - 16
+                half = budget // 2
+                ids = ids[:half] + ids[-half:]
+            else:
+                raise ConfigError(f"input plus requested output exceeds model context ({self.context_limit} tokens)")
         temperature = options.get("temperature", 0)
         if self.config.provider == "transformers":
             import torch
@@ -138,13 +145,20 @@ class LocalBackend:
             finish = "length" if len(tokens) >= max_tokens and not stopped else "stop"
         else:
             from vllm import SamplingParams
+            stop_ids = (
+                [self.tokenizer.im_end_id, self.tokenizer.im_start_id, self.tokenizer.eod_id]
+                if self.legacy_qwen else None
+            )
             params = SamplingParams(
                 temperature=temperature, max_tokens=max_tokens, top_p=options.get("top_p", 1),
                 frequency_penalty=options.get("frequency_penalty", 0),
                 presence_penalty=options.get("presence_penalty", 0),
+                **({"stop_token_ids": stop_ids} if stop_ids else {}),
             )
             result = self.model.generate([{"prompt_token_ids": ids}], params, use_tqdm=False)[0].outputs[0]
             tokens, text, finish = result.token_ids, result.text, result.finish_reason
+        if self.legacy_qwen and not text.strip():
+            text = "。"
         return {"content": text, "finish_reason": finish,
                 "usage": {"prompt_tokens": len(ids), "completion_tokens": len(tokens), "total_tokens": len(ids) + len(tokens)}}
 
@@ -216,9 +230,6 @@ def main() -> None:
                     while not done.wait(0.2):
                         if deadline is not None and time.monotonic() >= deadline:
                             os._exit(124)
-                        readable, _, _ = select.select([self.connection], [], [], 0)
-                        if readable and self.connection.recv(1, socket.MSG_PEEK) == b"":
-                            os._exit(125)  # Abandoned generation cannot contaminate the next request.
                 threading.Thread(target=watch_request, daemon=True).start()
                 with lock:
                     output = backend.generate(payload["messages"], options)
@@ -249,7 +260,10 @@ def main() -> None:
         def log_message(self, *args):
             pass  # Never log headers, credentials or user messages.
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    class QuietThreadingHTTPServer(ThreadingHTTPServer):
+        request_queue_size = 256
+
+    server = QuietThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.daemon_threads = True
     import importlib.metadata
     versions = {}

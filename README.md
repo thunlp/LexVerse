@@ -23,17 +23,17 @@ benchmarks and develop environment capabilities for richer agent interactions.
 
 ## ⚖️ Supported Benchmarks
 
-| Benchmark                                           |               Coverage | Interaction                 | Verification                |
-| --------------------------------------------------- | ---------------------: | --------------------------- | --------------------------- |
-| [LexEval](https://github.com/CSHaitao/LexEval)           |               23 tasks | Single response             | Upstream task evaluator     |
-| [LawBench](https://github.com/open-compass/LawBench)       |               20 tasks | Single response             | Upstream task evaluator     |
-| [J1Bench](https://github.com/FudanDISC/J1Bench)            | CI, CR, KQ, LC, CD, DD | Official multi-role harness | Upstream scenario evaluator |
-| [PLawBench](https://github.com/SKYLENAGE-AI/PLawBench)     |                3 tasks | Single response             | Upstream rubric evaluator   |
-| [DLawBench](https://github.com/SKYLENAGE-AI/DLawBench)     |             4 personas | Official consultation loop  | Upstream session evaluator  |
-| [Legal-world](https://github.com/sii-research/Legal-world) |               6 stages | Official stage pipeline     | Upstream stage evaluator    |
-| [SimuCourt](https://github.com/Zhitao-He/AgentsCourt)      |             6 tasks    | Single response             | Upstream task evaluator     |
-| [MASER](https://github.com/FudanDISC/MASER)                |  complaint_generation  | Official Law_Fact runner    | Upstream scenario evaluator |
-| [LeCaRDv2](https://github.com/THUIR/LeCaRDv2)              |       case_retrieval   | Encoder / LLM rewrite retrieval | Recall@K & ranking evaluator |
+| Benchmark | Documentation | Coverage | Interaction | Verification |
+| :--- | :--- | ---: | :--- | :--- |
+| [LexEval](https://github.com/CSHaitao/LexEval) | [`lexverse/benchmarks/lexeval/README.md`](lexverse/benchmarks/lexeval/README.md) | 23 tasks | Single response | Upstream task evaluator |
+| [LawBench](https://github.com/open-compass/LawBench) | [`lexverse/benchmarks/lawbench/README.md`](lexverse/benchmarks/lawbench/README.md) | 20 tasks | Single response | Upstream task evaluator |
+| [J1Bench](https://github.com/CimoInkPool/J1-EVAL) | [`lexverse/benchmarks/j1bench/README.md`](lexverse/benchmarks/j1bench/README.md) | CI, CR, KQ, LC, CD, DD | Official multi-role harness | Upstream scenario evaluator |
+| [PLawBench](https://github.com/SKYLENAGE-AI/PLawBench) | [`lexverse/benchmarks/plawbench/README.md`](lexverse/benchmarks/plawbench/README.md) | 3 tasks | Single response | Upstream rubric evaluator |
+| [DLawBench](https://github.com/SKYLENAGE-AI/DLawBench) | [`lexverse/benchmarks/dlawbench/README.md`](lexverse/benchmarks/dlawbench/README.md) | 4 personas | Official consultation loop | Upstream session evaluator |
+| [Legal-World](https://github.com/riotulab/Legal-World) | [`lexverse/benchmarks/legalworld/README.md`](lexverse/benchmarks/legalworld/README.md) | 6 stages | Official stage pipeline | Upstream stage evaluator |
+| [SimuCourt](https://github.com/Zhitao-He/AgentsCourt) | [`lexverse/benchmarks/simucourt/README.md`](lexverse/benchmarks/simucourt/README.md) | 6 tasks | Single response | Upstream task evaluator |
+| [MASER](https://github.com/FudanDISC/MASER) | [`lexverse/benchmarks/maser/README.md`](lexverse/benchmarks/maser/README.md) | `complaint_generation` | Official Law_Fact runner | Upstream scenario evaluator |
+| [LeCaRDv2](https://github.com/THUIR/LeCaRDv2) | [`lexverse/benchmarks/lecardv2/README.md`](lexverse/benchmarks/lecardv2/README.md) | `case_retrieval` | Encoder / LLM rewrite retrieval | Recall@K & ranking evaluator |
 
 ## 🚀 Quick Start
 
