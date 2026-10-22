@@ -207,7 +207,7 @@ index a7eaf2e..c109fe6 100644
              
          with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
 diff --git a/src/engine/gpt_4o_1120.py b/src/engine/gpt_4o_1120.py
-index 316649f..5e2ba7a 100644
+index 316649f..9d07b17 100644
 --- a/src/engine/gpt_4o_1120.py
 +++ b/src/engine/gpt_4o_1120.py
 @@ -11,7 +11,7 @@ class GPT_1120Engine(Engine):
@@ -219,12 +219,11 @@ index 316649f..5e2ba7a 100644
          ):
          openai_api_key = openai_api_key if openai_api_key is not None else os.environ.get("OPENAI_API_KEY")
          assert openai_api_key is not None, "openai_api_key is required" 
-@@ -20,15 +20,21 @@ class GPT_1120Engine(Engine):
+@@ -20,15 +20,20 @@ class GPT_1120Engine(Engine):
          self.model_path = openai_model_name
          self.temperature = temperature
          self.max_tokens = max_tokens
 +        self.generation_parameters = generation_parameters or {}
-+        self.managed_local = openai_api_key.startswith("lexverse-local-")
          
          if openai_api_base is not None:
              self.client = OpenAI(
@@ -243,7 +242,7 @@ index 316649f..5e2ba7a 100644
              )
              
      def get_response(self, messages, flag=1):
-@@ -41,22 +47,32 @@ class GPT_1120Engine(Engine):
+@@ -41,8 +46,8 @@ class GPT_1120Engine(Engine):
                          response = self.client.chat.completions.create(
                              model=model_path,
                              messages=messages,
@@ -253,85 +252,7 @@ index 316649f..5e2ba7a 100644
 +                               **self.generation_parameters},
                          )
                          break
--                    except openai.BadRequestError:
--                        time.sleep(10)
-+                    except openai.BadRequestError as e:
-+                        if self.managed_local:
-+                            raise
-+                        print(e, flush=True)
-+                        time.sleep(2)
-                         i += 1
--                    except openai.RateLimitError:
--                        time.sleep(60)
-+                    except openai.RateLimitError as e:
-+                        if self.managed_local:
-+                            raise
-+                        print(e, flush=True)
-+                        time.sleep(2)
-                         i += 1
-                     except Exception as e:
-+                        if self.managed_local:
-+                            raise
-                         print(e)
-                         i += 1
--                        time.sleep(10)
-+                        time.sleep(3)
-                         continue
-                 return response.choices[0].message.content
- 
-             except:
--                time.sleep(600)
-\ No newline at end of file
-+                if self.managed_local:
-+                    raise
-+                time.sleep(2)
-\ No newline at end of file
-diff --git a/src/scenario/CI.py b/src/scenario/CI.py
-index 7e6bc8d..d1ba078 100644
---- a/src/scenario/CI.py
-+++ b/src/scenario/CI.py
-@@ -119,11 +119,11 @@ class CI:
-             for d in dialog_history:
-                 dialogue += d["role"] + ": " + d["content"] + "\n"
-             
--            if '对原告说' in judge_response:
-+            if '对原告说' in judge_response or ('对被告说' not in judge_response and any(k in judge_response for k in ('原告', getattr(plaintiff, 'name', '原告'))) and not any(k in judge_response for k in ('本院认为', '结束庭审'))):
-                 with self.lock:
-                     plaintiff_response = plaintiff.speak(dialogue)
-                 dialog_history.append({"turn": turn+1, "role": "Plaintiff's Lawyer", "content": plaintiff_response})
--            elif '对被告说' in judge_response:
-+            elif '对被告说' in judge_response or (any(k in judge_response for k in ('被告', getattr(defendant, 'name', '被告'))) and not any(k in judge_response for k in ('本院认为', '结束庭审'))):
-                 with self.lock:
-                     defendant_response = defendant.speak(dialogue)
-                 dialog_history.append({"turn": turn+1, "role": "Defendant's Lawyer", "content": defendant_response})
-@@ -134,6 +134,11 @@ class CI:
-             
-             if '结束庭审' in judge_response:
-                 break
-+        if not any(d["role"] == "Judge" and "本院认为" in d["content"] and "判决" in d["content"] for d in dialog_history):
-+            with self.lock:
-+                final_j = judge.speak("庭审各阶段已完成，现在进入<最终宣判>阶段。请生成说理内容（以“本院认为”开头且仅出现一次），给出最终判决（以“判决如下：”或“判决：”开头），判决后附依据的法条，并在最后以“<结束庭审>”结束发言。")
-+            if final_j:
-+                dialog_history.append({"turn": len(dialog_history), "role": "Judge", "content": final_j.replace("审判长：", "")})
-             
-         dialog_info = {
-             "case_id": plaintiff.id,
-diff --git a/src/scenario/CR.py b/src/scenario/CR.py
-index 18955cf..0c61f61 100644
---- a/src/scenario/CR.py
-+++ b/src/scenario/CR.py
-@@ -146,6 +146,11 @@ class CR:
-             
-             if '结束庭审' in judge_response or 'Failed to generate response' in judge_response:
-                 break
-+        if flag and not any(d["role"] == "Judge" and "本院认为" in d["content"] and "判决" in d["content"] for d in dialog_history):
-+            with self.lock:
-+                final_j = judge.speak("庭审各阶段已完成，现在进入<最终宣判>阶段。请生成说理内容（以“本院认为”开头且仅出现一次），给出最终判决（以“判决如下：”或“判决：”开头，包含被告人罪名、刑期及罚金），判决后附依据的法条，并在最后以“<结束庭审>”结束发言。")
-+            if final_j:
-+                dialog_history.append({"turn": len(dialog_history), "role": "Judge", "content": final_j.replace("</s>", "")})
-         
-         if flag:
-             dialog_info = {
+                     except openai.BadRequestError:
 diff --git a/src/scenario/KQ.py b/src/scenario/KQ.py
 index 905a885..b8c8cf5 100644
 --- a/src/scenario/KQ.py
@@ -345,31 +266,11 @@ index 905a885..b8c8cf5 100644
              present_question = memory_response.split(';')[0].replace('这一轮的咨询话题：', '')
              present_answer = memory_response.split(';')[-1].replace('这一轮的话题答案：', '')
              
-@@ -271,8 +271,7 @@ class KQ:
-         print(dialog_info)
-         questions_log = dialog_info['check_mechanism']
-         unquestioned_ls = [ql['unquestioned'] for ql in questions_log]
--        if '无' in unquestioned_ls:
--            self.save_dialog_info(dialog_info)
-+        self.save_dialog_info(dialog_info)
-     
-     def save_dialog_info(self, dialog_info):
-         with jsonlines.open(self.save_path, "a") as f:
 diff --git a/src/scenario/LC.py b/src/scenario/LC.py
 index ab6c1f3..2abf7b4 100644
 --- a/src/scenario/LC.py
 +++ b/src/scenario/LC.py
-@@ -78,8 +78,7 @@ class LC:
-             dialog_info = self._consult(general_public, trainee)
-             questions_log = dialog_info['check_mechanism']
-             unquestioned_ls = [ql['unquestioned'] for ql in questions_log]
--            if '无' in unquestioned_ls:
--                self.save_dialog_info(dialog_info)
-+            self.save_dialog_info(dialog_info)
-     
-     def parallel_run(self):
-         self.remove_processed_cases()
-@@ -193,7 +192,7 @@ class LC:
+@@ -193,7 +193,7 @@ class LC:
                  {'role': 'system', 'content': f'你是{role}'},
                  {'role': 'user', 'content': full_prompt}
              ]
@@ -408,17 +309,16 @@ index a12df01..1390c22 100644
  
      return args
 diff --git a/src/utils/utils_func.py b/src/utils/utils_func.py
-index 057a874..dfc8e80 100644
+index 25e3ebd..48053e6 100644
 --- a/src/utils/utils_func.py
 +++ b/src/utils/utils_func.py
-@@ -33,10 +33,20 @@ def save_json(data, save_path):
+@@ -33,9 +33,18 @@ def save_json(data, save_path):
          json.dump(data, f, ensure_ascii=False, indent=4)
  
  
 -def get_completion(prompt, history, flag):
 -    client = OpenAI(api_key=api_key,
 -                    base_url=api_base)
--    max_retries = 3
 +def get_completion(prompt, history, flag, *, summary=False):
 +    scope = "SUMMARY" if summary else "SCORING"
 +    timeout_key = "J1BENCH_REQUEST_TIMEOUT" if summary else "J1BENCH_SCORING_REQUEST_TIMEOUT"
@@ -428,19 +328,17 @@ index 057a874..dfc8e80 100644
 +        **({"timeout": float(os.environ[timeout_key])} if timeout_key in os.environ else {}),
 +    )
 +    # Preserve the upstream summary model and defaults; scoring is configured separately.
-+    model = os.environ.get(f"J1BENCH_{scope}_MODEL", "gpt-4o-2024-08-06" if summary else "gpt-4o-mini")
++    model = os.environ.get(f"J1BENCH_{scope}_MODEL", "gpt-4o-2024-08-06")
 +    parameters = {"max_tokens": 4096, "temperature": 0,
 +                  **json.loads(os.environ.get(f"J1BENCH_{scope}_PARAMETERS", "{}"))}
-+    import time
-+    max_retries = 15
+     max_retries = 3
      for attempt in range(max_retries):
          try:
-             SYSTEM_PROMPT = """你是一个得力的助手。"""
-@@ -52,17 +62,15 @@ def get_completion(prompt, history, flag):
+@@ -52,17 +61,15 @@ def get_completion(prompt, history, flag):
              if flag == 1:
                  chat_completion = client.chat.completions.create(
                      messages=messages,
--                    model=os.environ.get('J1BENCH_SCORING_MODEL', 'gpt-4o-mini'),
+-                    model=os.environ.get('J1BENCH_SCORING_MODEL', 'gpt-4o-2024-08-06'),
 +                    model=model,
                      response_format={"type": "json_object"},
 -                    max_tokens=4096,
@@ -450,7 +348,7 @@ index 057a874..dfc8e80 100644
              else:
                  chat_completion = client.chat.completions.create(
                      messages=messages,
--                    model=os.environ.get('J1BENCH_SCORING_MODEL', 'gpt-4o-mini'),
+-                    model=os.environ.get('J1BENCH_SCORING_MODEL', 'gpt-4o-2024-08-06'),
 -                    max_tokens=4096,
 -                    temperature=0
 +                    model=model,
@@ -458,11 +356,3 @@ index 057a874..dfc8e80 100644
                      )
              
              response = chat_completion.choices[0].message.content
-@@ -79,5 +87,6 @@ def get_completion(prompt, history, flag):
-             raise 
-         except Exception as e:
-             print(e)
-+            time.sleep(5)
-             
-     return "Unable to get a response after several attempts."
-\ No newline at end of file
