@@ -99,14 +99,14 @@ python -m lexverse collect --run-dir runs/lexeval-qwen7b-full
 
 ## 3. Upstream Adaptation & Rationale
 
-LexVerse executes the native `code/evaluation/solve.py` evaluator and `code/generation/main.py` prompt templates from `CSHaitao/LexEval` via `patches/01-loader-evaluator.patch`:
+LexVerse executes the native `code/evaluation/evaluate.py` evaluator and `code/generation/model_gen.py` loader from `CSHaitao/LexEval` via three targeted patches (`patches/001..003`):
 
-1. **In-Memory Evaluation Without CLI `argparse` Globals (`01-loader-evaluator.patch`)**:
-   - **Context**: Upstream `code/evaluation/solve.py` parses command-line flags at module import time (`args = parser.parse_args()`) and iterates over a directory of JSONL files.
-   - **Adaptation**: Moves the CLI loop behind `if __name__ == '__main__':` so `LexEvalEvaluator` can invoke `extract_ZeroShot_choice_answer` and `get_rouge_l` directly per sample.
-2. **Recursion-Safe ROUGE-L Computation (`evaluation.py`)**:
-   - **Context**: Upstream `solve.py` uses `from rouge import Rouge` (`rouge==1.0.1`), whose recursive LCS implementation can exceed Python's default recursion limit on long generated contracts (`5_4`) or court views (`5_2`).
-   - **Adaptation**: Temporarily raises `sys.setrecursionlimit(max(len(pred), len(ref)) * 2 + 2000)` during ROUGE-L scoring, matching upstream's exact `jieba.cut` + `Rouge().get_scores()` pipeline.
+1. **Lazy Heavy Imports in `evaluate.py` and `model_gen.py` (`001-defer-heavy-imports.patch` & `002-defer-vllm-import.patch`)**:
+   - **Context**: Upstream `code/evaluation/evaluate.py` and `code/generation/model_gen.py` eagerly import `torch`, `transformers`, `bert_score`, `pandas`, `rouge`, and `vllm` at module import time even when only running multiple-choice accuracy or API-based generation.
+   - **Adaptation**: Moves optional heavy imports inside the methods that actually use them (`get_rouge_l`, `get_bert_score`, `get_bart_score`, `init_model_vllm`).
+2. **Blank-Line Tolerance in JSONL Task Files (`003-skip-blank-lines.patch`)**:
+   - **Context**: Upstream `code/generation/model_gen.py` calls `json.loads(line)` on every line in `data/*.json`, which raises `JSONDecodeError` on trailing blank lines.
+   - **Adaptation**: Skips empty lines (`if not line.strip(): continue`) when loading task records.
 
 ---
 

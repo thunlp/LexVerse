@@ -9,8 +9,8 @@ In real-world civil litigation, a lawyer's decisions at one stage constrain and 
 ## 1. Overview
 
 - **Benchmark ID**: `legalworld`
-- **Upstream Repository**: [`riotulab/Legal-World`](https://github.com/riotulab/Legal-World) (commit `1cc47ff948133d6d51b84e629dded9440eb9e55f`)
-- **Dataset**: `data/benchmark_cases.jsonl` (100 civil cases × 2 party roles = **200 full-pipeline tasks**)
+- **Upstream Repository**: [`sii-research/Legal-world`](https://github.com/sii-research/Legal-world) (commit `979ee9619f187d227059316f849c17ecc530c816`)
+- **Dataset**: [`Chidaic/legal-world`](https://huggingface.co/datasets/Chidaic/legal-world) (`light_case_dataset.json`, revision `d67238957ac0fda8c47a152ee5ca37a73e504010`; 100 civil cases × 2 party roles = **200 full-pipeline tasks**)
 - **Stages & Metrics**:
   - `LC` (*Legal Consultation*): Multi-turn client intake interview; scored on `LC.stage_score` (fact discovery and legal consultation rubrics).
   - `DRAFT` (*First-Instance Pleading Drafting*): Drafts a civil complaint (`plaintiff`) or statement of defense (`defendant`); scored on `DRAFT.stage_score`.
@@ -36,7 +36,7 @@ python -m lexverse catalog legalworld
 A Legal-World run binds three model roles:
 1. **Candidate Lawyer (`models.default`)**: Acts as either the plaintiff's lawyer (`party_role: plaintiff`) or the defendant's lawyer (`party_role: defendant`) across the configured stage range (`start_stage` to `end_stage`, default `LC` through `CIA`).
 2. **Environment Simulator (`models.roles.simulation`)**: Role-plays the client, opposing counsel, and presiding judge(s).
-3. **Evaluator (`models.evaluators[0]`)**: Grades each completed stage against the case's expert rubrics (`data/eval_rubrics.jsonl`).
+3. **Evaluator (`models.evaluators[0]`)**: Grades each completed stage against the case's expert rubrics (`EvalPipeline`).
 
 Copy `configs/benchmarks/legalworld.example.yaml` to `configs/benchmarks/legalworld.local.yaml`:
 
@@ -101,13 +101,16 @@ python -m lexverse collect --run-dir runs/legalworld-experiment
 
 ## 3. Upstream Adaptation & Rationale
 
-LexVerse executes the native `legal_world` headless pipeline (`legal_world/pipeline/runner.py` and `legal_world/evaluation/evaluator.py`) in an isolated per-Trial subprocess:
+LexVerse executes the native `Legal-world` headless pipeline (`backend/src/pipeline/pipeline.py:LegalPipeline` and `backend/src/eval/eval_pipeline.py:EvalPipeline`) in an isolated per-Trial subprocess via four targeted patches (`patches/001..005`):
 
-1. **Configurable Continuous Stage Ranges & Role Separation (`tasks.py` & `environment.py`)**:
-   - **Context**: Upstream `benchmark_cases.jsonl` defines 100 cases, each supporting two counsel assignments (`plaintiff` and `defendant`) and any continuous slice of the six-stage pipeline (`LC -> DRAFT -> CI -> SD -> APPEAL_DRAFT -> CIA`).
+1. **Defendant Consultation & Async Execution (`001-party-consultation.patch`, `002-await-consultation.patch`, `005-undefined-witnesses.patch`)**:
+   - **Context**: Upstream `backend/src/pipeline/pipeline.py` hardcoded `"plaintiff"` in the `LC` stage even when `self.party_role == "defendant"`, called the async `scenario.execute()` coroutine without `asyncio.run(...)`, and referenced an undefined `party_witnesses` variable in `CI` and `CIA`.
+   - **Adaptation**: Binds `self.party_role` (`plaintiff` or `defendant`) throughout `LC`, awaits `scenario.execute()` via `asyncio.run()`, and initializes witness lists cleanly.
+2. **Configurable Continuous Stage Ranges & Role Separation (`004-model-resolution.patch`, `tasks.py`, `environment.py`)**:
+   - **Context**: Upstream `light_case_dataset.json` defines 100 cases, each supporting two counsel assignments (`plaintiff` and `defendant`) and any continuous slice of the six-stage pipeline (`LC -> DRAFT -> CI -> SD -> APPEAL_DRAFT -> CIA`).
    - **Adaptation**: `LegalWorldImporter` validates task definitions (`party_role`, `start_stage`, `end_stage`) and exposes only non-leaking case metadata in `TaskInput`, while `LegalWorldEnvironment` routes the evaluated lawyer role to `models.default` and all counterpart/judicial agents to `models.roles.simulation`.
-2. **Optional Law & Case Retrieval Isolation (`environment.py`)**:
-   - **Context**: Upstream `Legal-World` disables external law retrieval by default (`law_retrieval.enabled: false`) and optionally supports BM25 case retrieval (`search_cases`).
+3. **Optional Law & Case Retrieval Isolation (`environment.py`)**:
+   - **Context**: Upstream `Legal-world` disables external law retrieval by default (`SIMLAW_ENABLE_LAW_RETRIEVAL=false`) and optionally supports BM25 case retrieval (`search_cases`).
    - **Adaptation**: LexVerse preserves upstream's default zero-retrieval mode out of the box and, when `benchmark.retrieval.cases.enabled: true` is configured, automatically filters out benchmark docket numbers and near-duplicate case texts per Trial to prevent ground-truth leakage.
 
 ---
@@ -130,4 +133,4 @@ The tables below report the results obtained by running `python -m lexverse run 
 ### Implementation & Protocol Notes
 
 - **Cross-Stage Error Propagation (`CaseFile`)**: Because Legal-World passes a single persistent `CaseFile` across stages (`LC -> DRAFT -> CI -> SD -> APPEAL_DRAFT -> CIA`), facts elicited during `LC` directly populate the drafting context for `DRAFT`, and the first-instance judgment rendered in `SD` conditions `APPEAL_DRAFT` and `CIA`.
-- **Stage Weighting (`overall_score`)**: Upstream `legal_world/evaluation/evaluator.py` computes `overall_score` as a point-weighted sum across the 5 lawyer-evaluated stages (`LC`, `DRAFT`, `CI`, `APPEAL_DRAFT`, and `CIA`, totaling `100.0` possible points), while `SD` records the court's first-instance decision (`coverage.SD = "not_implemented"`).
+- **Stage Weighting (`overall_score`)**: Upstream `backend/src/eval/eval_pipeline.py` computes `overall_score` as a point-weighted sum across the 5 lawyer-evaluated stages (`LC`, `DRAFT`, `CI`, `APPEAL_DRAFT`, and `CIA`, totaling `100.0` possible points), while `SD` records the court's first-instance decision (`coverage.SD = "not_implemented"`).

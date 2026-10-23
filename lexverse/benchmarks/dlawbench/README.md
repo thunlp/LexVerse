@@ -131,22 +131,24 @@ The table below reports the results obtained by running `python -m lexverse run 
 
 | Open-Weight Model | Source | Fact Cov. | Inquiry | **Elicitation** | Fact Res. | Issue Res. | **Resolution** | **Fidelity** |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| **`Kimi-K2.6`** (`moonshotai/Kimi-K2.6`) | Paper Table 4 | 0.730 | 0.376 | 0.553 | 0.489 | 0.358 | 0.424 | 0.868 |
-| | **`lexverse run dlawbench`** | **0.725** | **0.366** | **0.545** | **0.482** | **0.338** | **0.410** | **0.895** |
-| *DeepSeek-V3.2-Thinking* (`deepseek-ai/DeepSeek-V3.2`) | Paper Table 4 | 0.710 | 0.308 | 0.509 | 0.420 | 0.219 | 0.320 | 0.898 |
-| *DeepSeek-R1* (`deepseek-ai/DeepSeek-R1-0528`) | Paper Table 4 | 0.671 | 0.292 | 0.482 | 0.377 | 0.166 | 0.272 | 0.842 |
-| *Olmo-3.1-32B-Instruct* (`allenai/Olmo-3.1-32B-Instruct`) | Paper Table 4 | 0.486 | 0.123 | 0.304 | 0.196 | 0.054 | 0.125 | 0.618 |
-| **`CSHaitao/LegalOne-8B`** | Paper Table 4 | 0.202 | 0.095 | 0.148 | 0.102 | 0.050 | 0.076 | 0.268 |
+| **`Kimi-K2.6`** (`moonshotai/Kimi-K2.6`) | Paper Table 4 (461 Cases) | 0.730 | 0.376 | 0.553 | 0.489 | 0.358 | 0.424 | 0.868 |
+| | **`lexverse run dlawbench` (60 Cases)** | **0.629** | **0.257** | **0.443** | **0.441** | **0.245** | **0.343** | **0.889** |
+| *DeepSeek-V3.2-Thinking* (`deepseek-ai/DeepSeek-V3.2`) | Paper Table 4 (461 Cases) | 0.710 | 0.308 | 0.509 | 0.420 | 0.219 | 0.320 | 0.898 |
+| *DeepSeek-R1* (`deepseek-ai/DeepSeek-R1-0528`) | Paper Table 4 (461 Cases) | 0.671 | 0.292 | 0.482 | 0.377 | 0.166 | 0.272 | 0.842 |
+| *Olmo-3.1-32B-Instruct* (`allenai/Olmo-3.1-32B-Instruct`) | Paper Table 4 (461 Cases) | 0.486 | 0.123 | 0.304 | 0.196 | 0.054 | 0.125 | 0.618 |
+| **`CSHaitao/LegalOne-8B`** | Paper Table 4 (461 Cases) | 0.202 | 0.095 | 0.148 | 0.102 | 0.050 | 0.076 | 0.268 |
 | | **`lexverse run dlawbench`** | **0.108** | **0.110** | **0.109** | **0.057** | **0.048** | **0.052** | **0.127** |
 
-### Persona Breakdown (`Kimi-K2.6` via `lexverse run dlawbench`)
+### Client-Style Performance by Model (`Kimi-K2.6` via `lexverse run dlawbench`)
+
+For the paper’s persona-level Elicitation, Resolution, and Fidelity results, see Appendix B.4, Figures 6–8.
 
 | Persona Task | Style Description | `fact_coverage` | `inquiry` | `elicitation` | `fact_resolution` | `issue_resolution` | `resolution` | `fidelity` |
 | :---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `P_CS` | Cooperative | 0.633 | 0.416 | 0.525 | 0.457 | 0.275 | 0.366 | 0.889 |
-| `P_CD` | Dependent | 0.763 | 0.380 | 0.572 | 0.523 | 0.308 | 0.416 | 0.935 |
-| `P_WS` | Withdrawn | 0.733 | 0.258 | 0.496 | 0.510 | 0.383 | 0.447 | 0.835 |
-| `P_WD` | Adversarial | 0.770 | 0.409 | 0.590 | 0.437 | 0.383 | 0.410 | 0.920 |
+| `P_CS` | Cooperative | 0.616 | 0.255 | 0.436 | 0.434 | 0.210 | 0.322 | 0.895 |
+| `P_CD` | Dependent | 0.639 | 0.268 | 0.453 | 0.437 | 0.256 | 0.347 | 0.895 |
+| `P_WS` | Withdrawn | 0.611 | 0.225 | 0.418 | 0.441 | 0.241 | 0.341 | 0.872 |
+| `P_WD` | Adversarial | 0.650 | 0.279 | 0.464 | 0.450 | 0.272 | 0.361 | 0.896 |
 
 ### Implementation & Protocol Notes
 

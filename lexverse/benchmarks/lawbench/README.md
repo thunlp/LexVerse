@@ -100,12 +100,15 @@ python -m lexverse collect --run-dir runs/lawbench-qwen7b-full
 
 ## 3. Upstream Adaptation & Rationale
 
-LexVerse executes the native `evaluation_functions/*.py` modules from `open-compass/LawBench` with minimal adaptation (`patches/001-portable-paths.patch`):
+LexVerse executes the native `evaluation/evaluation_functions/*.py` modules from `open-compass/LawBench` with two targeted patches (`patches/001..002`):
 
-1. **Portable Auxiliary Asset Lookup (`001-portable-paths.patch`)**:
-   - **Context**: Upstream `evaluation_functions/kszy.py` (`3-3` Charge Prediction) opens `../accomplice/charge_list.txt` using a relative path that assumes the current working directory is `evaluation_functions/`.
-   - **Adaptation**: Resolves `charge_list.txt` relative to `Path(__file__).resolve().parent.parent / "accomplice" / "charge_list.txt"` so evaluation works from any working directory.
-2. **Legacy `Qwen-7B-Chat` ChatML Stop Tokens & Middle Truncation (`lexverse/providers/local.py`)**:
+1. **Lazy `rouge_chinese` Import (`001-optional-rouge-chinese.patch`)**:
+   - **Context**: Upstream `evaluation/utils/function_utils.py` imports `from rouge_chinese import Rouge` at the top level even when running non-ROUGE tasks.
+   - **Adaptation**: Moves the `rouge_chinese` import inside `compute_rouge(hyps, refs)` with an actionable `ImportError` message.
+2. **Thread-Safe & Relocatable `wsjd.py` Execution (`002-wsjd-relocatable.patch`)**:
+   - **Context**: Upstream `evaluation/evaluation_functions/wsjd.py` (`2-1` Document Proofreading) calls `os.chdir('utils')`, writes fixed filenames (`tmp_pred.para`, `tmp_gold.para`) in the current directory, and shells out to `python3 parallel_to_m2.py`.
+   - **Adaptation**: Resolves `evaluation/utils` relative to `__file__`, writes ChERRANT intermediate files inside an isolated `tempfile.TemporaryDirectory`, and invokes `sys.executable` with `cwd=utils_dir` without mutating the process working directory.
+3. **Legacy `Qwen-7B-Chat` ChatML Stop Tokens & Middle Truncation (`lexverse/providers/local.py`)**:
    - **Context**: First-generation `Qwen-7B-Chat` uses a custom `tiktoken` vocabulary without a Jinja `chat_template`; its ChatML turn terminator `<|im_end|>` (`151645`) differs from `eos_token_id` (`<|endoftext|>` = `151643`), and a handful of long legal case documents exceed the 8,192-token context window.
    - **Adaptation**: `LocalBackend` passes `stop_token_ids=[im_end_id, im_start_id, eod_id]` to `vllm.SamplingParams` and applies head+tail middle truncation when a prompt plus `max_tokens` exceeds `context_limit`.
 

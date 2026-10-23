@@ -95,12 +95,12 @@ python -m lexverse collect --run-dir runs/plawbench-experiment
 
 ## 3. Upstream Adaptation & Rationale
 
-When inspecting the public [`SKYLENAGE-AI/PLawBench`](https://github.com/SKYLENAGE-AI/PLawBench) repository (`commit f6ee07b3`), we found two scripts (`prompt_generate.py` and `prompt_zh.py`) with hardcoded placeholder paths and unimplemented API stubs. LexVerse adapts them via `patches/001-evaluator-callable.patch` and `tasks.py`:
+When inspecting the public [`SKYLENAGE-AI/PLawBench`](https://github.com/SKYLENAGE-AI/PLawBench) repository (`commit f6ee07b3`), we found two scripts (`prompt_generate.py` and `prompt_zh.py`) with hardcoded placeholder paths and unimplemented API stubs. LexVerse adapts them via `patches/001-inject-judge.patch` and `tasks.py`:
 
 1. **AST Template Extraction & Rubric Isolation (`tasks.py`)**:
    - **Context**: Upstream `prompt_generate.py` executes top-level `open(PATH + "...")` file I/O using a literal placeholder `PATH = "your_path"`, and `public_legal_consultation_18.json` stores item rubrics in a field named `"rubrics"` without a pre-computed `"score"` field.
    - **Adaptation**: `PLawBenchImporter` extracts `prompt_template_dict` and `user_prompt_dict` from `prompt_generate.py` via `ast.parse` without executing top-level file I/O, computes the exact rubric point sum (`(+X分)`) for consultation items, interleaves `plaintiff` and `defendant` drafting items, and isolates the ground-truth rubrics strictly inside `evaluation`.
-2. **Injectable Judge Callable & Strict Numeric Validation (`001-evaluator-callable.patch` & `evaluation.py`)**:
+2. **Injectable Judge Callable & Strict Numeric Validation (`001-inject-judge.patch` & `evaluation.py`)**:
    - **Context**: In upstream `prompt_zh.py`, `call_llm_api(messages)` is an empty placeholder (`pass`) that returns `None`, and `_calculate_metrics` silently defaults missing `total_points` / `max_points` to `0` / `1`.
    - **Adaptation**: Our patch allows `LegalEvaluator` to accept a run-scoped judge callable (`LegalEvaluator(call_judge)`), and `validate_grading` verifies that all required rubric score fields (`total_points` and `max_points`, or all four sections in `case_analysis_merge`) are finite numbers before accepting a judge response.
 
@@ -114,11 +114,11 @@ The table below compares the scores obtained directly by running `python -m lexv
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | *DeepSeek-V3.2* | Paper Table | 57.97 | 64.01 | 65.56 | 82.89 | 61.64 | 43.27 | 60.12 | 46.48 | 44.43 | 48.52 |
 | **`Qwen-4b-instruct-2507`** | **Paper Table** | **50.53** | **53.72** | **52.61** | **89.98** | **44.77** | **23.76** | **58.49** | **39.37** | **31.08** | **47.66** |
-| | **`lexverse run plawbench`** | **52.65** | **56.13** | **49.56** | **92.82** | **43.89** | **27.56** | **67.43** | **34.39** | **37.42** | **31.37** |
+| | **`lexverse run plawbench` (Full 280)** | **52.34** | **51.39** | **45.29** | **91.19** | **38.31** | **24.43** | **65.17** | **40.46** | **34.28** | **46.65** |
 | **`Qwen-4b-thinking-2507`** | **Paper Table** | **44.80** | **52.70** | **56.61** | **89.97** | **45.97** | **26.73** | **41.88** | **39.83** | **30.22** | **49.44** |
-| | **`lexverse run plawbench`** | **45.33** | **51.98** | **59.56** | **81.98** | **41.25** | **30.50** | **47.78** | **36.24** | **35.25** | **37.23** |
+| | **`lexverse run plawbench` (Full 280)** | **45.10** | **46.75** | **47.45** | **82.43** | **34.78** | **20.35** | **50.09** | **38.45** | **40.00** | **36.90** |
 
 ### Implementation & Protocol Notes
 
-- **Judge Model Selection (`gpt-5.2`)**: Because upstream `prompt_zh.py` leaves `call_llm_api()` unimplemented, the judge model must be configured via `models.evaluators[0]`. Using `gpt-5.2` as the rubric evaluator reproduces the paper's overall and sub-dimension scores closely (`52.65` vs. `50.53` overall for `Qwen3-4B-Instruct-2507`, and `45.33` vs. `44.80` overall for `Qwen3-4B-Thinking-2507`, preserving the exact relative ordering across all tasks and sub-dimensions).
+- **Judge Model Selection (`gpt-5.2`)**: Because upstream `prompt_zh.py` leaves `call_llm_api()` unimplemented, the judge model must be configured via `models.evaluators[0]`. Using `gpt-5.2` as the rubric evaluator over all **280 public items** (`250` `case_analysis` + `18` `legal_consultation` + `12` `document_generation`) reproduces the paper's overall and sub-dimension scores closely (`52.34` vs. `50.53` overall for `Qwen3-4B-Instruct-2507`, and `45.10` vs. `44.80` overall for `Qwen3-4B-Thinking-2507`, preserving the exact relative ordering across all tasks and sub-dimensions).
 - **Public Consultation Split (`public_legal_consultation_18.json`)**: Upstream `prompt_generate.py` assigns `level = "mid"` to the first 50 items and `"hard"` thereafter; because the public repository releases 18 consultation items, all 18 items use the `legal_consultation_mid` prompt (10–25 questions).
