@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from lexverse.benchmarks.plugin import BenchmarkPlugin
-from lexverse.environments import DirectResponseEnvironment
+from lexverse.interaction.engine import DirectResponseEnvironment
 from lexverse.interaction.participants import ModelParticipant, AgentParticipant
 from lexverse.interaction.policies import DirectResponsePolicy
 from lexverse.benchmarks.lawbench import UPSTREAM as LAWBENCH
@@ -31,7 +31,7 @@ class LawBenchPlugin(BenchmarkPlugin):
         loader = LawBenchLoader(offline=True)
         return {kind: loader.task_file(kind, config.benchmark.get("shot", "zero_shot")) for kind in task_types}
 
-    def create_environment(self, config, provider):
+    def create_interaction_environment(self, config, provider):
         from lexverse.runtime.enhancement import enabled
         if enabled(config):
             return DirectResponseEnvironment(

@@ -44,11 +44,12 @@ class ResourceMode(str, Enum):
 
 class MCPServerConfig(BaseModel):
     name: str
-    transport: Literal["sse", "streamable-http", "stdio"] = "sse"
+    transport: Literal["sse", "streamable-http", "stdio"] = "streamable-http"
     url: str | None = None
     command: str | None = None
     args: list[str] = Field(default_factory=list)
     env: dict[str, str] = Field(default_factory=dict)
+    headers: dict[str, str] = Field(default_factory=dict, repr=False)
 
     @model_validator(mode="after")
     def _validate_transport_fields(self) -> "MCPServerConfig":
@@ -70,9 +71,11 @@ class TaskEnvConfig(BaseModel):
     tpu_type: str | None = None
     allow_internet: bool = True
     network_allowlist: list[str] | None = None
+    network_mode: Literal["public", "allowlist"] = "public"
+    allowed_hosts: list[str] = Field(default_factory=list)
     docker_image: str | None = None
     workdir: str | None = None
-    skills_dir: str | None = "/skills"
+    skills_dir: Literal["/skills"] | None = "/skills"
     memory_dir: str | None = None
     mcp_servers: list[MCPServerConfig] = Field(default_factory=list)
     build_timeout_sec: float = 600.0
@@ -158,19 +161,23 @@ class TrialPaths:
 
     @property
     def _compact(self) -> bool:
-        return (self.trial_dir / ".internal").exists()
+        return (self.trial_dir / ".internal" / "agent_fs").exists()
 
     @property
     def _agent_fs(self) -> Path:
+        legacy = self.trial_dir / "agent_fs"
+        if not self._compact and legacy.is_dir():
+            return legacy
         return self.trial_dir / ".internal" / "agent_fs"
 
-    def mkdir(self) -> None:
+    def mkdir(self, *, skills_root: Path | None = None) -> None:
+        self.runtime_dir.mkdir(parents=True, exist_ok=True)
         self.agent_dir.mkdir(parents=True, exist_ok=True)
         self.verifier_dir.mkdir(parents=True, exist_ok=True)
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
         self.workspace_dir.mkdir(parents=True, exist_ok=True)
         self.inputs_dir.mkdir(parents=True, exist_ok=True)
-        self.skills_dir.mkdir(parents=True, exist_ok=True)
+        (skills_root or self.skills_dir).mkdir(parents=True, exist_ok=True)
 
     def chmod_dir(self) -> None:
         for path in (
@@ -191,28 +198,35 @@ class TrialPaths:
         return self.trial_dir / "config.json"
 
     @property
+    def runtime_dir(self) -> Path:
+        return self.trial_dir / ".internal" / "runtime"
+
+    @property
     def agent_dir(self) -> Path:
-        return self.trial_dir / "agent"
+        return self.runtime_dir / "agent"
 
     @property
     def artifacts_dir(self) -> Path:
+        if not self._compact and (self.trial_dir / "agent_fs").is_dir():
+            return self._agent_fs / "artifacts"
         return self.trial_dir / "artifacts"
 
     @property
     def workspace_dir(self) -> Path:
-        return self._agent_fs / "workspace" if self._compact else self.trial_dir / "workspace"
+        return self._agent_fs / "workspace" if self._agent_fs.is_dir() else self.trial_dir / "workspace"
 
     @property
     def inputs_dir(self) -> Path:
-        return self._agent_fs / "inputs" if self._compact else self.trial_dir / "inputs"
+        return self._agent_fs / "inputs" if self._agent_fs.is_dir() else self.trial_dir / "inputs"
 
     @property
     def skills_dir(self) -> Path:
-        return self._agent_fs / "skills" if self._compact else self.trial_dir / "skills"
+        return self._agent_fs / "skills" if self._agent_fs.is_dir() else self.trial_dir / "skills"
 
     @property
     def verifier_dir(self) -> Path:
-        return self.trial_dir / "verifier"
+        root = self.trial_dir / ".internal" if self._compact else self.trial_dir
+        return root / "verifier"
 
     @property
     def test_stdout_path(self) -> Path:

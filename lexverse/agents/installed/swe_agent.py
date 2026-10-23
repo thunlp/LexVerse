@@ -27,7 +27,7 @@ from lexverse.agents.installed.base import (
     with_prompt_template,
 )
 from lexverse.agents.utils import get_api_key_var_names_from_model_name
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -253,7 +253,7 @@ class SweAgent(BaseInstalledAgent):
         return text
 
     @override
-    async def setup(self, environment: BaseEnvironment) -> None:
+    async def setup(self, environment: ExecutionEnvironment) -> None:
         user = environment.default_user
         if user is not None and user != 0 and user != "root":
             raise ValueError(
@@ -263,7 +263,7 @@ class SweAgent(BaseInstalledAgent):
         await super().setup(environment)
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         # All commands run as root (SWE-agent requires root)
         await self.exec_as_root(
             environment,
@@ -383,7 +383,7 @@ class SweAgent(BaseInstalledAgent):
 
     @with_prompt_template
     async def run(
-        self, instruction: str, environment: BaseEnvironment, context: AgentContext
+        self, instruction: str, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
 
         if not self.model_name:

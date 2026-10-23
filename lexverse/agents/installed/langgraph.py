@@ -26,7 +26,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, override
 
 from lexverse.agents.installed.base import BaseInstalledAgent, with_prompt_template
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trial import EnvironmentPaths
@@ -171,7 +171,7 @@ class LangGraph(BaseInstalledAgent):
         return target
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         runner_script_path = Path(__file__).parent / "langgraph_runner.py"
         local_runner_copy = self.logs_dir / "langgraph_runner.py"
         local_runner_copy.write_text(runner_script_path.read_text())
@@ -268,7 +268,7 @@ class LangGraph(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         instruction_path = self.logs_dir / "instruction.txt"
@@ -349,7 +349,7 @@ class LangGraph(BaseInstalledAgent):
         await self._apply_run_summary(environment, context)
 
     async def _apply_run_summary(
-        self, environment: BaseEnvironment, context: AgentContext
+        self, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
         """Populate ``AgentContext`` with the agent's answer and token usage.
 

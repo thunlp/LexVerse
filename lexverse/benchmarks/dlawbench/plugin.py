@@ -22,7 +22,6 @@ class DLawBenchPlugin(BenchmarkPlugin):
         return DLawBenchImporter(offline=(config or {}).get("offline", False))
 
     def create_bundle(self, config):
-        self.evaluation_context(config)
         turns = config.generation.get("max_turns", 10)
         if type(turns) is not int or turns < 1:
             raise ConfigError("generation.max_turns must be a positive integer")
@@ -31,7 +30,7 @@ class DLawBenchPlugin(BenchmarkPlugin):
     def task_inputs(self, config, task_types):
         return source_inputs(UPSTREAM.ensure(offline=True))
 
-    def create_environment(self, config, provider):
+    def create_interaction_environment(self, config, provider):
         return DLawBenchEnvironment(config)
 
     def evaluation_context(self, config):

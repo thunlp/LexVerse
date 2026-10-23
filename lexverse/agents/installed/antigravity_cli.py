@@ -27,7 +27,7 @@ from lexverse.agents.installed.base import (
     with_prompt_template,
 )
 from lexverse.utils.env import parse_bool_env_value
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -124,7 +124,7 @@ class AntigravityCli(BaseInstalledAgent):
             )
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         await self.exec_as_root(
             environment,
             command="apt-get update && apt-get install -y curl",
@@ -182,7 +182,7 @@ class AntigravityCli(BaseInstalledAgent):
 
         return None
 
-    async def _seed_oauth_token(self, environment: BaseEnvironment) -> None:
+    async def _seed_oauth_token(self, environment: ExecutionEnvironment) -> None:
         """Seed a pre-authenticated OAuth token for headless, non-interactive runs.
 
         The Antigravity CLI has no API-key or service-account path and only does
@@ -717,16 +717,7 @@ class AntigravityCli(BaseInstalledAgent):
             self.logger.debug(f"Error converting Gemini trajectory to ATIF: {e}")
 
     def _build_register_skills_command(self) -> str | None:
-        """Return a shell command that copies skills to the Antigravity CLI skills directory."""
-        if not self.skills_dir:
-            return None
-        return (
-            "mkdir -p ~/.agy/antigravity-cli/skills && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f'  d=$(dirname "$f"); '
-            f'  cp -r "$d" ~/.agy/antigravity-cli/skills/ 2>/dev/null || true; '
-            f"done"
-        )
+        return self._link_skills_command('$HOME/.agy/antigravity-cli/skills')
 
     def _build_settings_config(
         self, model: str | None = None
@@ -790,7 +781,7 @@ class AntigravityCli(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         escaped_instruction = shlex.quote(instruction)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+from typing import Literal
 from urllib.parse import parse_qsl, urlparse
 
 from pydantic import Field, field_validator
@@ -28,7 +29,6 @@ class SkillSource(StrictModel):
 class SkillDefinition(StrictModel):
     source: str
     path: str
-    requires_confirmation: bool = False
 
     @field_validator("path")
     @classmethod
@@ -41,6 +41,7 @@ class SkillDefinition(StrictModel):
 
 class MCPService(StrictModel):
     url: str
+    transport: Literal["sse", "streamable-http"] = "streamable-http"
     credential_ref: str | None = None
     required: bool = True
     allowed_tools: list[str] | None = None
@@ -64,6 +65,23 @@ class ResourceRegistry(StrictModel):
     skill_sources: dict[str, SkillSource] = Field(default_factory=dict)
     skills: dict[str, SkillDefinition] = Field(default_factory=dict)
     mcp: dict[str, MCPService] = Field(default_factory=dict)
+
+
+def resolve_selection(selection, base: Path, *, registry=None):
+    """Expand omitted resource fields once, before freezing a task or run."""
+    from lexverse.capabilities.knowledge.download import CATALOG, DEFAULT_ROOT, read_catalog, resolve_knowledge
+
+    if "knowledge" not in selection.model_fields_set:
+        catalog = DEFAULT_ROOT / CATALOG
+        selection.knowledge = ([Path("collection:" + record["id"])
+                                for record in read_catalog(catalog)["collections"]] if catalog.exists() else [])
+    selection.knowledge = resolve_knowledge(selection.knowledge, base)
+    if {"skills", "mcp"} - selection.model_fields_set:
+        registry = registry or load_registry(getattr(selection, "registry", None))
+        for field in ("skills", "mcp"):
+            if field not in selection.model_fields_set:
+                setattr(selection, field, list(getattr(registry, field)))
+    return selection
 
 
 def load_registry(path: Path | None = None) -> ResourceRegistry:

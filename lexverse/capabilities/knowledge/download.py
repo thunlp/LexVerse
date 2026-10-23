@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -9,11 +10,15 @@ from urllib.error import HTTPError
 from urllib.parse import quote, unquote, urlparse
 from urllib.request import Request, urlopen
 
+from filelock import FileLock
 import yaml
 
+from lexverse.config import ConfigError
 from lexverse.runtime.paths import CAPABILITIES_ROOT as DEFAULT_ROOT
 
 DATASET_REPO = "TsinghuaNLP/LexVerse"
+CATALOG = "indexes/collections.json"
+RETRIEVAL = "indexes/retrieval.yaml"
 
 
 def download_plan(manifest, local_dir, sources=None, lexverse_revision="main"):
@@ -176,6 +181,197 @@ def run(args):
             if is_hf:
                 print("For gated datasets, accept access conditions on Hugging Face and run `hf auth login`.", file=sys.stderr)
     return 1 if failed else 0
+
+
+def read_catalog(path: Path) -> dict:
+    try:
+        catalog = json.loads(path.read_text(encoding="utf-8"))
+        if catalog["schema_version"] != 1 or catalog["retrieval_config"] != RETRIEVAL:
+            raise ValueError("Unsupported collection catalog")
+        records = catalog["collections"]
+        ids = set()
+        for record in records:
+            name, index_hash = record["id"], record["index_hash"]
+            if (not isinstance(name, str) or not name or name in ids
+                    or not isinstance(index_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", index_hash)
+                    or record["path"] != "indexes/" + index_hash
+                    or not isinstance(record["source_id"], str)
+                    or type(record["chunk_count"]) is not int or record["chunk_count"] <= 0):
+                raise ValueError("Invalid or duplicate collection entry")
+            ids.add(name)
+        return catalog
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise ConfigError(f"Cannot read knowledge collection catalog {path}: {exc}") from exc
+
+
+def resolve_knowledge(sources: list[Path], base: Path, *, cache: Path | None = None) -> list[Path]:
+    root = cache or DEFAULT_ROOT
+    catalog = None
+    resolved = []
+    for source in sources:
+        value = str(source)
+        if value.startswith("collection:"):
+            name = value.removeprefix("collection:")
+            if catalog is None:
+                if not (root / CATALOG).is_file():
+                    raise ConfigError("No knowledge collection catalog; build local knowledge with "
+                                      "lexverse environment build --knowledge <directory> or run "
+                                      "lexverse environment download indexes")
+                catalog = {record["id"]: record for record in read_catalog(root / CATALOG)["collections"]}
+            if name not in catalog:
+                raise ConfigError(f"Collection {name!r} is not downloaded or locally registered; "
+                                  "build its source directory or run "
+                                  f"lexverse environment download indexes --collections {name}")
+            path = (root / catalog[name]["path"]).resolve()
+            if not path.is_relative_to(root.resolve()) or not (path / "manifest.json").is_file():
+                raise ConfigError(f"Collection {name!r} is missing; rebuild its source directory or run "
+                                  f"lexverse environment download indexes --collections {name}")
+        else:
+            path = source.expanduser()
+            path = (path if path.is_absolute() else base / path).resolve()
+        if path not in resolved:
+            resolved.append(path)
+    return resolved
+
+
+def _verify_collection(path, record):
+    from lexverse.capabilities.knowledge.index import verify_index
+
+    manifest = verify_index(path)
+    required = {"documents.sqlite"}
+    if manifest["identity"]["retrieval"]["mode"] != "keyword":
+        required.update({"vectors.faiss", "vector_ids.json"})
+    if (set(manifest["files"]) != required or manifest["index_hash"] != record["index_hash"]
+            or manifest["identity"]["source_id"] != record["source_id"]
+            or manifest["chunk_count"] != record["chunk_count"]):
+        raise ConfigError(f"Index does not match collection {record['id']}")
+    return manifest
+
+
+def register_collection(source: Path, index: Path, config, *, cache: Path) -> dict:
+    from lexverse.capabilities.knowledge.index import is_index_directory, verify_index
+    from lexverse.capabilities.knowledge.loaders import KINDS
+    from lexverse.runtime.results import atomic_write_json
+
+    source, index, cache = source.resolve(), index.resolve(), cache.resolve()
+    manifest = verify_index(index)
+    name = manifest["source_name"]
+    if is_index_directory(source):
+        kinds = set(manifest["identity"]["kinds"].values())
+        if len(kinds) == 1:
+            kind = next(iter(kinds))
+            if kind in KINDS and name != kind:
+                name = kind + "/" + name
+    else:
+        for parent in (source, *source.parents):
+            if parent.name in KINDS:
+                name = source.relative_to(parent.parent).as_posix()
+                break
+    record = {"id": name, "source_id": manifest["identity"]["source_id"],
+              "index_hash": manifest["index_hash"], "path": "indexes/" + manifest["index_hash"],
+              "chunk_count": manifest["chunk_count"]}
+    indexes = cache / "indexes"
+    indexes.mkdir(parents=True, exist_ok=True)
+    with FileLock(str(indexes / ".collections.lock")):
+        installed = read_catalog(cache / CATALOG) if (cache / CATALOG).exists() else {
+            "schema_version": 1, "retrieval_config": RETRIEVAL, "collections": [],
+        }
+        destination = cache / record["path"]
+        if index != destination:
+            with FileLock(str(destination) + ".lock"):
+                if destination.exists():
+                    _verify_collection(destination, record)
+                else:
+                    with tempfile.TemporaryDirectory(dir=indexes) as temporary:
+                        staged = Path(temporary) / record["index_hash"]
+                        staged.mkdir()
+                        for filename in ("manifest.json", *manifest["files"]):
+                            shutil.copyfile(index / filename, staged / filename)
+                        _verify_collection(staged, record)
+                        staged.rename(destination)
+        entries = {entry["id"]: entry for entry in installed["collections"]}
+        entries[name] = record
+        (cache / RETRIEVAL).write_text(yaml.safe_dump(config.model_dump(mode="json"),
+                                                   allow_unicode=True, sort_keys=False), encoding="utf-8")
+        atomic_write_json(cache / CATALOG, {**installed, "collections": list(entries.values())})
+    return record
+
+
+def download_indexes(args):
+    from huggingface_hub import hf_hub_download
+    from lexverse.runtime.results import atomic_write_json
+
+    root = args.local_dir.expanduser().resolve()
+    cache = str(root / "cache/huggingface")
+    catalog_path = Path(hf_hub_download(DATASET_REPO, CATALOG, repo_type="dataset",
+                                      revision=args.revision, cache_dir=cache))
+    # All files must come from the same immutable HF snapshot as the catalog.
+    revision = catalog_path.parents[1].name
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise ConfigError("Cannot determine the collection catalog's HF revision")
+    catalog = read_catalog(catalog_path)
+    by_id = {record["id"]: record for record in catalog["collections"]}
+    names = list(dict.fromkeys(args.collections)) if args.collections else list(by_id)
+    unknown = set(names) - by_id.keys()
+    if unknown:
+        raise ConfigError("Unknown knowledge collections: " + ", ".join(sorted(unknown)))
+    if args.dry_run:
+        for name in names:
+            print(f"{name}: {DATASET_REPO}@{revision}/{by_id[name]['path']} -> {root / by_id[name]['path']}")
+        return 0
+    indexes = root / "indexes"
+    indexes.mkdir(parents=True, exist_ok=True)
+    with FileLock(str(indexes / ".collections.lock")):
+        installed = read_catalog(root / CATALOG) if (root / CATALOG).exists() else {
+            "schema_version": 1, "retrieval_config": RETRIEVAL, "collections": [],
+        }
+        entries = {record["id"]: record for record in installed["collections"]}
+        manifests = []
+        for name in names:
+            record = by_id[name]
+            destination = root / record["path"]
+            with FileLock(str(destination) + ".lock"):
+                try:
+                    manifest = _verify_collection(destination, record)
+                except ConfigError:
+                    with tempfile.TemporaryDirectory(dir=indexes) as temporary:
+                        staged = Path(temporary) / record["index_hash"]
+                        staged.mkdir()
+                        remote = record["path"] + "/"
+                        manifest_path = Path(hf_hub_download(DATASET_REPO, remote + "manifest.json",
+                            repo_type="dataset", revision=revision, cache_dir=cache))
+                        manifest = json.loads(manifest_path.read_text())
+                        shutil.copyfile(manifest_path, staged / "manifest.json")
+                        required = {"documents.sqlite"}
+                        if manifest["identity"]["retrieval"]["mode"] != "keyword":
+                            required.update({"vectors.faiss", "vector_ids.json"})
+                        for filename in sorted(required):
+                            downloaded = hf_hub_download(DATASET_REPO, remote + filename,
+                                repo_type="dataset", revision=revision, cache_dir=cache)
+                            shutil.copyfile(downloaded, staged / filename)
+                        manifest = _verify_collection(staged, record)
+                        if destination.exists():
+                            shutil.rmtree(destination)
+                        staged.rename(destination)
+                    print(f"Downloaded and verified: {name} -> {destination}", flush=True)
+                else:
+                    print(f"Verified existing index: {name} -> {destination}", flush=True)
+            entries[name] = record
+            manifests.append(manifest)
+        config_path = hf_hub_download(DATASET_REPO, RETRIEVAL, repo_type="dataset",
+                                     revision=revision, cache_dir=cache)
+        from lexverse.tasks.user import RetrievalConfig
+
+        from lexverse.capabilities.knowledge.index import _build_recipe, _index_retrieval
+
+        config = RetrievalConfig.model_validate(yaml.safe_load(Path(config_path).read_text()))
+        for manifest in manifests:
+            identity = manifest["identity"]
+            if _build_recipe(identity["retrieval"]) != _index_retrieval(config, identity["embedding"]):
+                raise ConfigError("Published retrieval configuration does not match the downloaded indexes")
+        shutil.copyfile(config_path, root / RETRIEVAL)
+        atomic_write_json(root / CATALOG, {**installed, "collections": list(entries.values())})
+    return 0
 
 
 def main(argv=None):

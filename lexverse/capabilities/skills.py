@@ -182,21 +182,17 @@ def download_skills(registry: ResourceRegistry, selected: list[str] | None, cach
 
 
 def prepare_skills(registry: ResourceRegistry, selected: list[str], cache: Path,
-                   agent_root: Path, *, interactive: bool) -> dict:
+                   agent_root: Path) -> dict:
     destination = agent_root / "skills"
     destination.mkdir(parents=True, exist_ok=True)
     records = []
     names = set()
     folders = set()
     roots = {}
-    needs_confirmation = False
     for skill_id in selected:
         definition = registry.skills.get(skill_id)
         if definition is None:
             raise ConfigError(f"Unknown skill: {skill_id}")
-        if definition.requires_confirmation and not interactive:
-            raise ConfigError(f"Skill {skill_id} requires interactive fact confirmation")
-        needs_confirmation |= definition.requires_confirmation
         if definition.source not in roots:
             roots[definition.source] = source_root(definition.source, registry.skill_sources[definition.source], cache)
         root = roots[definition.source]
@@ -223,41 +219,12 @@ def prepare_skills(registry: ResourceRegistry, selected: list[str], cache: Path,
             "id": skill_id, "name": metadata["name"], "description": metadata["description"],
             "path": "/" + (target / "SKILL.md").relative_to(agent_root).as_posix(), "source": definition.source,
             "commit": registry.skill_sources[definition.source].commit, "files": hashes,
-            "requires_confirmation": definition.requires_confirmation,
         })
     exposed = {p.parent for p in destination.rglob("SKILL.md")}
     if exposed != folders:
         raise ConfigError("Skill references expose unselected skill instructions")
-    return {"skills": records, "requires_confirmation": needs_confirmation,
+    return {"skills": records,
             "paths": ["/" + folder.relative_to(agent_root).as_posix() + "/" for folder in sorted({target.parent for target in folders})], "files": tree_hashes(agent_root / "skills")}
-
-
-def skill_bindings(skills, indexes, remote_tools, selected_tools) -> dict:
-    sources = [{"id": index.source_id, "name": index.manifest["source_name"],
-                "kinds": sorted(row[0] for row in index.db.execute(
-                    "SELECT DISTINCT json_extract(metadata, '$.kind') FROM chunks"))}
-               for index in indexes]
-    operations = {}
-    for operation, kind, services in (
-        ("law_search", "legal_laws", {"pkulaw_law_search", "pkulaw_law_keyword", "pkulaw_law_item_keyword", "pkulaw_law_agg"}),
-        ("case_search", "legal_cases", {"pkulaw_case_search", "pkulaw_case_keyword"}),
-        ("norm_validity", "legal_laws", {"pkulaw_statute_history", "pkulaw_law_recognition", "pkulaw_citation_validator"}),
-    ):
-        local = [source["id"] for source in sources if kind in source["kinds"]]
-        tools = [tool.name for tool in remote_tools if (tool.metadata or {}).get("service") in services]
-        if local:
-            tools += [name for name in ("search_knowledge", "fetch_knowledge") if name in selected_tools]
-        operations[operation] = {"tools": tools, "knowledge_sources": local}
-    return {"sources": sources, "operations": operations,
-            "generic_knowledge_tools": [name for name in ("search_knowledge", "fetch_knowledge")
-                                        if indexes and name in selected_tools],
-            "skills": [{"id": record["id"], "requires_fact_confirmation": record["requires_confirmation"]}
-                       for record in skills["skills"]],
-            "fallbacks": {key: value for key, value in {
-                "case-retrieval": "Without case sources, design queries and mark concrete cases pending retrieval.",
-                "legal-norm-validity-check": "Without verifiable legal sources, mark validity uncertain and pending manual verification.",
-            }.items() if key in {record["id"] for record in skills["skills"]}},
-            "limitations": "Generic user knowledge is not automatically an authoritative law or case source. Local law snapshots do not prove current validity. Tools are selected by need."}
 
 
 def _copy_references(source_root: Path, folder: Path, target: Path, projection_root: Path) -> None:

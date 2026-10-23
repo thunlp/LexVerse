@@ -11,6 +11,14 @@ schema_version: 1
 id: example
 agent: lexverse
 environment: docker
+# Network modes apply only to Docker: public (default) or allowlist.
+# Local is for host development/debugging and inherits the host network:
+#   use environment: local and omit network_mode / allowed_hosts.
+# Local rejects network_mode: allowlist.
+network_mode: public
+# To restrict Docker networking, change the mode above to allowlist.
+# The model endpoint and selected MCP URL hosts are added automatically.
+# allowed_hosts: []  # Optional extra exact hosts/IPs; no URLs, ports or wildcards.
 
 instruction: |
   You are a senior commercial counsel reviewing the draft Technology Services Agreement located at `/inputs/service_agreement.md`.
@@ -37,9 +45,6 @@ capabilities:
     - dispute-and-performance-risk
     - legal-element-extraction
   mcp: []
-  tools:
-    - search_knowledge
-    - fetch_knowledge
 
 retrieval:
   mode: keyword

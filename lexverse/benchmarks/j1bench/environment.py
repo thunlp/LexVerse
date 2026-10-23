@@ -9,7 +9,7 @@ from typing import Any
 
 from lexverse.benchmarks.j1bench.tasks import J1BenchCase
 from lexverse.config import ResolvedConfig
-from lexverse.environments.base import ExecutionEnvironment
+from lexverse.interaction.engine import InteractionEnvironment
 from lexverse.interaction.schema import EnvironmentResult
 from lexverse.runtime.errors import ArtifactMissingError, TrialError
 from lexverse.runtime.executor import ExecutionResult, run_subprocess
@@ -183,7 +183,7 @@ class J1BenchRunner:
             env["J1BENCH_SUMMARY_PARAMETERS"] = json.dumps(summary.generation_parameters)
 
 
-class J1BenchEnvironment(ExecutionEnvironment):
+class J1BenchEnvironment(InteractionEnvironment):
     name = "j1bench_upstream"
 
     def __init__(self, config: ResolvedConfig) -> None:

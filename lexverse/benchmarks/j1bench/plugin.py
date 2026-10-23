@@ -69,12 +69,15 @@ class J1BenchPlugin(BenchmarkPlugin):
     def task_inputs(self, config, task_types):
         return {kind: Path(config.benchmark["case_databases"][kind]) for kind in task_types}
 
-    def create_environment(self, config, provider):
+    def create_interaction_environment(self, config, provider):
         del provider
         from .environment import J1BenchEnvironment
         return J1BenchEnvironment(config)
 
     def evaluation_context(self, config):
+        from lexverse.config import ConfigError
+        if len(config.models.evaluators) != 1:
+            raise ConfigError("J1Bench requires one model in models.evaluators")
         return {
             "case_database": config.benchmark.get("case_database"),
             "case_databases": config.benchmark.get("case_databases"),

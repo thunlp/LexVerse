@@ -301,15 +301,20 @@ class UpstreamSource:
 
 def prepare_run_sources(run_dir: Path, manifest: dict, plugin, *, resume: bool,
                         offline: bool = True, config=None) -> str:
+    # Check that the recorded upstream revision matches the selected plugin.
     prepared_source = manifest.get("provenance") or {}
     if prepared_source.get("upstream", {}).get("commit") != plugin.upstream.commit:
         raise ConfigError("source drift or missing provenance; start a new `lexverse benchmark run --config CONFIG`")
+
+    # Recompute provenance; only local source changes are allowed during resume.
     current = source_provenance(plugin, offline=offline, config=config)
     code_fields = {"files", "source_hash"}
     recorded_conditions = {k: v for k, v in prepared_source.items() if k not in code_fields}
     current_conditions = {k: v for k, v in current.items() if k not in code_fields}
     if recorded_conditions != current_conditions or (not resume and prepared_source != current):
         raise ConfigError("source drift or missing provenance; start a new `lexverse benchmark run --config CONFIG`")
+
+    # Reject conflicting runs and trial directories without a source manifest.
     identity = run_identity(manifest)
     old_path = run_dir / "manifest.json"
     if old_path.exists():
@@ -320,7 +325,11 @@ def prepare_run_sources(run_dir: Path, manifest: dict, plugin, *, resume: bool,
             raise ConfigError("resume source/config/task mismatch; use a new run directory")
     elif (run_dir / "trials").exists() and any((run_dir / "trials").iterdir()):
         raise ConfigError("existing trials have no source manifest; use a new run directory")
+
+    # Create the run directory after its source and identity checks succeed.
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Append local code changes to resume history without replacing original provenance.
     if resume:
         from lexverse.runtime.results import atomic_write_json
 
@@ -337,4 +346,6 @@ def prepare_run_sources(run_dir: Path, manifest: dict, plugin, *, resume: bool,
         if changed:
             logging.getLogger("lexverse.run").warning(
                 "[resume] local code changed; continuing with original run identity: %s", ", ".join(changed))
+
+    # Return the stable run hash; the caller persists it in the manifest.
     return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()

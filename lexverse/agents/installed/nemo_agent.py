@@ -98,7 +98,7 @@ from lexverse.agents.installed.base import (
     EnvVar,
     with_prompt_template,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 
@@ -234,7 +234,7 @@ class NemoAgent(BaseInstalledAgent):
         return text
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         nat_repo = self._resolved_flags.get("nat_repo")
         deps = "curl git" if nat_repo else "curl"
         dep_check = " && ".join(
@@ -290,7 +290,7 @@ class NemoAgent(BaseInstalledAgent):
         )
 
     @override
-    async def setup(self, environment: BaseEnvironment) -> None:
+    async def setup(self, environment: ExecutionEnvironment) -> None:
         """Install nvidia-nat, upload wrapper, install workflow package, upload config."""
         await super().setup(environment)
 
@@ -511,7 +511,7 @@ class NemoAgent(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         env = self._build_env()

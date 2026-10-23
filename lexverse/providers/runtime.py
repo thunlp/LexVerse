@@ -14,7 +14,7 @@ from urllib.request import urlopen
 
 from lexverse.config import ConfigError, ModelConfig, load_profile
 from lexverse.runtime.results import atomic_write_json
-from .openai_compatible import OpenAICompatibleProvider
+from .api import OpenAICompatibleProvider
 
 
 def loading_identity(model: ModelConfig) -> str:

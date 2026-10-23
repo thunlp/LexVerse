@@ -1,4 +1,4 @@
 from .base import ModelResponse, Provider
-from .openai_compatible import OpenAICompatibleProvider
+from .api import OpenAICompatibleProvider
 
 __all__ = ["ModelResponse", "OpenAICompatibleProvider", "Provider"]

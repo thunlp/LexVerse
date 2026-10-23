@@ -28,7 +28,7 @@ from lexverse.agents.installed.base import (
     with_prompt_template,
 )
 from lexverse.agents.installed.node_install import nvm_node_install_snippet
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -71,7 +71,7 @@ class Pi(BaseInstalledAgent):
         return stdout.strip().splitlines()[-1].strip()
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         await self.exec_as_root(
             environment,
             command="apt-get update && apt-get install -y curl",
@@ -89,16 +89,7 @@ class Pi(BaseInstalledAgent):
         )
 
     def _build_register_skills_command(self) -> str | None:
-        """Return a shell command that copies skills to Pi's skills directory."""
-        if not self.skills_dir:
-            return None
-        return (
-            f"mkdir -p $HOME/.agents/skills && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f"  d=$(dirname \"$f\"); "
-            f"  cp -r \"$d\" $HOME/.agents/skills/ 2>/dev/null || true; "
-            f"done"
-        )
+        return self._link_skills_command('$HOME/.agents/skills')
 
     def _build_register_mcp_servers_command(self) -> str | None:
         """Return a shell command that writes MCP servers to $HOME/.pi/agent/mcp.json."""
@@ -121,7 +112,7 @@ class Pi(BaseInstalledAgent):
         escaped = shlex.quote(content)
         return f"mkdir -p $HOME/.pi/agent && echo {escaped} > $HOME/.pi/agent/mcp.json"
 
-    def _build_custom_models_command(self, provider: str, model_id: str, environment: BaseEnvironment | None = None) -> str | None:
+    def _build_custom_models_command(self, provider: str, model_id: str, environment: ExecutionEnvironment | None = None) -> str | None:
         """Configure $HOME/.pi/agent/models.json when OPENAI_BASE_URL is provided for a custom OpenAI-compatible server."""
         base_url = self._get_env("OPENAI_BASE_URL") or self._get_env("OPENAI_API_BASE") or self._get_env("LLM_BASE_URL")
         api_key = self._get_env("OPENAI_API_KEY") or self._get_env("LLM_API_KEY") or "local-key"
@@ -153,7 +144,7 @@ class Pi(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         escaped_instruction = shlex.quote(instruction)

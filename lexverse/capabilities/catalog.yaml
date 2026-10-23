@@ -3,15 +3,52 @@ skill_sources:
   legal_skills_chinese:
     repository: https://github.com/THUYRan/Legal-Skills-Chinese
     commit: c31ef1f022be6bcb3e31c1a2374d1d8240ffa61f
+  harvey_labs:
+    repository: https://github.com/harveyai/harvey-labs
+    commit: e9b1f9f4dc25576f9a020d857e3e3a6420834dc3
+    path: lab_core/harness/skills
 skills:
   legal-element-extraction: {source: legal_skills_chinese, path: skills/legal-element-extraction}
   dispute-issue-identification: {source: legal_skills_chinese, path: skills/dispute-issue-identification}
   legal-document-summarization: {source: legal_skills_chinese, path: skills/legal-document-summarization}
   multi-document-summarization: {source: legal_skills_chinese, path: skills/multi-document-summarization}
-  legal-article-retrieval: {source: legal_skills_chinese, path: skills/legal-article-retrieval, requires_confirmation: true}
+  legal-article-retrieval: {source: legal_skills_chinese, path: skills/legal-article-retrieval}
   case-retrieval: {source: legal_skills_chinese, path: skills/case-retrieval}
   legal-norm-validity-check: {source: legal_skills_chinese, path: skills/legal-norm-validity-check}
   dispute-and-performance-risk: {source: legal_skills_chinese, path: skills/dispute-and-performance-risk}
+  legal-abductive-reasoning: {source: legal_skills_chinese, path: skills/Legal-Abductive-Reasoning}
+  normative-meaning-argumentation: {source: legal_skills_chinese, path: skills/Normative-Meaning-Argumentation}
+  administrative-value-judgment: {source: legal_skills_chinese, path: skills/administrative-value-judgment}
+  analogical-reasoning: {source: legal_skills_chinese, path: skills/analogical-reasoning}
+  argument-chain-construction: {source: legal_skills_chinese, path: skills/argument-chain-construction}
+  argument-strength-evaluation: {source: legal_skills_chinese, path: skills/argument-strength-evaluation}
+  billing-and-litigation-budget: {source: legal_skills_chinese, path: skills/billing-and-litigation-budget}
+  case-lifecycle-planning: {source: legal_skills_chinese, path: skills/case-lifecycle-planning}
+  conflict-resolution: {source: legal_skills_chinese, path: skills/conflict-resolution}
+  counterfactual-reasoning: {source: legal_skills_chinese, path: skills/counterfactual-reasoning}
+  deductive-reasoning: {source: legal_skills_chinese, path: skills/deductive-reasoning}
+  evidence-argument-chain: {source: legal_skills_chinese, path: skills/evidence-argument-chain}
+  evidence-evaluation: {source: legal_skills_chinese, path: skills/evidence-evaluation}
+  formal-legal-consequence: {source: legal_skills_chinese, path: skills/formal-legal-consequence}
+  inductive-reasoning: {source: legal_skills_chinese, path: skills/inductive-reasoning}
+  internal-compliance-risk-identification: {source: legal_skills_chinese, path: skills/internal-compliance-risk-identification}
+  judgment-document-generation: {source: legal_skills_chinese, path: skills/judgment-document-generation}
+  judicial-value-judgment: {source: legal_skills_chinese, path: skills/judicial-value-judgment}
+  legal-concept-comprehension: {source: legal_skills_chinese, path: skills/legal-concept-comprehension}
+  legal-document-formatting: {source: legal_skills_chinese, path: skills/legal-document-formatting}
+  legal-interpretation-argument: {source: legal_skills_chinese, path: skills/legal-interpretation-argument}
+  legal-judgment-prediction: {source: legal_skills_chinese, path: skills/legal-judgment-prediction}
+  legal-risk-assessment: {source: legal_skills_chinese, path: skills/legal-risk-assessment}
+  legal-terminology: {source: legal_skills_chinese, path: skills/legal-terminology}
+  other-legal-retrieval: {source: legal_skills_chinese, path: skills/other-legal-retrieval}
+  strategic-risk-prioritization: {source: legal_skills_chinese, path: skills/strategic-risk-prioritization}
+  structured-element-extraction: {source: legal_skills_chinese, path: skills/structured-element-extraction}
+  systematic-interpretation: {source: legal_skills_chinese, path: skills/systematic-interpretation}
+  teleological-interpretation: {source: legal_skills_chinese, path: skills/teleological-interpretation}
+  trial-scheduling-and-deadline-monitoring: {source: legal_skills_chinese, path: skills/trial-scheduling-and-deadline-monitoring}
+  office-docx: {source: harvey_labs, path: docx}
+  office-xlsx: {source: harvey_labs, path: xlsx}
+  office-pptx: {source: harvey_labs, path: pptx}
 mcp:
   pkulaw_account: {url: 'https://apim-gateway.pkulaw.com/pkulaw-account/mcp', credential_ref: pkulaw}
   pkulaw_enforcement_doc: {url: 'https://apim-gateway.pkulaw.com/pkulaw-enforcement-doc/mcp', credential_ref: pkulaw}

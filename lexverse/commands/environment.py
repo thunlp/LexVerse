@@ -1,24 +1,42 @@
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
 
 from lexverse.runtime.paths import AGENT_RUNTIME_ROOT, CAPABILITIES_ROOT, PROJECT_ROOT
+from lexverse.runtime.dependencies import is_macos_arm64
 
 
 def setup(root=None):
-    if sys.version_info < (3, 11):
-        raise SystemExit("Agent dependencies require Python 3.11 or newer")
+    if sys.version_info < (3, 12):
+        raise SystemExit("Agent dependencies require Python 3.12 or newer")
     import tomllib
     from filelock import FileLock
 
     root = root or PROJECT_ROOT
     runtime = root / AGENT_RUNTIME_ROOT.relative_to(PROJECT_ROOT)
-    requirements = tomllib.loads((root / "pyproject.toml").read_text())["project"]["optional-dependencies"]["capability-task"]
+    config = tomllib.loads((root / "pyproject.toml").read_text())
+    project = config["project"]
+    requirements = project["optional-dependencies"]["capability-task"]
+    macos = is_macos_arm64()
+    if macos and (not (Path(sys.prefix) / "conda-meta").is_dir()
+                  or ".".join(map(str, sys.version_info[:2])) != config["tool"]["lexverse"]["macos-arm64"]["python-version"]):
+        raise RuntimeError("Activate the macOS arm64 Conda environment described in README.md before setup")
+    if macos:
+        conda = os.environ.get("CONDA_EXE") or shutil.which("conda")
+        if not conda:
+            raise RuntimeError("Activate the macOS arm64 Conda environment described in README.md before setup")
+        subprocess.run([
+            conda, "install", "--yes", "--prefix", sys.prefix,
+            "--override-channels", "--channel", "conda-forge", "--strict-channel-priority",
+            *config["tool"]["lexverse"]["macos-arm64"]["conda-packages"],
+        ], env={**os.environ, "CONDA_SUBDIR": "osx-arm64"}, check=True)
     if root == PROJECT_ROOT:
         checked = subprocess.run([sys.executable, "-c",
-            "from lexverse.agents.isolation import activate_dependencies; activate_dependencies(); "
+            "from lexverse.runtime.dependencies import activate_dependencies; activate_dependencies(); "
             "import json, sys, importlib.metadata; from packaging.requirements import Requirement; "
             "requirements = [Requirement(value) for value in json.loads(sys.argv[1])]; "
             "assert all(importlib.metadata.version(req.name) in req.specifier for req in requirements "
@@ -34,7 +52,13 @@ def setup(root=None):
         staged.mkdir()
         (staged / "site-packages").mkdir()
         report = staged / "resolution.json"
-        subprocess.run([sys.executable, "-m", "pip", "install", "--dry-run", "--report", str(report), *requirements], check=True)
+        constraints = []
+        if macos:
+            constraint = staged / "constraints.txt"
+            constraint.write_text("\n".join(config["tool"]["lexverse"]["macos-arm64"]["pip-constraints"]) + "\n")
+            constraints = ["--constraint", str(constraint)]
+        subprocess.run([sys.executable, "-m", "pip", "install", "--dry-run", "--report", str(report),
+                        *constraints, *requirements], check=True)
         plan = json.loads(report.read_text())["install"]
         lock = staged / "requirements.lock.txt"
         lock.write_text("\n".join(
@@ -49,6 +73,7 @@ def setup(root=None):
         (staged / "runtime.json").write_text(json.dumps({
             "python": str(Path(sys.executable).resolve()),
             "python_version": list(sys.version_info[:2]),
+            **({"environment": "conda"} if macos else {}),
             "packages": {item["metadata"]["name"]: item["metadata"]["version"] for item in plan},
         }, indent=2))
         previous = Path(temporary) / "previous"
@@ -64,10 +89,11 @@ def setup(root=None):
 
 
 def build(sources, mode, retrieval_config=None):
-    from lexverse.agents.isolation import activate_dependencies
+    from lexverse.runtime.dependencies import activate_dependencies
     activate_dependencies()
     from tqdm import tqdm
     from lexverse.capabilities.knowledge.index import build_index
+    from lexverse.capabilities.knowledge.download import register_collection
     from lexverse.tasks.user import RetrievalConfig
     cache = CAPABILITIES_ROOT
     if retrieval_config is not None:
@@ -97,8 +123,9 @@ def build(sources, mode, retrieval_config=None):
                 bar.set_postfix(chunks=chunks, refresh=False)
                 bar.update(completed - bar.n)
             path = build_index(source.expanduser().resolve(), cache, config, embedding, progress=progress)
-        manifest = json.loads((path / "manifest.json").read_text())
-        print(f"Index ready: {path}; chunks={manifest['chunk_count']}", flush=True)
+        record = register_collection(source.expanduser(), path, config, cache=cache)
+        print(f"Index ready: {path}; chunks={record['chunk_count']}", flush=True)
+        print(f"Collection registered: {record['id']}", flush=True)
     return 0
 
 
@@ -112,6 +139,11 @@ def main(argv=None):
     knowledge = resources.add_parser("knowledge", help="download upstream and LexVerse-hosted knowledge")
     from lexverse.capabilities.knowledge.download import DEFAULT_ROOT, add_arguments
     add_arguments(knowledge)
+    indexes = resources.add_parser("indexes", help="download and verify prebuilt knowledge collections from HF")
+    indexes.add_argument("--collections", nargs="+", help="Collection IDs (default: all published collections)")
+    indexes.add_argument("--local-dir", type=Path, default=DEFAULT_ROOT, help="Capability cache root")
+    indexes.add_argument("--revision", default="main", help="HF dataset revision (default: main)")
+    indexes.add_argument("--dry-run", action="store_true", help="Fetch the catalog and list selected indexes without downloading them")
     skills = resources.add_parser("skills", help="download or reuse registered skill sources")
     skills.add_argument("--sources", nargs="+", help="Download only the named skill source repositories")
     skills.add_argument("--manifest", type=Path, help="Local download YAML (default: fetch skills/sources.yaml from LexVerse HF)")
@@ -127,6 +159,9 @@ def main(argv=None):
         if args.command == "setup":
             return setup() or 0
         if args.command == "download":
+            if args.resource == "indexes":
+                from lexverse.capabilities.knowledge.download import download_indexes
+                return download_indexes(args)
             if args.resource == "knowledge":
                 from lexverse.capabilities.knowledge.download import run
                 return run(args)

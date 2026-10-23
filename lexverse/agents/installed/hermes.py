@@ -27,7 +27,7 @@ from lexverse.agents.installed.base import (
     with_prompt_template,
     CliFlag,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -78,7 +78,7 @@ class Hermes(BaseInstalledAgent):
         return 'export PATH="$HOME/.local/bin:$PATH"; hermes --version || hermes version'
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         await self.exec_as_root(
             environment,
             command="apt-get update && apt-get install -y curl git ripgrep xz-utils",
@@ -156,16 +156,7 @@ class Hermes(BaseInstalledAgent):
     # ------------------------------------------------------------------
 
     def _build_register_skills_command(self) -> str | None:
-        """Copy Harbor skill files into hermes's native skills directory."""
-        if not self.skills_dir:
-            return None
-        return (
-            "mkdir -p /root/.hermes/skills && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f'  d=$(dirname "$f"); '
-            f'  cp -r "$d" /root/.hermes/skills/ 2>/dev/null || true; '
-            f"done"
-        )
+        return self._link_skills_command('$HOME/.hermes/skills')
 
     # ------------------------------------------------------------------
     # ATIF trajectory conversion
@@ -355,7 +346,7 @@ class Hermes(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
 

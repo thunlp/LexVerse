@@ -25,7 +25,7 @@ from lexverse.agents.installed.base import (
     with_prompt_template,
 )
 from lexverse.agents.utils import get_api_key_var_names_from_model_name
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.agent.trajectory_config import TrajectoryConfig
@@ -806,7 +806,7 @@ class OpenHands(BaseInstalledAgent):
             self.logger.debug("No final_metrics found in trajectory")
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         await self.exec_as_root(
             environment,
             command=(
@@ -888,7 +888,7 @@ class OpenHands(BaseInstalledAgent):
 
     @with_prompt_template
     async def run(
-        self, instruction: str, environment: BaseEnvironment, context: AgentContext
+        self, instruction: str, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
         escaped_instruction = shlex.quote(instruction)
 

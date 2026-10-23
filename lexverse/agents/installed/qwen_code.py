@@ -26,7 +26,7 @@ from lexverse.agents.installed.base import (
     EnvVar,
 )
 from lexverse.agents.installed.node_install import nvm_node_install_snippet
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -72,7 +72,7 @@ class QwenCode(BaseInstalledAgent):
         return ". ~/.nvm/nvm.sh; qwen --version"
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         await self.exec_as_root(
             environment,
             command="apt-get update && apt-get install -y curl",
@@ -285,16 +285,7 @@ class QwenCode(BaseInstalledAgent):
             context.n_cache_tokens = fm.total_cached_tokens or 0
 
     def _build_register_skills_command(self) -> str | None:
-        """Return a shell command that copies skills to Qwen Code's skills directory."""
-        if not self.skills_dir:
-            return None
-        return (
-            "mkdir -p ~/.qwen/skills && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f'  d=$(dirname "$f"); '
-            f'  cp -r "$d" ~/.qwen/skills/ 2>/dev/null || true; '
-            f"done"
-        )
+        return self._link_skills_command('$HOME/.qwen/skills')
 
     def _build_register_mcp_servers_command(self) -> str | None:
         """Return a shell command that writes MCP config to ~/.qwen/settings.json."""
@@ -321,7 +312,7 @@ class QwenCode(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         escaped_instruction = shlex.quote(instruction)

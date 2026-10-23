@@ -24,10 +24,10 @@ from lexverse.agents.installed.gemini_cli import GeminiCli
 from lexverse.agents.installed.opencode import OpenCode
 from lexverse.agents.installed.openhands import OpenHands
 from lexverse.agents.installed.qwen_code import QwenCode
-from lexverse.capabilities.base import AgentExecutionSpec
+from lexverse.agents.spec import AgentExecutionSpec
 from lexverse.commands.tasks import main as task_cli_main
 from lexverse.config import ModelConfig
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.environments.factory import EnvironmentFactory
 from lexverse.environments.local import LocalEnvironment
 from lexverse.models.agent.context import AgentContext
@@ -76,7 +76,7 @@ class DummyCustomLegalAgent(BaseInstalledAgent):
         return "echo 1.2.3"
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         return None
 
     @override
@@ -84,7 +84,7 @@ class DummyCustomLegalAgent(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         await self.exec_as_agent(
@@ -234,7 +234,7 @@ def test_agent_factory_supports_all_general_agents_and_custom_import(tmp_path: P
             name="lexverse_knowledge",
             transport="stdio",
             command="python",
-            args=["-m", "lexverse.capabilities.knowledge_mcp_server", "--manifest", "/tmp/m.json"],
+            args=["-m", "lexverse.capabilities.knowledge.mcp_server", "--manifest", "/tmp/m.json"],
         ),
         MCPServerConfig(
             name="pkulaw_law_search",
@@ -324,8 +324,9 @@ def test_local_environment_and_custom_agent_and_verifier_end_to_end(tmp_path: Pa
         (trial_paths.inputs_dir / "contract.md").write_text(
             "Article 1: Confidentiality", encoding="utf-8"
         )
-        (trial_paths.skills_dir / "bindings.json").write_text(
-            json.dumps({"tools": ["search_knowledge"]}), encoding="utf-8"
+        (trial_paths.skills_dir / "review").mkdir()
+        (trial_paths.skills_dir / "review/SKILL.md").write_text(
+            "---\nname: review\ndescription: Review contracts\n---\nCheck confidentiality.", encoding="utf-8"
         )
 
         # Create tests/test.sh
@@ -403,13 +404,13 @@ def test_build_mcp_server_configs_includes_local_knowledge_mcp(tmp_path: Path):
     assert "lexverse_knowledge" in names
     assert names["lexverse_knowledge"].transport == "stdio"
     assert "pkulaw_law_search" in names
-    assert names["pkulaw_law_search"].transport == "sse"
+    assert names["pkulaw_law_search"].transport == "streamable-http"
 
 
 def test_knowledge_mcp_server_end_to_end_retrieval(tmp_path: Path):
     """Verify build_index + knowledge_mcp_server search_knowledge and fetch_knowledge work end-to-end."""
     from lexverse.capabilities.knowledge.index import build_index
-    from lexverse.capabilities.knowledge_mcp_server import _load_retriever
+    from lexverse.capabilities.knowledge.mcp_server import _load_retriever
 
     knowledge_dir = tmp_path / "legal_laws" / "民法典"
     knowledge_dir.mkdir(parents=True)
@@ -490,6 +491,9 @@ def test_lexverse_task_run_cli_with_oracle_and_custom_agents(tmp_path: Path):
         "  profile: openai\n"
         "  name: gpt-4o\n"
         "capabilities:\n"
+        "  knowledge: []\n"
+        "  skills: []\n"
+        "  mcp: []\n"
         "  tools: [search_knowledge, fetch_knowledge]\n"
         "outputs:\n"
         "  required: [artifacts/review.md]\n"
@@ -552,7 +556,7 @@ def test_benchmark_runner_and_plawbench_with_general_agent(tmp_path: Path, monke
     monkeypatch.setenv("LEXVERSE_OPENAI_API_KEY", "sk-test-dummy-key")
     monkeypatch.setenv("LEXVERSE_OPENAI_BASE_URL", "https://api.openai.com/v1")
 
-    from lexverse.agents.benchmark_runner import execute as benchmark_execute
+    from lexverse.runtime.enhancement import execute_benchmark as benchmark_execute
     from lexverse.capabilities.benchmark import parse_capabilities
 
     # Verify PLawBench is now accepted by parse_capabilities alongside LawBench and LexEval
@@ -635,8 +639,9 @@ def test_docker_environment_with_custom_agent_and_verifier(tmp_path: Path):
         (trial_paths.inputs_dir / "contract.md").write_text(
             "Article 1: Confidentiality", encoding="utf-8"
         )
-        (trial_paths.skills_dir / "bindings.json").write_text(
-            json.dumps({"tools": ["search_knowledge"]}), encoding="utf-8"
+        (trial_paths.skills_dir / "review").mkdir()
+        (trial_paths.skills_dir / "review/SKILL.md").write_text(
+            "---\nname: review\ndescription: Review contracts\n---\nCheck confidentiality.", encoding="utf-8"
         )
 
         tests_dir = tmp_path / "task_tests_docker"
@@ -691,7 +696,7 @@ def test_docker_environment_with_custom_agent_and_verifier(tmp_path: Path):
     asyncio.run(_run())
 
 
-def test_shipped_contract_review_task_and_inspect_cli(tmp_path: Path, capsys, monkeypatch):
+def test_shipped_contract_review_task_and_inspect_cli(tmp_path: Path, capfd, monkeypatch):
     repo_root = Path(__file__).resolve().parents[1]
     example_task = repo_root / "user_workspace/task/example/task.yaml"
     assert example_task.is_file()
@@ -700,16 +705,16 @@ def test_shipped_contract_review_task_and_inspect_cli(tmp_path: Path, capsys, mo
     # 1. Verify `lexverse task agents` CLI lists all supported agents
     rc_agents = task_cli_main(["agents"])
     assert rc_agents == 0
-    agents_out = json.loads(capsys.readouterr().out)
+    agents_out = json.loads(capfd.readouterr().out)
     assert "claude-code" in agents_out["supported_agents"]
     assert "lexverse" in agents_out["supported_agents"]
 
     # 1b. Verify `lexverse task init <task_name>` interactive scaffolding
-    replies = iter(["y", "y", "y"])
+    replies = iter(["y", "y"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(replies))
     rc_init = task_cli_main(["init", "my_new_task", "--root", str(tmp_path / "tasks_root")])
     assert rc_init == 0
-    init_out = json.loads(capsys.readouterr().out)
+    init_out = json.loads(capfd.readouterr().out)
     init_dir = Path(init_out["task_dir"])
     assert (init_dir / "task.yaml").is_file()
     assert (init_dir / "inputs").is_dir()
@@ -733,7 +738,7 @@ def test_shipped_contract_review_task_and_inspect_cli(tmp_path: Path, capsys, mo
         ]
     )
     assert rc_oracle == 0
-    oracle_out = json.loads(capsys.readouterr().out)
+    oracle_out = json.loads(capfd.readouterr().out)
     assert oracle_out["status"] == "completed"
     assert oracle_out["verifier"]["rewards"]["reward"] == 1.0
     assert oracle_out["verifier"]["rewards"]["all_pass_score"] == 1.0
@@ -757,6 +762,7 @@ def test_shipped_contract_review_task_and_inspect_cli(tmp_path: Path, capsys, mo
         "  provider: openai_compatible\n"
         "  profile: openai\n"
         "  name: gpt-4o\n"
+        "capabilities: {knowledge: [], skills: [], mcp: []}\n"
         "outputs:\n"
         "  required: [artifacts/review.md]\n",
         encoding="utf-8",
@@ -774,7 +780,7 @@ def test_shipped_contract_review_task_and_inspect_cli(tmp_path: Path, capsys, mo
             "local",
         ]
     )
-    custom_out = json.loads(capsys.readouterr().out)
+    custom_out = json.loads(capfd.readouterr().out)
     run_dir = Path(custom_out["run_dir"])
     assert (run_dir / "trajectory.json").is_file()
 
@@ -787,3 +793,28 @@ def test_shipped_contract_review_task_and_inspect_cli(tmp_path: Path, capsys, mo
 
 
 
+
+
+def test_task_init_copies_dockerfile_without_opt_in(tmp_path, monkeypatch, capsys):
+    prompts = []
+
+    def decline(prompt):
+        prompts.append(prompt)
+        return ""
+
+    monkeypatch.setattr("builtins.input", decline)
+    assert task_cli_main(["init", "default_docker", "--root", str(tmp_path)]) == 0
+    output = json.loads(capsys.readouterr().out)
+    task_dir = Path(output["task_dir"])
+    template = Path(__file__).resolve().parents[1] / "user_workspace/task/example/environment/Dockerfile"
+    assert (task_dir / "environment/Dockerfile").read_bytes() == template.read_bytes()
+    assert not (task_dir / "solution").exists()
+    assert not (task_dir / "tests").exists()
+    assert len(prompts) == 2 and all("Docker" not in prompt for prompt in prompts)
+
+
+def test_task_init_can_skip_dockerfile_explicitly(tmp_path):
+    from lexverse.commands.tasks import init_user_task
+    output = init_user_task("no_docker", root=tmp_path, docker_env=False,
+                            oracle_solution=False, verifier_script=False)
+    assert not (Path(output["task_dir"]) / "environment").exists()

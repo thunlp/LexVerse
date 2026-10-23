@@ -4,6 +4,7 @@ import json
 import math
 import sqlite3
 import struct
+import sys
 
 try:
     from langchain_core.embeddings import Embeddings
@@ -18,6 +19,31 @@ from lexverse.tasks.user import (EmbeddingConfig, DEFAULT_EMBEDDING_MODEL,
 MODEL = DEFAULT_EMBEDDING_MODEL
 REVISION = DEFAULT_EMBEDDING_REVISION
 QUERY_PREFIX = DEFAULT_QUERY_PREFIX
+
+def _download_embedding_model(model: str, revision: str | None, cache: Path, files: list[str]) -> str:
+    from huggingface_hub import constants, snapshot_download
+    from requests import RequestException
+
+    print(f"Downloading embedding model {model}@{revision or 'main'} to {cache} "
+          "(HTTP; metadata timeout 15s, read timeout 90s). The first download may take several minutes.",
+          file=sys.stderr, flush=True)
+    # Hub reads these constants during transfers; restore them for other downloads.
+    previous_xet = constants.HF_HUB_DISABLE_XET
+    previous_timeout = constants.HF_HUB_DOWNLOAD_TIMEOUT
+    try:
+        constants.HF_HUB_DISABLE_XET = True
+        constants.HF_HUB_DOWNLOAD_TIMEOUT = 90
+        snapshot = snapshot_download(model, revision=revision, cache_dir=str(cache),
+                                     allow_patterns=files, max_workers=1, etag_timeout=15)
+    except (OSError, RequestException) as exc:
+        raise ConfigError(f"Cannot download embedding model {model}@{revision or 'main'} to {cache}. "
+                          "Check network access to Hugging Face and available disk space, then rerun the command. "
+                          "Cached files are retained so the download can resume.") from exc
+    finally:
+        constants.HF_HUB_DISABLE_XET = previous_xet
+        constants.HF_HUB_DOWNLOAD_TIMEOUT = previous_timeout
+    print(f"Embedding model download complete: {snapshot}", file=sys.stderr, flush=True)
+    return snapshot
 
 
 class BGEEmbeddings(Embeddings):
@@ -37,10 +63,12 @@ class BGEEmbeddings(Embeddings):
                  "special_tokens_map.json", "vocab.txt"]
         try:
             snapshot = snapshot_download(MODEL, revision=REVISION, cache_dir=str(cache / "cache" / "models"), local_files_only=True)
-            if not all((Path(snapshot) / name).is_file() for name in files):
+            if not all((Path(snapshot) / name).is_file() and (Path(snapshot) / name).stat().st_size for name in files):
                 raise LocalEntryNotFoundError("Incomplete embedding model cache")
         except LocalEntryNotFoundError:
-            snapshot = snapshot_download(MODEL, revision=REVISION, cache_dir=str(cache / "cache" / "models"), allow_patterns=files)
+            snapshot = _download_embedding_model(MODEL, REVISION, cache / "cache" / "models", files)
+        if not all((Path(snapshot) / name).is_file() and (Path(snapshot) / name).stat().st_size for name in files):
+            raise ConfigError("Embedding model download is incomplete; rerun the command to resume downloading")
         transformer = models.Transformer(snapshot, max_seq_length=self.max_tokens,
                                          model_args={"local_files_only": True}, tokenizer_args={"local_files_only": True})
         pooling = models.Pooling(transformer.get_word_embedding_dimension(), pooling_mode="cls")
@@ -137,13 +165,11 @@ class LocalEmbeddings(BGEEmbeddings):
                 snapshot = Path(snapshot_download(config.model, revision=config.revision,
                                 cache_dir=str(cache / "cache" / "models"), local_files_only=True))
             except LocalEntryNotFoundError:
-                snapshot = Path(snapshot_download(config.model, revision=config.revision,
-                                cache_dir=str(cache / "cache" / "models"),
-                                allow_patterns=["*.json", "*.safetensors", "*.bin", "*.txt", "*.model"]))
+                snapshot = Path(_download_embedding_model(config.model, config.revision, cache / "cache" / "models",
+                                ["*.json", "*.safetensors", "*.bin", "*.txt", "*.model"]))
             if not (snapshot / "modules.json").is_file():
-                snapshot = Path(snapshot_download(config.model, revision=config.revision,
-                                cache_dir=str(cache / "cache" / "models"),
-                                allow_patterns=["*.json", "*.safetensors", "*.bin", "*.txt", "*.model"]))
+                snapshot = Path(_download_embedding_model(config.model, config.revision, cache / "cache" / "models",
+                                ["*.json", "*.safetensors", "*.bin", "*.txt", "*.model"]))
             revision = snapshot.name
         if not (snapshot / "modules.json").is_file():
             raise ConfigError("Custom embedding model must be a Sentence Transformers model (modules.json required)")

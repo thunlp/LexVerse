@@ -21,7 +21,7 @@ import shlex
 from typing import override
 
 from lexverse.agents.base import BaseAgent
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trial import EnvironmentPaths
@@ -70,36 +70,21 @@ class OracleAgent(BaseAgent):
         return "1.0.0"
 
     @override
-    async def setup(self, environment: BaseEnvironment) -> None:
-        return None
+    async def setup(self, environment: ExecutionEnvironment) -> None:
+        if self._solution_dir is None or not (self._solution_dir / "solve.sh").is_file():
+            raise FileNotFoundError(f"Solution script not found: {self._solution_dir}")
+        await environment.upload_dir(self._solution_dir, "/runtime/oracle/solution")
 
     @override
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
-        if self._solution_dir is None or not self._solution_dir.exists():
-            raise FileNotFoundError(
-                f"Solution directory not found for OracleAgent: {self._solution_dir}"
-            )
-        solve_path = self._solution_dir / "solve.sh"
-        if not solve_path.exists():
-            raise FileNotFoundError(f"Solution script not found: {solve_path}")
-
         env_paths = EnvironmentPaths.for_os(environment.os)
-        await environment.upload_dir(
-            source_dir=self._solution_dir,
-            target_dir=str(env_paths.solution_dir),
-        )
-        container_solve_path = str(env_paths.solution_dir / "solve.sh")
+        container_solve_path = "/runtime/oracle/solution/solve.sh"
         container_oracle_log_path = str(env_paths.agent_dir / self._ORACLE_LOG_FILE)
-
-        await environment.exec(
-            command=f"chmod +x {shlex.quote(container_solve_path)}",
-            user=None if environment.type().value == "local" else "root",
-        )
 
         timeout_sec = int(self._agent_timeout_sec) if self._agent_timeout_sec else None
         command = (

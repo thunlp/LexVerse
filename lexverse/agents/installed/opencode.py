@@ -28,7 +28,7 @@ from lexverse.agents.installed.base import (
     with_prompt_template,
 )
 from lexverse.agents.installed.node_install import nvm_node_install_snippet
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -103,7 +103,7 @@ class OpenCode(BaseInstalledAgent):
         return ". ~/.nvm/nvm.sh; opencode --version"
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         await self.exec_as_root(
             environment,
             command="apt-get update && apt-get install -y curl",
@@ -430,16 +430,7 @@ class OpenCode(BaseInstalledAgent):
             context.n_cache_tokens = fm.total_cached_tokens or 0
 
     def _build_register_skills_command(self) -> str | None:
-        """Return a shell command that copies skills to OpenCode's skills directory."""
-        if not self.skills_dir:
-            return None
-        return (
-            "mkdir -p ~/.config/opencode/skills && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f'  d=$(dirname "$f"); '
-            f'  cp -r "$d" ~/.config/opencode/skills/ 2>/dev/null || true; '
-            f"done"
-        )
+        return self._link_skills_command('$HOME/.config/opencode/skills')
 
     def _build_register_config_command(self) -> str | None:
         """Return a shell command that writes the opencode config to ~/.config/opencode/opencode.json.
@@ -490,7 +481,7 @@ class OpenCode(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         # Capture the rendered instruction so the trajectory can include the

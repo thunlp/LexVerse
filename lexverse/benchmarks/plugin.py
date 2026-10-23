@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from lexverse.environments.base import ExecutionEnvironment
+from lexverse.interaction.engine import InteractionEnvironment
 from lexverse.providers.base import Provider
 from lexverse.tasks.bundle import TaskBundle, TaskSelection
 from lexverse.tasks.schema import LexVerseTask
@@ -98,9 +98,9 @@ class BenchmarkPlugin(ABC):
         return {}
 
     @abstractmethod
-    def create_environment(
+    def create_interaction_environment(
         self, config: Any, provider: Provider
-    ) -> ExecutionEnvironment: ...
+    ) -> InteractionEnvironment: ...
 
     def evaluation_context(self, config: Any) -> dict[str, Any]:
         return {}

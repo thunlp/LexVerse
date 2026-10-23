@@ -28,7 +28,7 @@ from lexverse.agents.installed.base import (
     CliFlag,
     with_prompt_template,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -466,7 +466,7 @@ class OpenClaw(BaseInstalledAgent):
         return "python3 -c " + shlex.quote(script)
 
     async def _copy_openclaw_session_file_to_agent_logs(
-        self, environment: BaseEnvironment, env: dict[str, str]
+        self, environment: ExecutionEnvironment, env: dict[str, str]
     ) -> None:
         """Copy OpenClaw session JSONL into the trial agent logs mount (best-effort)."""
         try:
@@ -492,7 +492,7 @@ class OpenClaw(BaseInstalledAgent):
         return _nvm22("openclaw --version")
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         root_pkgs = "curl ca-certificates"
         await self.exec_as_root(
             environment,
@@ -890,21 +890,13 @@ class OpenClaw(BaseInstalledAgent):
             context.n_cache_tokens = fm.total_cached_tokens or 0
 
     def _build_register_skills_command(self) -> str | None:
-        if not self.skills_dir:
-            return None
-        return (
-            "mkdir -p ~/.openclaw/skills && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f'  d=$(dirname "$f"); '
-            f'  cp -r "$d" ~/.openclaw/skills/ 2>/dev/null || true; '
-            f"done"
-        )
+        return self._link_skills_command('$HOME/.openclaw/skills')
 
     @with_prompt_template
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         escaped_instruction = shlex.quote(instruction)

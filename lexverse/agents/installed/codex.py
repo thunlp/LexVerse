@@ -24,7 +24,7 @@ from lexverse.agents.installed.base import (
     CliFlag,
     with_prompt_template,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -107,7 +107,7 @@ class Codex(BaseInstalledAgent):
         return text
 
     async def _installed_codex_satisfies_version(
-        self, environment: BaseEnvironment
+        self, environment: ExecutionEnvironment
     ) -> bool:
         if self._version is None:
             check_result = await environment.exec(command=self._INSTALL_CHECK_COMMAND)
@@ -121,7 +121,7 @@ class Codex(BaseInstalledAgent):
         return installed_version == self._version
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         if await self._installed_codex_satisfies_version(environment):
             self.logger.debug("Codex is already available at the requested version")
             return
@@ -958,31 +958,32 @@ class Codex(BaseInstalledAgent):
             context.n_output_tokens = metrics.total_completion_tokens or 0
 
     def _build_register_skills_command(self) -> str | None:
-        """Return a shell command that copies skills to Codex's skills directory."""
-        if not self.skills_dir:
-            return None
-        return (
-            f"mkdir -p $HOME/.agents/skills && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f"  d=$(dirname \"$f\"); "
-            f"  cp -r \"$d\" $HOME/.agents/skills/ 2>/dev/null || true; "
-            f"done"
-        )
+        return self._link_skills_command('$HOME/.agents/skills')
 
     def _build_register_mcp_servers_command(self) -> str | None:
         """Return a shell command that writes MCP config to $CODEX_HOME/config.toml."""
         if not self.mcp_servers:
             return None
         lines: list[str] = []
+        from lexverse.environments.network import mcp_header_env
         for server in self.mcp_servers:
             lines.append(f"[mcp_servers.{server.name}]")
             if server.transport == "stdio":
                 lines.append(f"command = {json.dumps(server.command or '')}")
                 if server.args:
                     lines.append(f"args = {json.dumps(list(server.args))}")
-                lines.append('env = { PYTHONPATH = "/lexverse-repo" }')
+                if server.env:
+                    values = ", ".join(json.dumps(key) + " = " + json.dumps(value) for key, value in server.env.items())
+                    lines.append("env = { " + values + " }")
+                if server.name == "lexverse_knowledge":
+                    lines.extend(["startup_timeout_sec = 120", "required = true"])
             else:
                 lines.append(f"url = {json.dumps(server.url or '')}")
+                if server.transport != "streamable-http":
+                    raise ValueError("Codex remote MCP requires streamable-http transport")
+                if server.headers:
+                    headers = ", ".join(json.dumps(key) + " = " + json.dumps(mcp_header_env(server.name, key)) for key in server.headers)
+                    lines.append("env_http_headers = { " + headers + " }")
             lines.append("")
         escaped_config = shlex.quote("\n".join(lines))
         return f'echo {escaped_config} >> "$CODEX_HOME/config.toml"'
@@ -1020,7 +1021,7 @@ class Codex(BaseInstalledAgent):
     @override
     @with_prompt_template
     async def run(
-        self, instruction: str, environment: BaseEnvironment, context: AgentContext
+        self, instruction: str, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
         escaped_instruction = shlex.quote(instruction)
 
@@ -1033,6 +1034,8 @@ class Codex(BaseInstalledAgent):
             model = self.model_name
 
         # Build command with optional CLI config flags from descriptors.
+        if environment.task_env_config.network_mode == "allowlist":
+            self._resolved_cli_flags["web_search"] = "disabled"
         cli_flags = self.build_cli_flags()
         cli_flags_arg = (cli_flags + " ") if cli_flags else ""
 

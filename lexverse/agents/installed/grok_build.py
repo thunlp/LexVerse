@@ -30,7 +30,7 @@ from lexverse.agents.installed.base import (
     ErrorPattern,
     with_prompt_template,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -321,7 +321,7 @@ class GrokBuild(BaseInstalledAgent):
         return stdout.strip()
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         # The exit watchdog and orphan sweep need a full ps (--ppid), which
         # busybox and slim images lack, so install procps alongside curl on
         # every image family. Alpine additionally needs coreutils (stdbuf for
@@ -358,19 +358,7 @@ class GrokBuild(BaseInstalledAgent):
             await self.exec_as_agent(environment, command=skills_command)
 
     def _build_register_skills_command(self) -> str | None:
-        """Return a shell command that copies Harbor skills to Grok's skills dir."""
-        if not self.skills_dir:
-            return None
-        skills_dir = shlex.quote(self.skills_dir)
-        return (
-            f"if [ -d {skills_dir} ]; then "
-            "mkdir -p ~/.grok/skills && "
-            f"for f in $(find {skills_dir} -name 'SKILL.md' 2>/dev/null); do "
-            f'  d=$(dirname "$f"); '
-            f'  cp -r "$d" ~/.grok/skills/ 2>/dev/null || true; '
-            f"done; "
-            "fi"
-        )
+        return self._link_skills_command('$HOME/.grok/skills')
 
     @staticmethod
     def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -606,7 +594,7 @@ exit "${{STATUS:-1}}"
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         escaped_instruction = shlex.quote(instruction)

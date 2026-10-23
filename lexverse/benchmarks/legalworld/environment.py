@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import time
 
-from lexverse.environments.base import ExecutionEnvironment
+from lexverse.interaction.engine import InteractionEnvironment
 from lexverse.interaction.schema import EnvironmentResult
 from lexverse.runtime.executor import run_subprocess
 from lexverse.runtime.results import atomic_write_json
@@ -116,7 +116,7 @@ async def run_native_process(mode, settings, connections, work_dir, timeout):
     )
 
 
-class LegalWorldEnvironment(ExecutionEnvironment):
+class LegalWorldEnvironment(InteractionEnvironment):
     name = "legalworld_native"
 
     def __init__(self, config):

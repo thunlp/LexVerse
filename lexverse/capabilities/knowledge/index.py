@@ -13,9 +13,10 @@ from filelock import FileLock
 from lexverse.capabilities.knowledge.loaders import (
     Document, KINDS, LOADER_VERSION, hash_file, load_documents, scan_source, source_kind,
 )
+from lexverse.capabilities.knowledge.keyword import create_tokenizer, tokenize
 from lexverse.config import ConfigError
 from lexverse.runtime.results import atomic_write_json
-from lexverse.tasks.user import KnowledgeFilters, RetrievalConfig
+from lexverse.tasks.user import RetrievalConfig
 
 
 def _hash(value) -> str:
@@ -38,17 +39,6 @@ def _index_retrieval(config: RetrievalConfig, embedding_identity: dict) -> dict:
     recipe["embedding"] = ("bge_small_zh" if config.mode == "keyword" or config.embedding.uses_default_encoding()
                            else embedding_identity)
     return recipe
-
-
-def _tokenizer():
-    import jieba
-    tokenizer = jieba.Tokenizer()
-    tokenizer.initialize()
-    return tokenizer
-
-
-def _words(tokenizer, text):
-    return [word.strip() for word in tokenizer.cut(text) if word.strip() and any(c.isalnum() for c in word)]
 
 
 class _NumpyFlatIPIndex:
@@ -230,11 +220,11 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
             logical_name = source.relative_to(parent.parent).as_posix()
             break
     source_id = source.name + "_" + _hash(logical_name)[:8]
-    tokenizer = _tokenizer()
+    tokenizer = create_tokenizer()
     if config.mode != "keyword" and embedding is None:
         raise ConfigError("Vector retrieval requires an embedding model")
     if embedding is None:
-        token_length = lambda text: len(_words(tokenizer, text))
+        token_length = lambda text: len(tokenize(tokenizer, text))
         embedding_identity = {"tokenizer": "jieba", "vector": False}
     else:
         token_length = lambda text: len(embedding.tokenizer.encode(text))
@@ -322,7 +312,7 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
                         db.execute("INSERT INTO chunks VALUES (?, ?, ?)",
                                    (chunk_id, chunk.page_content, json.dumps(chunk.metadata, ensure_ascii=False)))
                         db.execute("INSERT INTO keywords VALUES (?, ?)",
-                                   (chunk_id, " ".join(_words(tokenizer, chunk.page_content))))
+                                   (chunk_id, " ".join(tokenize(tokenizer, chunk.page_content))))
                         ids.append(chunk_id)
                         if progress is not None and len(ids) % 64 == 0:
                             progress(completed_files, len(files), len(ids))
@@ -389,6 +379,7 @@ def preparation_report(index, cache: Path, *, skipped=None) -> dict:
 
 class KnowledgeIndex:
     def __init__(self, path: Path, embedding=None, *, config: RetrievalConfig | None = None):
+        self.path = path.resolve()
         self.manifest = verify_index(path)
         self.index_hash = self.manifest["index_hash"]
         self.source_id = self.manifest["identity"]["source_id"]
@@ -402,8 +393,6 @@ class KnowledgeIndex:
                 raise ConfigError("Retrieval configuration does not match the prebuilt knowledge index")
         self.config = config.model_copy(deep=True) if config is not None else RetrievalConfig.model_validate(recipe)
         self.db = sqlite3.connect((path / "documents.sqlite").resolve().as_uri() + "?mode=ro&immutable=1", uri=True, check_same_thread=False)
-        self.tokenizer = _tokenizer()
-        self.vector_store = None
         self.faiss_index = None
         self.vector_ids: list[str] = []
         self.embedding = embedding
@@ -418,27 +407,6 @@ class KnowledgeIndex:
                 raise ConfigError("Vector index and document mapping differ")
             self.faiss_index = vector
             self.vector_ids = ids
-            try:
-                import faiss  # noqa: F401
-                from langchain_community.docstore.base import Docstore
-                from langchain_community.vectorstores import FAISS
-                from langchain_community.vectorstores.utils import DistanceStrategy
-
-                owner = self
-
-                class SQLiteDocstore(Docstore):
-                    def search(self, search: str):
-                        return owner.document(search)
-
-                self.vector_store = FAISS(
-                    embedding,
-                    vector,
-                    SQLiteDocstore(),
-                    dict(enumerate(ids)),
-                    distance_strategy=DistanceStrategy.MAX_INNER_PRODUCT,
-                )
-            except ImportError:
-                self.vector_store = None
 
     def close(self):
         self.db.close()
@@ -449,115 +417,32 @@ class KnowledgeIndex:
             raise ValueError("Unknown knowledge chunk")
         return Document(page_content=row[0], metadata=json.loads(row[1]))
 
-    def search(self, query: str, filters: dict | None = None) -> list[tuple[Document, float]]:
-        ranks = []
-        if self.config.mode != "vector":
-            terms = list(dict.fromkeys(_words(self.tokenizer, query)))[:100]
-            if terms:
-                expression = " OR ".join('"' + term.replace('"', '""') + '"' for term in terms)
-                conditions = "".join(" AND json_extract(chunks.metadata, ?) = ?" for _ in (filters or {}))
-                arguments = [value for key, item in (filters or {}).items() for value in ("$." + key, item)]
-                rows = self.db.execute(
-                    "SELECT keywords.id FROM keywords JOIN chunks ON chunks.id = keywords.id "
-                    "WHERE keywords MATCH ?" + conditions + " ORDER BY bm25(keywords) LIMIT ?",
-                    [expression, *arguments, self.config.keyword_candidates],
-                ).fetchall()
-                ranks.append([row[0] for row in rows])
-        if self.vector_store is not None:
+    def vector_candidates(self, query_vector, filters: dict | None = None, *, limit: int | None = None) -> list[tuple[Document, float]]:
+        import numpy as np
+
+        try:
             import faiss
-            # OpenMP settings are thread-local; tools can search from worker threads.
             faiss.omp_set_num_threads(1)
-            hits = self.vector_store.similarity_search(
-                query, k=self.config.vector_candidates, filter=filters,
-                fetch_k=self.manifest["chunk_count"] if filters else self.config.vector_candidates,
-            )
-            ranks.append([doc.metadata["chunk_id"] for doc in hits])
-        elif self.faiss_index is not None and self.embedding is not None:
-            import numpy as np
-
-            try:
-                import faiss
-
-                faiss.omp_set_num_threads(1)
-            except ImportError:
-                pass
-            q_vec = np.asarray([self.embedding.embed_query(query)], dtype="float32")
-            _normalize_l2_inplace(q_vec)
-            fetch_k = self.manifest["chunk_count"] if filters else min(self.config.vector_candidates, len(self.vector_ids))
-            _, indices = self.faiss_index.search(q_vec, fetch_k)
-            matched_ids: list[str] = []
-            for idx in indices[0]:
+        except ImportError:
+            pass
+        limit = self.config.vector_candidates if limit is None else limit
+        q_vec = np.asarray([query_vector], dtype="float32")
+        _normalize_l2_inplace(q_vec)
+        filters = dict(filters or {})
+        if filters.get("kind") and set(self.manifest["identity"]["kinds"].values()) == {filters["kind"]}:
+            filters.pop("kind")
+        if self.faiss_index is not None:
+            fetch_k = self.manifest["chunk_count"] if filters else min(limit, len(self.vector_ids))
+            scores, indices = self.faiss_index.search(q_vec, fetch_k)
+            hits = []
+            for score, idx in zip(scores[0], indices[0]):
                 if idx < 0 or idx >= len(self.vector_ids):
                     continue
-                cid = self.vector_ids[idx]
-                if filters:
-                    doc = self.document(cid)
-                    if any(doc.metadata.get(k) != v for k, v in filters.items()):
-                        continue
-                matched_ids.append(cid)
-                if len(matched_ids) >= self.config.vector_candidates:
+                doc = self.document(self.vector_ids[idx])
+                if any(doc.metadata.get(k) != v for k, v in filters.items()):
+                    continue
+                hits.append((doc, float(score)))
+                if len(hits) >= limit:
                     break
-            ranks.append(matched_ids)
-        scores = {}
-        for ranking in ranks:
-            for rank, chunk_id in enumerate(ranking, 1):
-                scores[chunk_id] = scores.get(chunk_id, 0) + 1 / (60 + rank)
-        return [(self.document(chunk_id), score) for chunk_id, score in sorted(scores.items(), key=lambda pair: (-pair[1], pair[0]))]
-
-
-class TaskRetriever:
-    def __init__(self, indexes: list[KnowledgeIndex]):
-        self.indexes = {}
-        for index in indexes:
-            previous = self.indexes.get(index.source_id)
-            if previous is not None and previous.index_hash != index.index_hash:
-                raise ConfigError("Knowledge sources share a logical name; use distinct source directory names")
-            self.indexes[index.source_id] = index
-
-    def search(self, query: str, top_k: int = 8, source_ids: list[str] | None = None,
-               filters: dict | None = None) -> list[dict]:
-        if not query.strip() or len(query) > 3000 or not 1 <= top_k <= 20:
-            raise ValueError("Query or top_k exceeds allowed limits")
-        filters = KnowledgeFilters.model_validate(filters or {}).model_dump(exclude_none=True)
-        if source_ids is None:
-            selected = list(self.indexes)
-        else:
-            resolved = []
-            for sid in dict.fromkeys(source_ids):
-                if sid in self.indexes:
-                    resolved.append(sid)
-                else:
-                    matched = next(
-                        (k for k, cand in self.indexes.items() if cand.index_hash == sid or cand.index_hash.startswith(sid)),
-                        None,
-                    )
-                    resolved.append(matched or sid)
-            selected = list(dict.fromkeys(resolved))
-        if set(selected) - self.indexes.keys():
-            raise ValueError("Knowledge source is not allowed for this task")
-        hits = []
-        for source in selected:
-            for rank, (document, _) in enumerate(self.indexes[source].search(query, filters), 1):
-                hits.append((1 / (60 + rank), document))
-        results, counts = [], {}
-        max_per_doc = max(2, top_k)
-        for score, doc in sorted(hits, key=lambda pair: (-pair[0], pair[1].metadata["chunk_id"])):
-            parent = doc.metadata["document_id"]
-            if counts.get(parent, 0) >= max_per_doc:
-                continue
-            counts[parent] = counts.get(parent, 0) + 1
-            results.append({**doc.metadata, "snippet": doc.page_content[:1000], "rank_score": score})
-            if len(results) == top_k:
-                break
-        return results
-
-    def fetch(self, citation_id: str, offset: int = 0, limit: int = 4000) -> dict:
-        parts = citation_id.split(":")
-        if len(parts) != 3 or parts[0] != "knowledge" or offset < 0 or not 1 <= limit <= 8000:
-            raise ValueError("Invalid knowledge citation or page bounds")
-        index = next((index for index in self.indexes.values() if index.index_hash == parts[1]), None)
-        if index is None:
-            raise ValueError("Knowledge citation is not allowed for this task")
-        doc = index.document(parts[2])
-        return {**doc.metadata, "text": doc.page_content[offset:offset + limit], "offset": offset,
-                "next_offset": offset + limit if offset + limit < len(doc.page_content) else None}
+            return hits
+        raise ConfigError("Vector retrieval requires a loaded vector index")

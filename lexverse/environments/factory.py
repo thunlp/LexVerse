@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.environments.docker import DockerEnvironment
 from lexverse.environments.local import LocalEnvironment
 from lexverse.models.trial import EnvironmentType, TaskEnvConfig, TrialPaths
@@ -10,7 +10,7 @@ from lexverse.utils.import_path import import_class
 
 
 class EnvironmentFactory:
-    _ENV_MAP: dict[EnvironmentType, type[BaseEnvironment]] = {
+    _ENV_MAP: dict[EnvironmentType, type[ExecutionEnvironment]] = {
         EnvironmentType.LOCAL: LocalEnvironment,
         EnvironmentType.DOCKER: DockerEnvironment,
     }
@@ -25,9 +25,9 @@ class EnvironmentFactory:
         trial_paths: TrialPaths,
         task_env_config: TaskEnvConfig,
         **kwargs,
-    ) -> BaseEnvironment:
+    ) -> ExecutionEnvironment:
         if isinstance(env_type, str) and ":" in env_type:
-            env_cls = import_class(env_type, base=BaseEnvironment, label="environment")
+            env_cls = import_class(env_type, base=ExecutionEnvironment, label="environment")
             return env_cls(
                 environment_dir=environment_dir,
                 environment_name=environment_name,

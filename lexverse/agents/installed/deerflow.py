@@ -27,7 +27,7 @@ from typing import Any, override
 import yaml
 
 from lexverse.agents.installed.base import BaseInstalledAgent, with_prompt_template
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trial import EnvironmentPaths
@@ -223,7 +223,7 @@ class DeerFlow(BaseInstalledAgent):
         return self._model_provider_config()[1]
 
     async def _resolve_runtime_context(
-        self, environment: BaseEnvironment
+        self, environment: ExecutionEnvironment
     ) -> _RuntimeContext:
         result = await self.exec_as_agent(
             environment,
@@ -477,7 +477,7 @@ class DeerFlow(BaseInstalledAgent):
         )
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         await self._resolve_runtime_context(environment)
         # Idempotent: skip the heavy clone+install when the CLI is already present
         # (prebuilt image / reused environment). The config is cheap and depends
@@ -487,7 +487,7 @@ class DeerFlow(BaseInstalledAgent):
             await self._install_harness(environment)
         await self._write_config(environment)
 
-    async def _install_harness(self, environment: BaseEnvironment) -> None:
+    async def _install_harness(self, environment: ExecutionEnvironment) -> None:
         repo = shlex.quote(self._REMOTE_REPO_DIR.as_posix())
         venv = shlex.quote(self._REMOTE_VENV_DIR.as_posix())
         runtime = self._require_runtime_context()
@@ -543,7 +543,7 @@ class DeerFlow(BaseInstalledAgent):
             timeout_sec=2400,
         )
 
-    async def _write_config(self, environment: BaseEnvironment) -> None:
+    async def _write_config(self, environment: ExecutionEnvironment) -> None:
         project = shlex.quote(self._REMOTE_PROJECT_DIR.as_posix())
         # Create as root and hand to the agent user: /installed-agent is
         # root-owned, so a non-root agent user (common for SWE-bench tasks)
@@ -573,7 +573,7 @@ class DeerFlow(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         runtime = self._require_runtime_context()
@@ -629,7 +629,7 @@ class DeerFlow(BaseInstalledAgent):
         await self._apply_run_summary(environment, context)
 
     async def _apply_run_summary(
-        self, environment: BaseEnvironment, context: AgentContext
+        self, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
         """Best-effort token accounting from the runner's compact summary.
 

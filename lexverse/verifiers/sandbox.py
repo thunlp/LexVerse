@@ -23,7 +23,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.trial import EnvironmentPaths, TrialPaths
 
 
@@ -46,7 +46,7 @@ class SandboxVerifier:
         self,
         tests_dir: Path,
         trial_paths: TrialPaths,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         timeout_sec: float | None = 300.0,
         env: dict[str, str] | None = None,
     ):

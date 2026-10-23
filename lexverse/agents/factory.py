@@ -16,7 +16,6 @@
 
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
-import json
 
 from lexverse.agents.installed.acp_registry import (
     is_acp_registry_shorthand,
@@ -176,12 +175,10 @@ class AgentFactory:
         )
 
 
-def build_agent(model, root: Path, *, tools=(), skills=None, checkpointer=None,
-                middleware=(), interactive=False, system_prompt="", artifacts_root: Path | None = None,
-                skills_root: Path | None = None):
+def build_agent(model, environment, *, tools=(), skills=None, checkpointer=None,
+                middleware=(), interactive=False, system_prompt="", timeout_sec: float = 60):
     from deepagents import create_deep_agent
-    from deepagents.backends import FilesystemBackend
-    from deepagents.middleware.filesystem import FilesystemPermission
+    from lexverse.agents.environment_backend import EnvironmentBackend
     from deepagents.profiles import (
         GeneralPurposeSubagentProfile, HarnessProfile, register_harness_profile,
     )
@@ -194,35 +191,9 @@ def build_agent(model, root: Path, *, tools=(), skills=None, checkpointer=None,
     key = f"{provider}:{identifier}" if identifier else provider
     register_harness_profile(key, HarnessProfile(
         general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False),
-        excluded_tools=frozenset({"execute", "task", "delete"}),
+        excluded_tools=frozenset({"task", "delete"}),
     ))
-    root = root.resolve()
-    if any(path.is_symlink() for path in root.rglob("*")):
-        raise ValueError("Agent filesystem must not contain symbolic links")
-    backend = FilesystemBackend(root_dir=root, virtual_mode=True)
-    if artifacts_root is not None or skills_root is not None:
-        from deepagents.backends import CompositeBackend
-        routes = {}
-        if skills_root is not None:
-            skills_root = skills_root.resolve()
-            if any(path.is_symlink() for path in skills_root.rglob("*")):
-                raise ValueError("Skills must not contain symbolic links")
-            routes["/skills/"] = FilesystemBackend(root_dir=skills_root, virtual_mode=True)
-        if artifacts_root is not None:
-            artifacts_root = artifacts_root.resolve()
-            if any(path.is_symlink() for path in artifacts_root.rglob("*")):
-                raise ValueError("Artifacts must not contain symbolic links")
-            routes["/artifacts/"] = FilesystemBackend(root_dir=artifacts_root, virtual_mode=True)
-        backend = CompositeBackend(default=backend, routes=routes)
-    permissions = [
-        FilesystemPermission(operations=["read"], paths=["/inputs", "/inputs/**", "/skills", "/skills/**"]),
-        FilesystemPermission(operations=["read", "write"], paths=[
-            "/workspace", "/workspace/**", "/artifacts", "/artifacts/**",
-            "/large_tool_results", "/large_tool_results/**",
-            "/conversation_history", "/conversation_history/**", "/blobs", "/blobs/**",
-        ]),
-        FilesystemPermission(operations=["read", "write"], paths=["/**"], mode="deny"),
-    ]
+    backend = EnvironmentBackend(environment, timeout_sec=timeout_sec)
     user_tool = next((tool for tool in tools if getattr(tool, "name", None) == "ask_user"), None)
 
     def valid_question(request):
@@ -235,36 +206,7 @@ def build_agent(model, root: Path, *, tools=(), skills=None, checkpointer=None,
     return create_deep_agent(
         model=model, backend=backend,
         tools=list(tools), skills=skills, middleware=list(middleware),
-        permissions=permissions, checkpointer=checkpointer, system_prompt=system_prompt,
+        checkpointer=checkpointer, system_prompt=system_prompt,
         interrupt_on={"ask_user": {"allowed_decisions": ["respond"], "when": valid_question}}
         if user_tool is not None else None,
     )
-
-
-def sandbox_exec_tool(environment, *, timeout_sec: float = 60.0):
-    """Create a LangChain @tool(`run_command`) that executes shell commands inside the active sandbox environment."""
-    from langchain_core.tools import tool
-    from pydantic import BaseModel, Field
-
-    class RunCommandInput(BaseModel):
-        command: str = Field(description="Shell command to execute inside the sandbox environment (/workspace, /inputs, /artifacts, /skills)")
-        cwd: str | None = Field(default="/workspace", description="Working directory inside the sandbox (default: /workspace)")
-
-    @tool("run_command", args_schema=RunCommandInput)
-    async def run_command(command: str, cwd: str | None = "/workspace") -> str:
-        """Execute a bash command inside the isolated task sandbox environment (/workspace, /inputs, /artifacts, /skills) and return stdout/stderr."""
-        res = await environment.exec(
-            command=command,
-            cwd=cwd or "/workspace",
-            timeout_sec=max(1, int(timeout_sec)),
-        )
-        return json.dumps(
-            {
-                "return_code": res.return_code,
-                "stdout": (res.stdout or "")[-4000:],
-                "stderr": (res.stderr or "")[-4000:],
-            },
-            ensure_ascii=False,
-        )
-
-    return run_command

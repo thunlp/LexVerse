@@ -2,10 +2,17 @@ from contextlib import AsyncExitStack, asynccontextmanager
 import asyncio
 import hashlib
 import json
+import os
+from pathlib import Path
 import re
+import sys
+from tempfile import TemporaryDirectory
 
 from lexverse.capabilities.registry import ResourceRegistry
 from lexverse.config import ConfigError, load_profile
+from lexverse.models.trial import MCPServerConfig
+from lexverse.runtime.paths import AGENT_RUNTIME_ROOT, PROJECT_ROOT, RunPaths
+from lexverse.runtime.results import atomic_write_json
 
 
 def failure_category(error: Exception) -> str:
@@ -66,17 +73,13 @@ async def open_mcp_tools(registry: ResourceRegistry, selected: list[str], *, ada
         adapter_factory = MCPAdapter
     if len(selected) != len(set(selected)):
         raise ConfigError("Duplicate MCP selections")
-    if "pkulaw_law_agg" in selected and set(selected) & {
-        "pkulaw_law_search", "pkulaw_law_keyword", "pkulaw_law_item_keyword",
-    }:
-        raise ConfigError("Choose aggregated or individual law services, not both")
     tools, services, names = [], [], set()
     async with AsyncExitStack() as stack:
         for alias in selected:
             service = registry.mcp.get(alias)
             if service is None:
                 raise ConfigError(f"Unknown MCP service: {alias}")
-            config = {"url": service.url}
+            config = {"url": service.url, "transport": service.transport}
             try:
                 if service.credential_ref:
                     config["headers"] = {"Authorization": "Bearer " + load_profile(service.credential_ref).api_key}
@@ -112,3 +115,79 @@ async def open_mcp_tools(registry: ResourceRegistry, selected: list[str], *, ada
                 report["tools"].append({"name": name, **identity, "description": remote.description, "schema": schema})
             services.append(report)
         yield tools, services
+
+
+def build_knowledge_mcp_config(spec, manifest_path, resources, *, cache_dir=None, env_type="local"):
+    """Describe the same knowledge service for built-in and external clients."""
+    selected = set(spec.selection.tools) & {"search_knowledge", "fetch_knowledge"}
+    if not spec.selection.knowledge or not selected:
+        return None
+    public_manifest = manifest_path.parent / "knowledge_indexes.json"
+    atomic_write_json(public_manifest, {"knowledge": resources.get("knowledge", []),
+                                       "keyword_cache": resources.get("keyword_cache"),
+                                       "tools": sorted(selected)})
+    args = ["-m", "lexverse.capabilities.knowledge.mcp_server", "--manifest", str(public_manifest.resolve())]
+    if cache_dir is not None:
+        args.extend(["--cache", str(cache_dir.resolve())])
+    pythonpath = ("/lexverse-repo" if env_type == "docker" else
+                  os.pathsep.join([str(AGENT_RUNTIME_ROOT / "site-packages"), str(PROJECT_ROOT)]))
+    return MCPServerConfig(name="lexverse_knowledge", transport="stdio",
+                           command="python3" if env_type == "docker" else sys.executable, args=args,
+                           env={"PYTHONPATH": pythonpath})
+
+
+@asynccontextmanager
+async def open_knowledge_tools(spec, resources, *, cache, embedding_recorder=None):
+    """Keep the local knowledge MCP process alive only for this execution."""
+    from fastmcp.client.transports import StdioTransport
+    from langchain.mcp import MCPAdapter
+    from langchain_core.tools import StructuredTool, ToolException
+
+    paths = RunPaths(spec.run_dir)
+    server = build_knowledge_mcp_config(spec, paths.internal / "manifest.json", resources, cache_dir=cache)
+    if server is None:
+        yield []
+        return
+    # Child interpreters need the same bundled dependencies as the parent.
+    pythonpath = os.pathsep.join(str(Path(path).resolve()) for path in sys.path if path)
+    with TemporaryDirectory(prefix="knowledge-mcp-", dir=paths.internal) as temporary:
+        usage_path = Path(temporary) / "embedding.jsonl"
+        usage_path.touch()
+        position = 0
+
+        def collect_usage():
+            nonlocal position
+            with usage_path.open(encoding="utf-8") as stream:
+                stream.seek(position)
+                for line in stream:
+                    if embedding_recorder is not None:
+                        embedding_recorder(**json.loads(line))
+                position = stream.tell()
+
+        transport = StdioTransport(server.command, [*server.args, "--usage-log", str(usage_path)],
+                                   env={**os.environ, "PYTHONPATH": pythonpath}, keep_alive=False)
+        try:
+            async with MCPAdapter(transport) as adapter:
+                discovered = {tool.name: tool for tool in await adapter.list_tools()}
+                selected = set(spec.selection.tools) & {"search_knowledge", "fetch_knowledge"}
+                if selected - discovered.keys():
+                    raise ConfigError("Knowledge MCP service is missing selected tools")
+
+                def wrap(remote):
+                    async def invoke(**arguments):
+                        try:
+                            response = await remote.ainvoke({"name": remote.name, "args": arguments,
+                                                             "id": "knowledge", "type": "tool_call"})
+                            if response.status == "error":
+                                raise ToolException(str(response.content))
+                            return json.loads(response.content[0]["text"])
+                        finally:
+                            collect_usage()
+
+                    return StructuredTool(name=remote.name, description=remote.description,
+                                          args_schema=remote.args_schema, coroutine=invoke,
+                                          metadata={"service": "lexverse_knowledge", "remote_name": remote.name})
+
+                yield [wrap(discovered[name]) for name in sorted(selected)]
+        finally:
+            collect_usage()

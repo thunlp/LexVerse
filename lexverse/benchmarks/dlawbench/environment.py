@@ -10,9 +10,9 @@ import sys
 import threading
 import time
 
-from lexverse.environments.base import ExecutionEnvironment
+from lexverse.interaction.engine import InteractionEnvironment
 from lexverse.interaction.schema import EnvironmentResult
-from lexverse.providers.openai_compatible import OpenAICompatibleProvider
+from lexverse.providers.api import OpenAICompatibleProvider
 from lexverse.runtime.executor import run_subprocess
 from lexverse.runtime.errors import TrialError
 from lexverse.runtime.results import atomic_write_json
@@ -160,7 +160,7 @@ class NativeTransport:
         return {}, response
 
 
-class DLawBenchEnvironment(ExecutionEnvironment):
+class DLawBenchEnvironment(InteractionEnvironment):
     name = "dlawbench_native"
 
     def __init__(self, config):

@@ -25,7 +25,7 @@ import shlex
 from typing import Any, Callable, Literal, override
 
 from lexverse.agents.base import BaseAgent
-from lexverse.environments.base import BaseEnvironment, ExecResult
+from lexverse.environments.base import ExecutionEnvironment, ExecResult
 from lexverse.models.agent.context import AgentContext
 from lexverse.utils.env import parse_bool_env_value
 from lexverse.utils.templating import render_prompt_template
@@ -184,7 +184,7 @@ def with_prompt_template(run_method: Callable) -> Callable:
     async def wrapper(
         self: "BaseInstalledAgent",
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         if self._prompt_template_path is not None:
@@ -195,7 +195,8 @@ def with_prompt_template(run_method: Callable) -> Callable:
             rendered_instruction = instruction
 
         try:
-            await run_method(self, rendered_instruction, environment, context)
+            async with environment.agent_execution():
+                await run_method(self, environment.instruction_paths(rendered_instruction), environment, context)
         finally:
             try:
                 uid, gid = os.getuid(), os.getgid()
@@ -322,7 +323,7 @@ class BaseInstalledAgent(BaseAgent, ABC):
     async def resume(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         if not getattr(self, "SUPPORTS_RESUME", False):
@@ -365,7 +366,7 @@ class BaseInstalledAgent(BaseAgent, ABC):
     def parse_version(self, stdout: str) -> str:
         return stdout.strip()
 
-    async def resolve_version(self, environment: BaseEnvironment) -> None:
+    async def resolve_version(self, environment: ExecutionEnvironment) -> None:
         cmd = self.get_version_command()
         if cmd is None:
             return
@@ -385,7 +386,7 @@ class BaseInstalledAgent(BaseAgent, ABC):
     def prompt_template_path(self) -> Path | None:
         return self._prompt_template_path
 
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         raise NotImplementedError(
             f"{self.__class__.__name__} must implement install()."
         )
@@ -426,7 +427,23 @@ class BaseInstalledAgent(BaseAgent, ABC):
             return render_prompt_template(self._prompt_template_path, instruction)
         return instruction
 
-    def _resolve_agent_user(self, environment: BaseEnvironment) -> str | int | None:
+    def _link_skills_command(self, destination: str) -> str | None:
+        """Register existing task Skills by reference, never by copying their contents."""
+        if not self.skills_dir:
+            return None
+        if destination.startswith("$"):
+            destination = '"' + destination + '"'
+        script = (
+            'destination="$1"; shift; '
+            'for f do d=$(dirname "$f"); target="$destination/$(basename "$d")"; '
+            'if [ -e "$target" ] || [ -L "$target" ]; then '
+            '[ "$target" -ef "$d" ] || exit 1; '
+            'else ln -s "$d" "$target" || exit 1; fi; done'
+        )
+        return (f"mkdir -p {destination} && find {shlex.quote(self.skills_dir)} -type f -name SKILL.md "
+                f"-exec sh -c {shlex.quote(script)} sh {destination} {{}} +")
+
+    def _resolve_agent_user(self, environment: ExecutionEnvironment) -> str | int | None:
         return environment.default_user
 
     def _allocate_command_dir(self) -> Path:
@@ -442,7 +459,7 @@ class BaseInstalledAgent(BaseAgent, ABC):
 
     async def _exec_logged(
         self,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         command: str,
         *,
         user: str | int | None,
@@ -495,7 +512,7 @@ class BaseInstalledAgent(BaseAgent, ABC):
 
     async def exec_as_root(
         self,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         command: str,
         *,
         env: dict[str, str] | None = None,
@@ -519,7 +536,7 @@ class BaseInstalledAgent(BaseAgent, ABC):
 
     async def exec_as_agent(
         self,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         command: str,
         *,
         env: dict[str, str] | None = None,
@@ -539,7 +556,7 @@ class BaseInstalledAgent(BaseAgent, ABC):
             check=check,
         )
 
-    async def is_installed(self, environment: BaseEnvironment) -> bool:
+    async def is_installed(self, environment: ExecutionEnvironment) -> bool:
         cmd = self.get_version_command()
         if cmd is None:
             return False
@@ -554,7 +571,7 @@ class BaseInstalledAgent(BaseAgent, ABC):
             self.logger.debug(f"Pre-install check for {self.name()} failed: {e}")
         return False
 
-    async def setup(self, environment: BaseEnvironment) -> None:
+    async def setup(self, environment: ExecutionEnvironment) -> None:
         root_user = None if environment.type().value == "local" else "root"
         await environment.exec(
             command="[ -d /installed-agent ] || mkdir -p /installed-agent 2>/dev/null || true",

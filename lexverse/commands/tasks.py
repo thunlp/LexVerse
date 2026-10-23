@@ -1,115 +1,51 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 from pathlib import Path
 import re
 import shutil
 import sys
+import subprocess
+import tempfile
 
-from lexverse.agents.general_runner import execute_general_agent
 from lexverse.runtime.paths import RunPaths
-from lexverse.capabilities.base import AgentExecutionSpec
-from lexverse.capabilities.knowledge.loaders import load_documents, scan_source
 from lexverse.config import ConfigError
-from lexverse.environments.user_task import prepare_user_run
-from lexverse.runtime.results import atomic_write_json
 from lexverse.tasks.user import UserTaskSpec, load_user_task
+from lexverse.runtime.dependencies import requires_agent_dependencies
 
 
-def execution_spec(run: Path) -> AgentExecutionSpec:
-    paths = RunPaths(run)
-    manifest = json.loads((paths.internal / "manifest.json").read_text())
-    task = UserTaskSpec.model_validate(manifest["task"])
-    listing = sorted("/" + path.relative_to(paths.agent_fs).as_posix() for path in (paths.agent_fs / "inputs").rglob("*") if path.is_file())
-    instruction = task.instruction + "\n\nInput files: " + json.dumps(listing, ensure_ascii=False)
-    instruction += "\nRequired output files: " + json.dumps(["/" + path for path in task.outputs.required])
-    return AgentExecutionSpec(
-        run_dir=run, thread_id=manifest["thread_id"], messages=[{"role": "user", "content": instruction}],
-        model=task.model_config_value(Path(manifest.get("task_source", run)).parent), selection=task.capabilities,
-        retrieval=task.retrieval, limits=task.limits, outputs=task.outputs, interactive=task.interactive,
-        environment=task.environment,
-        context_window_tokens=task.context_window_tokens,
-    )
-
-
-def _parse_inputs(run: Path):
-    paths = RunPaths(run)
-    files, skipped = scan_source(paths.inputs)
-    unsupported = [item for item in skipped if item["reason"] == "unsupported_format"]
-    if unsupported:
-        raise ConfigError("Unsupported input formats: " + ", ".join(item["file"] for item in unsupported))
-    for relative in files:
-        if Path(relative).suffix.lower() not in {".pdf", ".docx", ".xlsx", ".pptx"}:
-            continue
-        documents = list(load_documents(paths.inputs, {relative: files[relative]}, "inputs", use_manifest=False))
-        content = "\n\n".join(f"[{doc.metadata['position']}]\n{doc.page_content}" for doc in documents)
-        (paths.agent_fs / "inputs" / (relative + ".parsed.md")).write_text(content, encoding="utf-8")
-
-
-async def _execute(args):
+def _worker_request(args):
     if args.command == "run":
-        task_path = Path(args.task).expanduser().resolve()
-        if task_path.is_dir():
-            task_path = task_path / "task.yaml"
-        task = load_user_task(task_path, Path(args.registry) if args.registry else None)
-        if args.no_interactive:
-            task.interactive = False
-        run = prepare_user_run(task, Path(args.output_root))
-        paths = RunPaths(run)
-        manifest = json.loads((paths.internal / "manifest.json").read_text())
-        manifest["task_source"] = str(task_path)
-        atomic_write_json(paths.internal / "manifest.json", manifest)
-        try:
-            _parse_inputs(run)
-        except (ConfigError, OSError, ValueError) as exc:
-            result = {"status": "failed", "stop_reason": "input_preparation_failed", "run_dir": str(run),
-                      "answer": None, "artifacts": [], "question": None, "error_type": type(exc).__name__,
-                      "error_message": str(exc),
-                      "trace_ref": str(paths.internal / "events.jsonl"), "usage": {}}
-            atomic_write_json(run / "result.json", result)
-            return result
-        spec = execution_spec(run)
-        spec.environment = getattr(args, "env", None) or task.environment or "docker"
-        if getattr(args, "model", None):
-            spec.model.name = args.model
-        result = await execute_general_agent(
-            spec,
-            agent_name=getattr(args, "agent", None) or task.agent or "lexverse",
-        )
-    else:
-        from lexverse.agents.agent_loop import execute_agent
+        path = Path(args.task).expanduser().resolve()
+        path = path / "task.yaml" if path.is_dir() else path
+        task = load_user_task(path, Path(args.registry) if args.registry else None)
+        task.agent = args.agent or task.agent
+        task.environment = args.env or task.environment
+        task.interactive = False if args.no_interactive else task.interactive
+        if args.model:
+            task.model["name"] = args.model
+        required = requires_agent_dependencies(task.agent, task.capabilities.knowledge, task.inputs)
+        return {"args": {"command": "run", "task": str(path), "output_root": args.output_root},
+                "task": task.model_dump(mode="json"),
+                "dependencies_required": required}
 
-        run = Path(args.run_dir).expanduser().resolve()
-        result = await execute_agent(execution_spec(run), reply=args.reply, confirm_facts=args.confirm_facts)
-    spec = execution_spec(run)
-    while result["status"] == "needs_input" and spec.interactive and not result.get("resume_error"):
-        from lexverse.agents.agent_loop import execute_agent
-        questions = result["question"]
-        for question in questions:
-            print(question["question"], file=sys.stderr)
-            if question["facts_summary"]:
-                print(question["facts_summary"], file=sys.stderr)
-        try:
-            confirm = False
-            while True:
-                reply = input("Your reply (Ctrl-D to leave paused): ")
-                if len(questions) != 1 or not questions[0]["summary_hash"]:
-                    break
-                while True:
-                    decision = input("Confirm displayed facts? [yes/no]: ").strip().lower()
-                    if decision in {"y", "yes", "n", "no"}:
-                        break
-                    print("Please enter yes or no.", file=sys.stderr)
-                if decision in {"y", "yes"}:
-                    confirm = True
-                    break
-                print("Reply not submitted. Please re-enter.", file=sys.stderr)
-        except EOFError:
-            break
-        result = await execute_agent(spec, reply=reply, confirm_facts=confirm)
-    return result
+    run = Path(args.run_dir).expanduser().resolve()
+    manifest = json.loads((RunPaths(run).internal / "manifest.json").read_text())
+    prior = json.loads((run / "result.json").read_text())
+    task = UserTaskSpec.model_validate(manifest["task"])
+    agent = prior.get("agent", task.agent)
+    if agent != "lexverse":
+        raise ConfigError("Resume is supported only for the built-in lexverse agent")
+    return {"args": {**vars(args), "run_dir": str(run)}, "dependencies_required": True}
+
+
+def _run_worker(args):
+    payload = _worker_request(args)
+    with tempfile.TemporaryDirectory(prefix="lexverse-task-") as temporary:
+        request = Path(temporary) / "request.json"
+        request.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        return subprocess.call([sys.executable, "-m", "lexverse.runtime.worker", "task", str(request)])
 
 
 def _prompt_yes_no(prompt: str) -> bool:
@@ -124,7 +60,7 @@ def init_user_task(
     task_name: str,
     *,
     root: Path = Path("user_workspace/task"),
-    docker_env: bool | None = None,
+    docker_env: bool = True,
     oracle_solution: bool | None = None,
     verifier_script: bool | None = None,
 ) -> dict:
@@ -134,7 +70,6 @@ def init_user_task(
     if task_dir.exists() and any(task_dir.iterdir()):
         raise ConfigError(f"Task directory already exists and is not empty: {task_dir}")
 
-    create_docker = _prompt_yes_no("Create a custom Docker environment?") if docker_env is None else docker_env
     create_oracle = _prompt_yes_no("Create a reference solution for Oracle testing?") if oracle_solution is None else oracle_solution
     create_verifier = _prompt_yes_no("Create an automatic scoring script?") if verifier_script is None else verifier_script
 
@@ -146,7 +81,7 @@ def init_user_task(
     created_files = [str(task_yaml), str(task_dir / "inputs")]
 
     for enabled, rel in (
-        (create_docker, "environment/Dockerfile"),
+        (docker_env, "environment/Dockerfile"),
         (create_oracle, "solution/solve.sh"),
         (create_verifier, "tests/test.sh"),
     ):
@@ -196,12 +131,17 @@ def summarize_atif_trajectory(trajectory_path: Path) -> dict:
 
 
 def main(argv=None):
+    # Set up the task command group.
     parser = argparse.ArgumentParser(prog="lexverse task")
     commands = parser.add_subparsers(dest="command", required=True)
+
+    # Define task initialization options.
     init_cmd = commands.add_parser("init", help="initialize a new user task directory under user_workspace/task/<task_name>/")
     init_cmd.add_argument("task_name", help="Name of the task directory to create")
     init_cmd.add_argument("--root", default="user_workspace/task", help="Parent directory for user tasks (default: user_workspace/task)")
-    run = commands.add_parser("run", help="run a legal task in a local or docker sandbox")
+
+    # Define execution options and configuration overrides.
+    run = commands.add_parser("run", help="run a legal task locally or in a Docker sandbox")
     run.add_argument("task")
     run.add_argument("--registry")
     run.add_argument("--output-root", default="runs/user_tasks")
@@ -209,6 +149,8 @@ def main(argv=None):
     run.add_argument("--agent", default=None, help="Agent name (e.g. lexverse, claude-code, codex, qwen-coder, gemini-cli, openhands, opencode, aider, oracle) or module:Class")
     run.add_argument("--env", default=None, help="Execution environment type (local or docker)")
     run.add_argument("--model", default=None, help="Optional model name override")
+
+    # Define resume, inspection, and agent discovery options.
     resume = commands.add_parser("resume", help="resume a paused interactive task run")
     resume.add_argument("run_dir")
     resume.add_argument("--reply", required=True)
@@ -216,9 +158,11 @@ def main(argv=None):
     inspect = commands.add_parser("inspect", help="inspect a completed or paused task run")
     inspect.add_argument("run_dir")
     inspect.add_argument("--trajectory", action="store_true", help="include ATIF trajectory summary from trajectory.json")
-    agents_cmd = commands.add_parser("agents", help="list all supported built-in and general CLI agents")
+    commands.add_parser("agents", help="list all supported built-in and general CLI agents")
     args = parser.parse_args(argv)
+
     try:
+        # Handle initialization and agent discovery in the CLI process.
         if args.command == "init":
             payload = init_user_task(args.task_name, root=Path(args.root))
             print(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -233,16 +177,21 @@ def main(argv=None):
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 0
         if args.command == "inspect":
+            # Read saved results without starting an execution worker.
             run_dir = Path(args.run_dir)
             result = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
             traj_file = run_dir / "trajectory.json"
             if getattr(args, "trajectory", False) and traj_file.is_file():
                 result["trajectory_summary"] = summarize_atif_trajectory(traj_file)
         else:
-            result = asyncio.run(_execute(args))
+            # Delegate run and resume commands to the runtime worker.
+            return _run_worker(args)
+
+        # Display the inspected result and return its exit status.
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result["status"] in {"completed", "needs_input"} and not result.get("resume_error") else 1
     except (ConfigError, OSError, ValueError) as exc:
+        # Report expected task errors with a consistent exit code.
         print(f"Task preparation failed: {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:

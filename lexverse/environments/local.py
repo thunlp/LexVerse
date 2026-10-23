@@ -7,17 +7,17 @@ import shutil
 from pathlib import Path
 
 from lexverse.environments.base import (
-    BaseEnvironment,
+    ExecutionEnvironment,
     EnvironmentCapabilities,
     ExecResult,
 )
 from lexverse.models.trial import EnvironmentType
 
 
-class LocalEnvironment(BaseEnvironment):
+class LocalEnvironment(ExecutionEnvironment):
     """
-    Host-process sandbox environment that implements the Harbor BaseEnvironment
-    contract without requiring Docker.
+    Host-process development environment using the current user's permissions.
+    It implements the Harbor-compatible execution environment contract without filesystem isolation.
 
     Automatically creates an isolated HOME directory under trial_paths and
     maps standard container paths (/logs, /inputs, /skills, /workspace,
@@ -39,23 +39,28 @@ class LocalEnvironment(BaseEnvironment):
 
     @property
     def home_dir(self) -> Path:
-        return self.trial_paths.trial_dir / "home"
+        return self.trial_paths.runtime_dir / "home"
 
     @property
     def _virtual_mounts(self) -> dict[str, Path]:
+        private_root = self.trial_paths.trial_dir
+        if self.trial_paths._compact:
+            private_root = private_root / ".internal"
         return {
             "/logs/agent": self.trial_paths.agent_dir,
             "/logs/verifier": self.trial_paths.verifier_dir,
             "/logs/artifacts": self.trial_paths.artifacts_dir,
-            "/logs": self.trial_paths.trial_dir / "logs",
+            "/logs": self.trial_paths.runtime_dir / "logs",
             "/inputs": self.trial_paths.inputs_dir,
-            "/skills": self.trial_paths.skills_dir,
-            "/harbor/skills": self.trial_paths.skills_dir,
+            "/skills": self.skills_root,
+            "/runtime": self.trial_paths.runtime_dir,
+            "/tmp": self.trial_paths.runtime_dir / "tmp",
+            "/var/tmp": self.trial_paths.runtime_dir / "tmp",
             "/workspace": self.trial_paths.workspace_dir,
             "/artifacts": self.trial_paths.artifacts_dir,
-            "/tests": self.trial_paths.trial_dir / "tests",
-            "/solution": self.trial_paths.trial_dir / "solution",
-            "/installed-agent": self.trial_paths.trial_dir / "installed-agent",
+            "/tests": private_root / "tests",
+            "/solution": private_root / "solution",
+            "/installed-agent": self.trial_paths.runtime_dir / "installed-agent",
         }
 
     def map_virtual_path(self, path: str) -> Path:
@@ -97,12 +102,15 @@ class LocalEnvironment(BaseEnvironment):
         return None
 
     async def start(self, force_build: bool = False) -> None:
-        self.trial_paths.mkdir()
+        if self.task_env_config.network_mode == "allowlist" or not self.task_env_config.allow_internet or self.task_env_config.network_allowlist is not None:
+            raise ValueError("Local is a trusted development mode; network restrictions require Docker")
+        self.trial_paths.mkdir(skills_root=self.skills_root)
         self.home_dir.mkdir(parents=True, exist_ok=True)
+        (self.trial_paths.runtime_dir / "cache").mkdir(exist_ok=True)
         for host_dir in self._virtual_mounts.values():
             host_dir.mkdir(parents=True, exist_ok=True)
 
-        # Seed isolated HOME with read-only symlinks to host toolchains (.nvm, .local, .cargo)
+        # Seed the task HOME with symlinks to host toolchains (.nvm, .local, .cargo)
         # so pre-installed CLI agents on the host work without re-downloading Node/uv.
         host_home = Path.home()
         for tool_dir in (".nvm", ".local", ".cargo", ".npm"):
@@ -120,7 +128,6 @@ class LocalEnvironment(BaseEnvironment):
             for rel_name, target_dir in (
                 ("artifacts", self.trial_paths.artifacts_dir),
                 ("inputs", self.trial_paths.inputs_dir),
-                ("skills", self.trial_paths.skills_dir),
             ):
                 link_path = self.trial_paths.workspace_dir / rel_name
                 if not link_path.exists() and not link_path.is_symlink():
@@ -137,6 +144,12 @@ class LocalEnvironment(BaseEnvironment):
                     shutil.copytree(item, target, dirs_exist_ok=True)
                 elif item.is_file():
                     shutil.copy2(item, target)
+
+    def instruction_paths(self, instruction: str) -> str:
+        return self._rewrite_command_paths(instruction)
+
+    async def _begin_agent_execution(self):
+        return None
 
     async def stop(self, delete: bool = True) -> None:
         return None
@@ -212,7 +225,7 @@ class LocalEnvironment(BaseEnvironment):
         exec_env["HOME"] = str(self.home_dir.resolve())
         exec_env["LEXVERSE_WORKSPACE"] = str(self.trial_paths.workspace_dir.resolve())
         exec_env["LEXVERSE_INPUTS"] = str(self.trial_paths.inputs_dir.resolve())
-        exec_env["LEXVERSE_SKILLS"] = str(self.trial_paths.skills_dir.resolve())
+        exec_env["LEXVERSE_SKILLS"] = str(self.skills_root.resolve())
         exec_env["LEXVERSE_ARTIFACTS"] = str(self.trial_paths.artifacts_dir.resolve())
         exec_env["LEXVERSE_LOGS"] = str(self.trial_paths.agent_dir.parent.resolve())
 
@@ -221,12 +234,18 @@ class LocalEnvironment(BaseEnvironment):
             for k, v in merged_extra.items():
                 exec_env[k] = self._rewrite_command_paths(str(v))
 
+        exec_env["HOME"] = str(self.home_dir.resolve())
+        exec_env["TMPDIR"] = str((self.trial_paths.runtime_dir / "tmp").resolve())
+        exec_env["TMP"] = exec_env["TMPDIR"]
+        exec_env["TEMP"] = exec_env["TMPDIR"]
+        exec_env["XDG_CACHE_HOME"] = str(self.trial_paths.runtime_dir / "cache")
+        exec_env["XDG_CONFIG_HOME"] = str(self.home_dir / ".config")
+        exec_env["PYTHONDONTWRITEBYTECODE"] = "1"
         rewritten_cmd = self._rewrite_command_paths(command)
+        executable = ["bash", "-c", rewritten_cmd]
 
         process = await asyncio.create_subprocess_exec(
-            "bash",
-            "-c",
-            rewritten_cmd,
+            *executable,
             cwd=str(resolved_cwd),
             env=exec_env,
             stdin=asyncio.subprocess.DEVNULL,

@@ -28,7 +28,7 @@ from lexverse.agents.installed.base import (
     with_prompt_template,
     CliFlag,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -80,7 +80,7 @@ class Goose(BaseInstalledAgent):
         return match.group(1) if match else stdout.strip()
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         await self.exec_as_root(
             environment,
             command="apt-get update && apt-get install -y curl bzip2 libxcb1 libgomp1",
@@ -629,16 +629,7 @@ class Goose(BaseInstalledAgent):
                 context.n_output_tokens = fm.total_completion_tokens or 0
 
     def _build_register_skills_command(self) -> str | None:
-        """Return a shell command that copies skills to Goose's skills directory."""
-        if not self.skills_dir:
-            return None
-        return (
-            "mkdir -p ~/.config/goose/skills && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f'  d=$(dirname "$f"); '
-            f'  cp -r "$d" ~/.config/goose/skills/ 2>/dev/null || true; '
-            f"done"
-        )
+        return self._link_skills_command('$HOME/.config/goose/skills')
 
     # ------------------------------------------------------------------
     # Agent commands
@@ -649,7 +640,7 @@ class Goose(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
 

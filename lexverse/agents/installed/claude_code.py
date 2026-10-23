@@ -28,7 +28,7 @@ from lexverse.agents.installed.base import (
     EnvVar,
     with_prompt_template,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -149,7 +149,7 @@ class ClaudeCode(BaseInstalledAgent):
         return text
 
     async def _installed_claude_satisfies_version(
-        self, environment: BaseEnvironment
+        self, environment: ExecutionEnvironment
     ) -> bool:
         if self._version is None:
             check_result = await environment.exec(command=self._INSTALL_CHECK_COMMAND)
@@ -163,7 +163,7 @@ class ClaudeCode(BaseInstalledAgent):
         return installed_version == self._version
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         if await self._installed_claude_satisfies_version(environment):
             self.logger.debug(
                 "Claude Code is already available at the requested version"
@@ -1293,21 +1293,7 @@ class ClaudeCode(BaseInstalledAgent):
             context.n_output_tokens = metrics.total_completion_tokens or 0
 
     def _build_register_skills_command(self) -> str | None:
-        """Return a shell command that copies skills from the environment to Claude's config.
-
-        Copies the contents of ``self.skills_dir`` into
-        ``$CLAUDE_CONFIG_DIR/skills/`` so that Claude Code picks them up
-        automatically.
-        """
-        if not self.skills_dir:
-            return None
-        return (
-            "mkdir -p $CLAUDE_CONFIG_DIR/skills && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f'  d=$(dirname "$f"); '
-            f'  cp -r "$d" $CLAUDE_CONFIG_DIR/skills/ 2>/dev/null || true; '
-            f"done"
-        )
+        return self._link_skills_command('$CLAUDE_CONFIG_DIR/skills')
 
     def _build_register_memory_command(self) -> str | None:
         """Return a shell command that copies memory files into Claude's config.
@@ -1333,6 +1319,7 @@ class ClaudeCode(BaseInstalledAgent):
         if not self.mcp_servers:
             return None
         servers: dict[str, dict[str, Any]] = {}
+        from lexverse.environments.network import mcp_header_env
         for server in self.mcp_servers:
             if server.transport == "stdio":
                 servers[server.name] = {
@@ -1349,9 +1336,15 @@ class ClaudeCode(BaseInstalledAgent):
                     else server.transport
                 )
                 servers[server.name] = {"type": transport, "url": server.url}
+                if server.headers:
+                    servers[server.name]["headers"] = {key: mcp_header_env(server.name, key) for key in server.headers}
         claude_json = json.dumps({"mcpServers": servers}, indent=2)
         escaped = shlex.quote(claude_json)
-        return f"echo {escaped} > $CLAUDE_CONFIG_DIR/.claude.json"
+        script = ('import json,os,sys; config=json.loads(sys.argv[1]); '
+                  '[(server["headers"].update({key:os.environ[value] for key,value in server["headers"].items()})) '
+                  'for server in config["mcpServers"].values() if "headers" in server]; '
+                  'print(json.dumps(config))')
+        return f'python3 -c {shlex.quote(script)} {escaped} > "$CLAUDE_CONFIG_DIR/.claude.json"'
 
     @staticmethod
     def _is_bedrock_mode() -> bool:
@@ -1377,7 +1370,7 @@ class ClaudeCode(BaseInstalledAgent):
     @override
     @with_prompt_template
     async def run(
-        self, instruction: str, environment: BaseEnvironment, context: AgentContext
+        self, instruction: str, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
         use_bedrock = self._is_bedrock_mode()
 
@@ -1501,10 +1494,7 @@ class ClaudeCode(BaseInstalledAgent):
         setup_command = (
             "mkdir -p $CLAUDE_CONFIG_DIR/debug $CLAUDE_CONFIG_DIR/projects/-app "
             "$CLAUDE_CONFIG_DIR/shell-snapshots $CLAUDE_CONFIG_DIR/statsig "
-            "$CLAUDE_CONFIG_DIR/todos $CLAUDE_CONFIG_DIR/skills && "
-            "if [ -d ~/.claude/skills ]; then "
-            "cp -r ~/.claude/skills/. $CLAUDE_CONFIG_DIR/skills/ 2>/dev/null || true; "
-            "fi"
+            "$CLAUDE_CONFIG_DIR/todos $CLAUDE_CONFIG_DIR/skills"
         )
 
         skills_command = self._build_register_skills_command()
@@ -1519,6 +1509,9 @@ class ClaudeCode(BaseInstalledAgent):
         if mcp_command:
             setup_command += f" && {mcp_command}"
 
+        if environment.task_env_config.network_mode == "allowlist":
+            previous = self._resolved_cli_flags.get("disallowed_tools", "")
+            self._resolved_cli_flags["disallowed_tools"] = previous + " WebSearch WebFetch"
         cli_flags = self.build_cli_flags()
         extra_flags = (cli_flags + " ") if cli_flags else ""
         resume_flag = "--continue " if self._resume else ""

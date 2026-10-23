@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from lexverse.benchmarks.plugin import BenchmarkPlugin
-from lexverse.environments import DirectResponseEnvironment
+from lexverse.interaction.engine import DirectResponseEnvironment
 from lexverse.interaction.participants import ModelParticipant, AgentParticipant
 from lexverse.interaction.policies import DirectResponsePolicy
 from . import UPSTREAM
@@ -26,7 +26,7 @@ class PLawBenchPlugin(BenchmarkPlugin):
         importer = PLawBenchImporter(offline=True)
         return {filename: importer.files[filename] for kind in task_types for filename in FILES[kind].values()}
 
-    def create_environment(self, config, provider):
+    def create_interaction_environment(self, config, provider):
         from lexverse.runtime.enhancement import enabled
         if enabled(config):
             return DirectResponseEnvironment(
@@ -38,6 +38,8 @@ class PLawBenchPlugin(BenchmarkPlugin):
 
     def evaluation_context(self, config):
         from lexverse.config import ConfigError
+        if len(config.models.evaluators) != 1:
+            raise ConfigError("PLawBench requires one model in models.evaluators")
         attempts = config.evaluation.get("max_attempts", 3)
         if isinstance(attempts, bool) or not isinstance(attempts, int) or attempts < 1:
             raise ConfigError("evaluation.max_attempts must be a positive integer")

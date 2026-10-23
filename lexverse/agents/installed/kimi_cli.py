@@ -31,7 +31,7 @@ from lexverse.agents.installed.base import (
     NonZeroAgentExitCodeError,
     with_prompt_template,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -171,7 +171,7 @@ class KimiCli(BaseInstalledAgent):
         return AgentName.KIMI_CLI.value
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         await self.exec_as_root(
             environment,
             command="apt-get update && apt-get install -y curl",
@@ -303,15 +303,7 @@ class KimiCli(BaseInstalledAgent):
             context.n_cache_tokens = fm.total_cached_tokens or 0
 
     def _build_register_skills_command(self) -> str | None:
-        if not self.skills_dir:
-            return None
-        return (
-            "mkdir -p ~/.kimi/skills && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f'  d=$(dirname "$f"); '
-            f'  cp -r "$d" ~/.kimi/skills/ 2>/dev/null || true; '
-            f"done"
-        )
+        return self._link_skills_command("$HOME/.kimi/skills")
 
     def _build_register_mcp_servers_command(self) -> str | None:
         mcp_json = self._build_mcp_config_json()
@@ -325,7 +317,7 @@ class KimiCli(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
 

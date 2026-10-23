@@ -7,6 +7,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from lexverse.config import ConfigError, ModelConfig, parse_model_config
+from lexverse.environments.network import normalize_hosts
 
 
 class StrictModel(BaseModel):
@@ -22,6 +23,7 @@ class AgentLimits(StrictModel):
 
 class TaskCapabilities(StrictModel):
     registry: Path | None = None
+    # Omitted resource fields expand before snapshotting; explicit [] stays empty.
     knowledge: list[Path] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     mcp: list[str] = Field(default_factory=list)
@@ -72,8 +74,8 @@ class RetrievalConfig(StrictModel):
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     chunk_tokens: int = Field(default=400, gt=0, strict=True)
     overlap_tokens: int = Field(default=60, ge=0, strict=True)
-    keyword_candidates: int = Field(default=40, gt=0, strict=True)
-    vector_candidates: int = Field(default=40, gt=0, strict=True)
+    keyword_candidates: int = Field(default=100, gt=0, strict=True)
+    vector_candidates: int = Field(default=100, gt=0, strict=True)
     top_k: int = Field(default=8, ge=1, le=20, strict=True)
 
 
@@ -109,12 +111,19 @@ class UserTaskSpec(StrictModel):
     model: dict
     agent: str = "lexverse"
     environment: str = "docker"
+    network_mode: Literal["public", "allowlist"] = "public"
+    allowed_hosts: list[str] = Field(default_factory=list)
     context_window_tokens: int | None = Field(default=None, gt=0, strict=True)
     capabilities: TaskCapabilities = Field(default_factory=TaskCapabilities)
     retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
     limits: AgentLimits = Field(default_factory=AgentLimits)
     interactive: bool = True
     outputs: OutputContract = Field(default_factory=OutputContract)
+
+    @field_validator("allowed_hosts")
+    @classmethod
+    def validate_hosts(cls, value):
+        return normalize_hosts(value)
 
     @field_validator("instruction")
     @classmethod
@@ -128,9 +137,12 @@ class UserTaskSpec(StrictModel):
 
 
 def load_user_task(path: Path, registry: Path | None = None) -> UserTaskSpec:
+    # Resolve the task configuration file.
     path = path.expanduser().resolve()
     if path.is_dir():
         path = path / "task.yaml"
+
+    # Load and validate the task and model configuration.
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         _reject_credentials(data)
@@ -138,20 +150,29 @@ def load_user_task(path: Path, registry: Path | None = None) -> UserTaskSpec:
         task.model_config_value(path.parent)
     except (ValueError, OSError, yaml.YAMLError) as exc:
         raise ConfigError(f"Invalid user task: {exc}") from exc
+
+    # Check chunking constraints and resolve resource paths.
     if task.retrieval.overlap_tokens >= task.retrieval.chunk_tokens:
         raise ConfigError("retrieval.overlap_tokens must be smaller than chunk_tokens")
     task.inputs = _resolve(task.inputs, path.parent)
     task.retrieval.embedding.resolve_path(path.parent)
-    task.capabilities.knowledge = [_resolve(p, path.parent) for p in task.capabilities.knowledge]
+
+    # Apply the registry override and resolve capability selections.
     if registry is not None:
         task.capabilities.registry = registry.expanduser().resolve()
     elif task.capabilities.registry is not None:
         task.capabilities.registry = _resolve(task.capabilities.registry, path.parent)
+    from lexverse.capabilities.registry import resolve_selection
+    resolve_selection(task.capabilities, path.parent)
+
+    # Verify input and knowledge directories.
     if not task.inputs.is_dir():
         raise ConfigError(f"Input directory does not exist: {task.inputs}")
     for source in task.capabilities.knowledge:
         if not source.is_dir():
             raise ConfigError(f"Knowledge directory does not exist: {source}")
+
+    # Check required output formats.
     for name in task.outputs.required:
         if PurePosixPath(name).suffix.lstrip(".") not in task.outputs.allowed_formats:
             raise ConfigError(f"Output format is not allowed: {name}")

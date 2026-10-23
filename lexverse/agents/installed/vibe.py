@@ -27,7 +27,7 @@ from lexverse.agents.installed.base import (
     NonZeroAgentExitCodeError,
     with_prompt_template,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -188,7 +188,7 @@ class Vibe(BaseInstalledAgent):
         return text
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         # Install system packages (root). curl is needed to bootstrap uv.
         await self.exec_as_root(
             environment,
@@ -428,7 +428,7 @@ class Vibe(BaseInstalledAgent):
 
     @with_prompt_template
     async def run(
-        self, instruction: str, environment: BaseEnvironment, context: AgentContext
+        self, instruction: str, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
         if not self.model_name:
             raise ValueError("Model name is required")

@@ -23,7 +23,6 @@ class LegalWorldPlugin(BenchmarkPlugin):
         task_ranges(config.benchmark.get("tasks"))
         law_resources(config)
         case_resources(config)
-        self.evaluation_context(config)
         if "simulation" not in config.models.roles:
             raise ConfigError("Legal-world requires models.roles.simulation for fixed native roles")
         return super().create_bundle(config)
@@ -39,7 +38,7 @@ class LegalWorldPlugin(BenchmarkPlugin):
     def evaluation_inputs(self, config):
         return {**source_inputs(offline=True), **law_resources(config)[1], **case_resources(config)[1]}
 
-    def create_environment(self, config, provider):
+    def create_interaction_environment(self, config, provider):
         return LegalWorldEnvironment(config)
 
     def evaluation_context(self, config):

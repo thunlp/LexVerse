@@ -1,12 +1,16 @@
 # Purpose: Override built-in capability settings; paths are relative to this file.
 # Usage: lexverse task run <task.yaml> --registry configs/capabilities/registry.local.yaml
 # Local configuration: Copy to registry.local.yaml and keep only the overrides you need.
+# This example is not loaded automatically; select your copy with --registry or task.yaml.
+# Entries are merged with lexverse/capabilities/catalog.yaml, not used as a replacement.
+# Only add your own resources or settings you want to override; do not repeat built-ins.
 
 schema_version: 1
-mcp:
-  pkulaw_law_search:
-    timeout_sec: 90
-# Optional local skill source:
+
+# 1. Register your own local Skill (uncomment both sections to enable).
+# local_path is relative to this registry file; path is relative to local_path.
+# This example reads user_workspace/skills/contract-review/SKILL.md.
+# SKILL.md must start with YAML frontmatter containing name and description.
 # skill_sources:
 #   custom:
 #     local_path: ../../user_workspace/skills
@@ -14,3 +18,32 @@ mcp:
 #   custom-review:
 #     source: custom
 #     path: contract-review
+
+# 2. Override an existing MCP or register your own service.
+mcp:
+  # Only change the timeout; inherit the built-in URL and credential reference.
+  # Delete this entry from your local copy if you do not need the override.
+  pkulaw_law_search:
+    timeout_sec: 90
+
+  # Add your service here under the same mcp mapping; replace the example URL.
+  # User-configured MCP supports streamable-http (default) and sse, not stdio commands.
+  # my_search:
+  #   url: https://mcp.example.com/mcp
+  #   transport: streamable-http
+  #   timeout_sec: 60
+  #   required: true  # Stop preparation if this service cannot be connected.
+  #   allowed_tools: [search]  # Optional; use actual tool names exposed by the server.
+  #   credential_ref: my_mcp  # Optional Bearer token profile; omit if no auth is needed.
+  # Store my_mcp.api_key in configs/secrets.local.yaml, never in this registry or URL.
+
+# 3. Select resources in task.yaml, not in this registry.
+# For user_workspace/task/<task_name>/task.yaml, add the following there:
+# capabilities:
+#   registry: ../../../configs/capabilities/registry.local.yaml
+#   knowledge: []
+#   skills: [custom-review, office-docx]  # Custom and built-in IDs can be mixed.
+#   mcp: [my_search]
+# Register custom-review and my_search above before selecting them.
+# skills: [] / mcp: [] disables that resource type for the task.
+# Omitting skills or mcp selects ALL entries of that type in the merged registry.

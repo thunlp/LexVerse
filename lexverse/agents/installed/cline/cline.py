@@ -30,7 +30,7 @@ from lexverse.agents.installed.base import (
     with_prompt_template,
 )
 from lexverse.agents.installed.cline.trajectory import convert_messages_to_trajectory
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.utils.trajectory_utils import format_trajectory_json
@@ -523,7 +523,7 @@ class ClineCli(BaseInstalledAgent):
 
     async def _exec_with_setup_retries(
         self,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         *,
         command: str,
         retry_label: str,
@@ -703,7 +703,7 @@ class ClineCli(BaseInstalledAgent):
         )
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         await self._exec_with_setup_retries(
             environment,
             retry_label="install-root-prereqs",
@@ -911,16 +911,7 @@ class ClineCli(BaseInstalledAgent):
         self._populate_usage_from_session(context)
 
     def _build_register_skills_command(self) -> str | None:
-        """Return a shell command that copies skills to Cline's skills directory."""
-        if not self.skills_dir:
-            return None
-        return (
-            "mkdir -p ~/.cline/skills && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f'  d=$(dirname "$f"); '
-            f'  cp -r "$d" ~/.cline/skills/ 2>/dev/null || true; '
-            f"done"
-        )
+        return self._link_skills_command('$HOME/.cline/skills')
 
     def _build_register_mcp_servers_command(self) -> str | None:
         """Return a shell command that writes MCP config to ~/.cline/data/settings/cline_mcp_settings.json."""
@@ -1094,7 +1085,7 @@ class ClineCli(BaseInstalledAgent):
 
     @with_prompt_template
     async def run(
-        self, instruction: str, environment: BaseEnvironment, context: AgentContext
+        self, instruction: str, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
         run_commands = self.create_run_agent_commands(instruction)
         cleanup_commands = self.create_cleanup_commands()

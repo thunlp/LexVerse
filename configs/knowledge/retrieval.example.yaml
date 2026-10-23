@@ -5,6 +5,8 @@
 mode: hybrid
 chunk_tokens: 400
 overlap_tokens: 60
+keyword_candidates: 100
+vector_candidates: 100
 embedding:
   model: BAAI/bge-small-zh-v1.5
   revision: 7999e1d3359715c523056ef9478215996d62a620

@@ -28,7 +28,7 @@ from lexverse.agents.installed.base import (
     NonZeroAgentExitCodeError,
     with_prompt_template,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -441,25 +441,10 @@ class Eve(BaseInstalledAgent):
         return env
 
     def _build_register_skills_command(self) -> str | None:
-        if not self.skills_dir:
-            return None
-
-        source = shlex.quote(self.skills_dir)
-        destination = shlex.quote((self._remote_agent_dir() / "skills").as_posix())
-        return (
-            f"if [ -d {source} ]; then "
-            f"mkdir -p {destination} && "
-            f"dest_dir={destination}; "
-            f"for skill_path in {source}/*; do "
-            '[ -e "$skill_path" ] || continue; '
-            'skill_name="$(basename "$skill_path")"; '
-            f'cp -r "$skill_path" "$dest_dir/{self._HARBOR_PREFIX}_$skill_name"; '
-            "done; "
-            "fi"
-        )
+        return self._link_skills_command(shlex.quote((self._remote_agent_dir() / "skills").as_posix()))
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         staged_project = self._staged_project_dir()
         runner_script_path = Path(__file__).with_name("eve_runner.mjs")
@@ -571,7 +556,7 @@ class Eve(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         self.logs_dir.mkdir(parents=True, exist_ok=True)
@@ -596,7 +581,7 @@ class Eve(BaseInstalledAgent):
         if result.return_code != 0:
             raise self._classify_exec_error(command, result)
 
-    async def _download_run_artifacts(self, environment: BaseEnvironment) -> None:
+    async def _download_run_artifacts(self, environment: ExecutionEnvironment) -> None:
         for filename in (
             self._EVENTS_FILENAME,
             self._RESULT_FILENAME,

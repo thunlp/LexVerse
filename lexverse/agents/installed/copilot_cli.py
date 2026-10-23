@@ -28,7 +28,7 @@ from lexverse.agents.installed.base import (
     CliFlag,
     with_prompt_template,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -92,7 +92,7 @@ class CopilotCli(BaseInstalledAgent):
         return match.group(1) if match else text
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         """Install the Copilot CLI in the environment."""
         await self.exec_as_root(
             environment,
@@ -145,16 +145,7 @@ class CopilotCli(BaseInstalledAgent):
         return f"--additional-mcp-config={shlex.quote(config)}"
 
     def _build_register_skills_command(self) -> str | None:
-        """Copy skills into the Copilot CLI instructions directory."""
-        if not self.skills_dir:
-            return None
-        return (
-            "mkdir -p ~/.copilot && "
-            f"for f in $(find {shlex.quote(self.skills_dir)} -name 'SKILL.md' 2>/dev/null); do "
-            f'  d=$(dirname "$f"); '
-            f'  cp -r "$d" ~/.copilot/ 2>/dev/null || true; '
-            f"done"
-        )
+        return self._link_skills_command('$HOME/.copilot')
 
     def _read_copilot_cli_jsonl(self, jsonl_path: Path) -> list[dict[str, Any]]:
         """Read and parse the Copilot CLI JSONL output file."""
@@ -731,7 +722,7 @@ class CopilotCli(BaseInstalledAgent):
                 )
 
     async def _restore_session_state(
-        self, environment: BaseEnvironment, env: dict[str, str]
+        self, environment: ExecutionEnvironment, env: dict[str, str]
     ) -> None:
         await self.exec_as_agent(
             environment,
@@ -748,7 +739,7 @@ class CopilotCli(BaseInstalledAgent):
         )
 
     async def _save_session_state(
-        self, environment: BaseEnvironment, env: dict[str, str]
+        self, environment: ExecutionEnvironment, env: dict[str, str]
     ) -> None:
         await self.exec_as_agent(
             environment,
@@ -771,7 +762,7 @@ class CopilotCli(BaseInstalledAgent):
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         """Run the Copilot CLI agent with the given instruction in the environment."""

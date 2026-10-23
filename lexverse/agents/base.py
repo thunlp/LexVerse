@@ -22,7 +22,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trial import MCPServerConfig
@@ -65,6 +65,8 @@ class BaseAgent(ABC):
         self.model_name = model_name
         self.logger = (logger or global_logger).getChild(self.__class__.__name__)
         self.mcp_servers = mcp_servers or []
+        if skills_dir not in {None, "/skills"}:
+            raise ValueError("Task Skills must use the single /skills directory")
         self.skills_dir = skills_dir
         self.memory_dir = memory_dir
         self.session_id = session_id
@@ -107,14 +109,14 @@ class BaseAgent(ABC):
         """The version of the agent."""
 
     @abstractmethod
-    async def setup(self, environment: BaseEnvironment) -> None:
+    async def setup(self, environment: ExecutionEnvironment) -> None:
         """Run commands to setup the agent & its tools in the environment."""
 
     @abstractmethod
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         """Runs the agent in the environment."""

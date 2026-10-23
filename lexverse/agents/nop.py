@@ -17,7 +17,7 @@
 from typing import override
 
 from lexverse.agents.base import BaseAgent
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 
@@ -35,14 +35,14 @@ class NopAgent(BaseAgent):
         return "1.0.0"
 
     @override
-    async def setup(self, environment: BaseEnvironment) -> None:
+    async def setup(self, environment: ExecutionEnvironment) -> None:
         return None
 
     @override
     async def run(
         self,
         instruction: str,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
         return None

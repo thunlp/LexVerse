@@ -18,14 +18,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 import logging
+import json
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
 
-from lexverse.interaction.schema import EnvironmentResult
 from lexverse.models.trial import (
     EnvironmentType,
     ResourceMode,
@@ -33,23 +33,8 @@ from lexverse.models.trial import (
     TaskOS,
     TrialPaths,
 )
-from lexverse.tasks.schema import LexVerseTask
 from lexverse.utils.env import resolve_env_vars
 from lexverse.utils.logger import logger as global_logger
-
-
-class ExecutionEnvironment(ABC):
-    name: str
-
-    async def prepare(self, context: dict | None = None) -> None:
-        return None
-
-    @abstractmethod
-    async def run(self, task: LexVerseTask, work_dir: Path) -> EnvironmentResult:
-        pass
-
-    async def close(self) -> None:
-        return None
 
 
 class ExecResult(BaseModel):
@@ -75,13 +60,13 @@ class EnvironmentResourceCapabilities(BaseModel):
     memory_request: bool = False
 
 
-class BaseEnvironment(ABC):
+class ExecutionEnvironment(ABC):
     """
     Harbor-compatible execution environment interface for general agents.
 
     Provides standardized primitives (start, stop, exec, upload_file, upload_dir,
     download_file, download_dir) so any installed or custom agent can operate
-    transparently inside a local sandbox or a Docker container.
+    transparently in a local host process or a Docker container.
     """
 
     environment_dir: Path
@@ -99,6 +84,7 @@ class BaseEnvironment(ABC):
         trial_paths: TrialPaths,
         task_env_config: TaskEnvConfig,
         keep_containers: bool = False,
+        skills_root: Path | None = None,
         logger: logging.Logger | None = None,
         override_cpus: int | None = None,
         override_memory_mb: int | None = None,
@@ -115,6 +101,8 @@ class BaseEnvironment(ABC):
         self.environment_name = environment_name
         self.session_id = session_id
         self.trial_paths = trial_paths
+        self.skills_root = skills_root or trial_paths.skills_dir
+        self._execution_depth = 0
         self.task_env_config = task_env_config
         self._override_cpus = override_cpus
         self._override_memory_mb = override_memory_mb
@@ -135,6 +123,43 @@ class BaseEnvironment(ABC):
             else {}
         )
         self._scoped_env_layers: list[dict[str, str]] = []
+
+    @asynccontextmanager
+    async def agent_execution(self):
+        outer = self._execution_depth == 0
+        if outer:
+            await self._begin_agent_execution()
+        self._execution_depth += 1
+        try:
+            yield
+        finally:
+            self._execution_depth -= 1
+            if outer:
+                await self._end_agent_execution()
+
+    async def _begin_agent_execution(self):
+        raise RuntimeError("This environment does not implement task filesystem isolation")
+
+    async def _end_agent_execution(self):
+        return None
+
+    def knowledge_read_paths(self) -> list[Path]:
+        manifest = self.trial_paths.trial_dir / ".internal/knowledge_indexes.json"
+        if not manifest.is_file():
+            return []
+        data = json.loads(manifest.read_text())
+        paths = [manifest]
+        for record in data.get("knowledge", []):
+            paths.append(Path(record["path"]))
+            model = record.get("retrieval", {}).get("embedding", {}).get("model")
+            if model and Path(model).is_dir():
+                paths.append(Path(model))
+        if data.get("keyword_cache"):
+            paths.append(Path(data["keyword_cache"]))
+        return paths
+
+    def instruction_paths(self, instruction: str) -> str:
+        return instruction
 
     def _merge_env(self, env: dict[str, str] | None) -> dict[str, str] | None:
         if not self._persistent_env and not self._scoped_env_layers and not env:

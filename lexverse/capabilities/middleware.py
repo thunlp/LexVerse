@@ -15,7 +15,7 @@ from langgraph.errors import GraphInterrupt
 from lexverse.runtime.results import atomic_write_json
 from lexverse.runtime.paths import RunPaths
 from lexverse.tasks.user import AgentLimits
-from lexverse.capabilities.mcp import failure_category, response_failed
+from lexverse.capabilities.mcp_client import failure_category, response_failed
 
 
 class BudgetExceeded(RuntimeError):
@@ -174,9 +174,8 @@ def _visible_content(content):
 class DomainMiddleware(AgentMiddleware):
     state_schema = ExecutionState
 
-    def __init__(self, ledger: RunLedger, *, requires_confirmation=False, skills=()):
+    def __init__(self, ledger: RunLedger, *, skills=()):
         self.ledger = ledger
-        self.requires_confirmation = requires_confirmation
         self.tool_lock = asyncio.Lock()
         self.skills = skills
 
@@ -190,42 +189,34 @@ class DomainMiddleware(AgentMiddleware):
             self.ledger.reserve("tool")
             self.ledger.event("tool_started", call_id=call["id"], name=call["name"], arguments=call["args"],
                               service=service, remote_name=metadata.get("remote_name"))
-            legal = call["name"] in {"search_knowledge", "fetch_knowledge"} or (
-                call["name"].startswith("pkulaw_") and not call["name"].startswith("pkulaw_account__")
-            )
-            confirmed = request.state.get("facts_confirmation", {}).get("confirmed", False)
-            if legal and self.requires_confirmation and not confirmed:
-                result = ToolMessage(content="Fact confirmation required. Use ask_user with facts_summary before legal retrieval.",
-                                     tool_call_id=call["id"], name=call["name"], status="error")
-            else:
-                timeout = self.ledger.limits.tool_timeout_sec
-                if service:
-                    self.ledger.record_mcp(service, "started")
-                if request.tool is not None and request.tool.metadata:
-                    timeout = min(timeout, request.tool.metadata.get("timeout_sec", timeout))
-                try:
-                    result = await asyncio.wait_for(handler(request), timeout=timeout)
-                except GraphInterrupt:
-                    raise
-                except (BudgetExceeded, asyncio.CancelledError):
-                    raise
-                except Exception as exc:
-                    error_category = failure_category(exc) if service else "tool_error"
-                    result = ToolMessage(content=f"Tool failed: {type(exc).__name__} ({error_category})", tool_call_id=call["id"],
-                                         name=call["name"], status="error")
-                if service:
-                    artifact = result.artifact if isinstance(result, ToolMessage) else None
-                    structured = artifact.get("structured_content") if isinstance(artifact, dict) else None
-                    if isinstance(result, ToolMessage) and (response_failed(result.content) or response_failed(structured)):
-                        content = result.content
-                        if response_failed(structured) and not response_failed(content):
-                            notice = "MCP structured result reports business failure; do not use it as successful evidence."
-                            content = content + "\n" + notice if isinstance(content, str) else [*content, {"type": "text", "text": notice}]
-                        result = result.model_copy(update={"status": "error", "content": content})
-                        error_category = "business"
-                    elif getattr(result, "status", "success") == "error" and error_category is None:
-                        error_category = "tool_error"
-                    self.ledger.record_mcp(service, getattr(result, "status", "success"))
+            timeout = self.ledger.limits.tool_timeout_sec
+            if service:
+                self.ledger.record_mcp(service, "started")
+            if request.tool is not None and request.tool.metadata:
+                timeout = min(timeout, request.tool.metadata.get("timeout_sec", timeout))
+            try:
+                result = await asyncio.wait_for(handler(request), timeout=timeout)
+            except GraphInterrupt:
+                raise
+            except (BudgetExceeded, asyncio.CancelledError):
+                raise
+            except Exception as exc:
+                error_category = failure_category(exc) if service else "tool_error"
+                result = ToolMessage(content=f"Tool failed: {type(exc).__name__} ({error_category})", tool_call_id=call["id"],
+                                     name=call["name"], status="error")
+            if service:
+                artifact = result.artifact if isinstance(result, ToolMessage) else None
+                structured = artifact.get("structured_content") if isinstance(artifact, dict) else None
+                if isinstance(result, ToolMessage) and (response_failed(result.content) or response_failed(structured)):
+                    content = result.content
+                    if response_failed(structured) and not response_failed(content):
+                        notice = "MCP structured result reports business failure; do not use it as successful evidence."
+                        content = content + "\n" + notice if isinstance(content, str) else [*content, {"type": "text", "text": notice}]
+                    result = result.model_copy(update={"status": "error", "content": content})
+                    error_category = "business"
+                elif getattr(result, "status", "success") == "error" and error_category is None:
+                    error_category = "tool_error"
+                self.ledger.record_mcp(service, getattr(result, "status", "success"))
             content = getattr(result, "content", None)
             artifact = getattr(result, "artifact", None) if service else None
             response_hash = hashlib.sha256(json.dumps(content, ensure_ascii=False, sort_keys=True,

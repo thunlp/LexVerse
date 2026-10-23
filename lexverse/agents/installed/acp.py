@@ -31,7 +31,7 @@ from lexverse.agents.installed.acp_registry import (
     DEFAULT_REGISTRY_REF,
     resolve_registry_entry_payload,
 )
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trajectories import (
@@ -401,7 +401,7 @@ class AcpAgent(BaseInstalledAgent):
         return self._registry_entry
 
     @override
-    async def setup(self, environment: BaseEnvironment) -> None:
+    async def setup(self, environment: ExecutionEnvironment) -> None:
         await self._ensure_registry_entry()
         await super().setup(environment)
 
@@ -461,7 +461,7 @@ class AcpAgent(BaseInstalledAgent):
             )
         return platform_id
 
-    async def _detect_platform(self, environment: BaseEnvironment) -> str:
+    async def _detect_platform(self, environment: ExecutionEnvironment) -> str:
         if self._target_platform is not None:
             return self._target_platform
 
@@ -556,7 +556,7 @@ fi
 
     async def _install_binary_target(
         self,
-        environment: BaseEnvironment,
+        environment: ExecutionEnvironment,
         target: AcpBinaryTarget,
     ) -> None:
         archive_url = shlex.quote(target.archive)
@@ -666,7 +666,7 @@ rm -f "$tmp_archive"
         return f"#!/usr/bin/env sh\nset -eu\n{path_setup}{env_exports}exec {exec_cmd}\n"
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         await self._ensure_registry_entry()
         platform_id = await self._detect_platform(environment)
         kind, target = self._select_distribution(platform_id)
@@ -1175,7 +1175,7 @@ rm -f "$tmp_archive"
 
     @with_prompt_template
     async def run(
-        self, instruction: str, environment: BaseEnvironment, context: AgentContext
+        self, instruction: str, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
         registry_entry = self._require_registry_entry()
         self._last_instruction = instruction

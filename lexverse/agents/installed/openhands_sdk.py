@@ -26,7 +26,7 @@ import shlex
 from pathlib import Path, PurePosixPath
 
 from lexverse.agents.installed.base import BaseInstalledAgent, with_prompt_template
-from lexverse.environments.base import BaseEnvironment
+from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
 from lexverse.models.trial import EnvironmentPaths
@@ -43,18 +43,6 @@ class OpenHandsSDK(BaseInstalledAgent):
     SUPPORTS_ATIF: bool = True
     _OUTPUT_FILENAME = "openhands_sdk.txt"
     _TRAJECTORY_FILENAME = "trajectory.json"
-
-    DEFAULT_SKILL_PATHS = [
-        "/skills",
-        "~/.openhands-sdk/skills",
-        "~/.claude/skills",
-        "~/.codex/skills",
-        "~/.agents/skills",
-        "~/.goose/skills",
-        "~/.gemini/skills",
-        "~/.factory/skills",
-        "~/.opencode/skill",
-    ]
 
     def __init__(
         self,
@@ -87,7 +75,9 @@ class OpenHandsSDK(BaseInstalledAgent):
         super().__init__(*args, **kwargs)
         self._reasoning_effort = reasoning_effort
         self._load_skills = load_skills
-        self._skill_paths = skill_paths or self.DEFAULT_SKILL_PATHS
+        if skill_paths is not None and skill_paths != ["/skills"]:
+            raise ValueError("Task Skills must use the single /skills directory")
+        self._skill_paths = [self.skills_dir] if self.skills_dir else []
         self._collect_token_ids = collect_token_ids
         self._max_iterations = max_iterations
         self._temperature = temperature
@@ -111,7 +101,7 @@ class OpenHandsSDK(BaseInstalledAgent):
         return PurePosixPath(EnvironmentPaths.agent_dir / self._TRAJECTORY_FILENAME)
 
     @override
-    async def install(self, environment: BaseEnvironment) -> None:
+    async def install(self, environment: ExecutionEnvironment) -> None:
         # Check if already installed
         check_result = await environment.exec(
             command='[ -f /opt/openhands-sdk-venv/bin/python ] && /opt/openhands-sdk-venv/bin/python -c "import openhands.sdk" 2>/dev/null',
@@ -190,7 +180,7 @@ class OpenHandsSDK(BaseInstalledAgent):
 
     @with_prompt_template
     async def run(
-        self, instruction: str, environment: BaseEnvironment, context: AgentContext
+        self, instruction: str, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
         """Run the OpenHands SDK agent."""
         escaped_instruction = shlex.quote(instruction)
