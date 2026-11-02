@@ -12,8 +12,7 @@ except ImportError:
     class Embeddings:  # type: ignore[no-redef]
         pass
 from lexverse.config import ConfigError
-from lexverse.tasks.user import (EmbeddingConfig, DEFAULT_EMBEDDING_MODEL,
-                                 DEFAULT_EMBEDDING_REVISION, DEFAULT_QUERY_PREFIX)
+from lexverse.models.task.config import EmbeddingConfig, DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_REVISION, DEFAULT_QUERY_PREFIX
 
 
 MODEL = DEFAULT_EMBEDDING_MODEL

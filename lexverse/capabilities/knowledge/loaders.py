@@ -21,12 +21,13 @@ except ImportError:
         metadata: dict[str, Any] = field(default_factory=dict)
 
 from lexverse.config import ConfigError
+from lexverse.utils.files import file_hash as hash_file
 from lexverse.capabilities.knowledge.sources import MANIFEST_NAME, field_value, read_source_manifest
 
 
 SUPPORTED = {".txt", ".md", ".json", ".jsonl", ".csv", ".pdf", ".docx", ".xlsx", ".pptx", ".eml"}
 KINDS = {"legal_laws", "legal_cases", "legal_concepts", "legal_qa", "legal_templates"}
-LOADER_VERSION = 7
+LOADER_VERSION = "1.0"
 ANNOTATION_FILES = {
     ("legal_cases", "lexchain/test_reference.json"),
     ("legal_cases", "legal_world/light_case_dataset.json"),
@@ -46,14 +47,6 @@ FIELDS = {
 EXCLUDED = {"gold", "label", "labels", "split_labels", "rubric", "score", "reference",
             "ground_truth", "reference_answer", "evaluation_criteria"}
 CASE_EXCLUDED = EXCLUDED | {"result", "charge", "article"}
-
-
-def hash_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def scan_source(root: Path) -> tuple[dict[str, str], list[dict]]:

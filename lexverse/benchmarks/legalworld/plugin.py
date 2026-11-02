@@ -6,7 +6,7 @@ from lexverse.benchmarks.plugin import BenchmarkPlugin
 from lexverse.config import ConfigError
 from . import UPSTREAM
 from .environment import LegalWorldEnvironment
-from .evaluation import LegalWorldAggregator, LegalWorldTaskVerifier
+from .verifier import LegalWorldAggregator, LegalWorldVerifier
 from .tasks import LegalWorldImporter, source_inputs, task_ranges
 from .resources import law_resources, case_resources
 
@@ -15,8 +15,6 @@ class LegalWorldPlugin(BenchmarkPlugin):
     name = "legalworld"
     upstream = UPSTREAM
     source_version = UPSTREAM.commit
-    default_policy = "legalworld_native"
-    default_environment = "legalworld_native"
     catalog_path = Path(__file__).with_name("catalog.yaml")
 
     def create_bundle(self, config):
@@ -35,19 +33,19 @@ class LegalWorldPlugin(BenchmarkPlugin):
     def task_inputs(self, config, task_types):
         return {**source_inputs(offline=True), **law_resources(config)[1], **case_resources(config)[1]}
 
-    def evaluation_inputs(self, config):
+    def resolve_verification_inputs(self, config):
         return {**source_inputs(offline=True), **law_resources(config)[1], **case_resources(config)[1]}
 
-    def create_interaction_environment(self, config, provider):
+    def create_native_runner(self, config):
         return LegalWorldEnvironment(config)
 
-    def evaluation_context(self, config):
-        if len(config.models.evaluators) != 1:
-            raise ConfigError("Legal-world requires one model in models.evaluators for independent scoring")
-        return {"judge_models": {"judge": config.models.evaluators[0]}}
+    def build_verification_context(self, config):
+        if len(config.models.verifiers) != 1:
+            raise ConfigError("Legal-world requires one model in models.verifiers for independent scoring")
+        return {"judge_models": {"judge": config.models.verifiers[0]}}
 
     def create_verifier(self, config=None):
-        return LegalWorldTaskVerifier(offline=(config or {}).get("offline", False))
+        return LegalWorldVerifier(offline=(config or {}).get("offline", False))
 
     def create_aggregator(self):
         return LegalWorldAggregator()

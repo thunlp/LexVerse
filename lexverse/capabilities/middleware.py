@@ -12,9 +12,9 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import ToolMessage
 from langgraph.errors import GraphInterrupt
 
-from lexverse.runtime.results import atomic_write_json
-from lexverse.runtime.paths import RunPaths
-from lexverse.tasks.user import AgentLimits
+from lexverse.utils.files import atomic_write_json
+from lexverse.models.trial.paths import RunPaths
+from lexverse.models.task.config import AgentLimits
 from lexverse.capabilities.mcp_client import failure_category, response_failed
 
 
@@ -36,12 +36,8 @@ class RunLedger(BaseCallbackHandler):
         manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
         self.identity = {key: manifest[key] for key in ("run_id", "task_id", "participant_id", "attempt_id") if key in manifest}
         self.lock = threading.RLock()
-        path = run / "usage.json"
-        if self.paths.compact:
-            path = run / "result.json"
-            usage = json.loads(path.read_text()).get("usage", {}) if path.exists() else {}
-        else:
-            usage = json.loads(path.read_text()) if path.exists() else {}
+        path = RunPaths(run).worker_result
+        usage = json.loads(path.read_text()).get("usage", {}) if path.exists() else {}
         self.usage = usage or {
             "model_calls": 0, "tool_calls": 0, "active_elapsed_sec": 0,
             "input_tokens": 0, "output_tokens": 0, "usage_unavailable_calls": 0,
@@ -82,17 +78,14 @@ class RunLedger(BaseCallbackHandler):
 
     def update_result(self, **fields):
         with self.lock:
-            path = self.run / "result.json"
+            path = RunPaths(self.run).worker_result
             result = json.loads(path.read_text()) if path.exists() else {"status": "running"}
             result.update(fields)
             result["usage"] = self.usage
             atomic_write_json(path, result)
 
     def save(self):
-        if self.paths.compact:
-            self.update_result()
-        else:
-            atomic_write_json(self.run / "usage.json", self.usage)
+        self.update_result()
 
     def remaining_time(self):
         current = time.monotonic() - self.started if self.started is not None else 0
@@ -234,8 +227,4 @@ class DomainMiddleware(AgentMiddleware):
                     if path == skill["path"] or path.startswith(str(Path(skill["path"]).parent) + "/"):
                         self.ledger.event("skill_read", skill_id=skill["id"], path=path, call_id=call["id"],
                                           kind="instructions" if path == skill["path"] else "resource")
-            if call["name"] in {"search_knowledge", "fetch_knowledge"} and not self.ledger.paths.compact:
-                with (self.ledger.run / "citations.jsonl").open("a", encoding="utf-8") as stream:
-                    stream.write(json.dumps({"call_id": call["id"], "tool": call["name"], "result": getattr(result, "content", None)},
-                                            ensure_ascii=False, default=str) + "\n")
             return result

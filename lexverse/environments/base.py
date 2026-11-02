@@ -17,8 +17,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager
 import logging
 import json
 from pathlib import Path
@@ -26,13 +25,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from lexverse.models.trial import (
-    EnvironmentType,
-    ResourceMode,
-    TaskEnvConfig,
-    TaskOS,
-    TrialPaths,
-)
+from lexverse.models.task.environment import EnvironmentType, TaskEnvConfig, TaskOS
+from lexverse.models.trial.paths import TrialPaths
 from lexverse.utils.env import resolve_env_vars
 from lexverse.utils.logger import logger as global_logger
 
@@ -76,6 +70,17 @@ class ExecutionEnvironment(ABC):
     task_env_config: TaskEnvConfig
     logger: logging.Logger
 
+    def for_service(self, service: str):
+        if service != "main":
+            raise ValueError(f"Environment does not provide service: {service}")
+        return self
+
+    async def download_task_skills(self, source: str, destination: Path):
+        await self.download_dir(source, destination)
+
+    async def mcp_for_host(self, server):
+        return server
+
     def __init__(
         self,
         environment_dir: Path,
@@ -90,12 +95,6 @@ class ExecutionEnvironment(ABC):
         override_memory_mb: int | None = None,
         override_storage_mb: int | None = None,
         override_gpus: int | None = None,
-        suppress_override_warnings: bool = False,
-        cpu_enforcement_policy: ResourceMode = ResourceMode.AUTO,
-        memory_enforcement_policy: ResourceMode = ResourceMode.AUTO,
-        network_policy: Any | None = None,
-        *args,
-        **kwargs,
     ):
         self.environment_dir = environment_dir
         self.environment_name = environment_name
@@ -108,10 +107,6 @@ class ExecutionEnvironment(ABC):
         self._override_memory_mb = override_memory_mb
         self._override_storage_mb = override_storage_mb
         self._override_gpus = override_gpus
-        self._suppress_override_warnings = suppress_override_warnings
-        self._cpu_enforcement_policy = cpu_enforcement_policy
-        self._memory_enforcement_policy = memory_enforcement_policy
-        self._network_policy = network_policy
         self.keep_containers = keep_containers
 
         self.logger = (logger or global_logger).getChild(self.__class__.__name__)
@@ -122,7 +117,6 @@ class ExecutionEnvironment(ABC):
             if self.task_env_config.env
             else {}
         )
-        self._scoped_env_layers: list[dict[str, str]] = []
 
     @asynccontextmanager
     async def agent_execution(self):
@@ -162,25 +156,12 @@ class ExecutionEnvironment(ABC):
         return instruction
 
     def _merge_env(self, env: dict[str, str] | None) -> dict[str, str] | None:
-        if not self._persistent_env and not self._scoped_env_layers and not env:
+        if not self._persistent_env and not env:
             return None
         merged = dict(self._persistent_env)
-        for layer in self._scoped_env_layers:
-            merged.update(layer)
         if env:
             merged.update(env)
         return merged
-
-    @contextmanager
-    def scoped_exec_env(self, env: dict[str, str] | None) -> Iterator[None]:
-        if not env:
-            yield
-            return
-        self._scoped_env_layers.append(dict(env))
-        try:
-            yield
-        finally:
-            self._scoped_env_layers.pop()
 
     def _resolve_workdir(self, cwd: str | None) -> str | None:
         return cwd or self.task_env_config.workdir or str(self.trial_paths.workspace_dir)
@@ -199,6 +180,17 @@ class ExecutionEnvironment(ABC):
             self.task_env_config.storage_mb = self._override_storage_mb
         if self._override_gpus is not None:
             self.task_env_config.gpus = self._override_gpus
+
+    def resolve_url(self, url: str) -> str:
+        from lexverse.environments.network import runtime_url
+        return runtime_url(url, self.type())
+
+    def resolve_model_connection(self, connection):
+        from dataclasses import replace
+        values = {key: self.resolve_url(value) if key in connection.url_envs else value
+                  for key, value in connection.env.items()}
+        return replace(connection, base_url=self.resolve_url(connection.base_url) if connection.base_url else None,
+                       env=values)
 
     @staticmethod
     @abstractmethod
@@ -275,6 +267,6 @@ class ExecutionEnvironment(ABC):
         return result.return_code == 0
 
     def map_virtual_path(self, path: str) -> Path:
-        """Map a container/virtual path like /inputs, /skills, /workspace, /artifacts, /logs to host path."""
+        """Map a container/virtual path like /skills, /workspace, /artifacts, /logs to host path."""
         return Path(path)
 

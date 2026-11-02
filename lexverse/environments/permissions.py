@@ -1,6 +1,6 @@
 """Task mount permissions and resource validation for Docker execution."""
 
-READ_ONLY = ("/inputs", "/skills")
+READ_ONLY = ("/skills",)
 READ_WRITE = ("/workspace", "/artifacts")
 RUNTIME = "/runtime"
 

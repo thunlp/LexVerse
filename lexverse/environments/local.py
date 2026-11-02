@@ -11,7 +11,7 @@ from lexverse.environments.base import (
     EnvironmentCapabilities,
     ExecResult,
 )
-from lexverse.models.trial import EnvironmentType
+from lexverse.models.task.environment import EnvironmentType
 
 
 class LocalEnvironment(ExecutionEnvironment):
@@ -20,7 +20,7 @@ class LocalEnvironment(ExecutionEnvironment):
     It implements the Harbor-compatible execution environment contract without filesystem isolation.
 
     Automatically creates an isolated HOME directory under trial_paths and
-    maps standard container paths (/logs, /inputs, /skills, /workspace,
+    maps standard container paths (/logs, /skills, /workspace,
     /artifacts, /tests, /solution, /installed-agent) to subdirectories of
     trial_paths.trial_dir so installed CLI agents work out of the box.
     """
@@ -43,15 +43,11 @@ class LocalEnvironment(ExecutionEnvironment):
 
     @property
     def _virtual_mounts(self) -> dict[str, Path]:
-        private_root = self.trial_paths.trial_dir
-        if self.trial_paths._compact:
-            private_root = private_root / ".internal"
+        private_root = self.trial_paths.trial_dir / ".internal"
         return {
             "/logs/agent": self.trial_paths.agent_dir,
             "/logs/verifier": self.trial_paths.verifier_dir,
-            "/logs/artifacts": self.trial_paths.artifacts_dir,
             "/logs": self.trial_paths.runtime_dir / "logs",
-            "/inputs": self.trial_paths.inputs_dir,
             "/skills": self.skills_root,
             "/runtime": self.trial_paths.runtime_dir,
             "/tmp": self.trial_paths.runtime_dir / "tmp",
@@ -89,13 +85,6 @@ class LocalEnvironment(ExecutionEnvironment):
             )
             replacement_path = str(host_dir.resolve())
             rewritten = pattern.sub(lambda m, p=replacement_path: m.group(1) + p, rewritten)
-        # Also rewrite relative `artifacts/` or `inputs/` paths when executed inside `/workspace`
-        artifacts_host = str(self.trial_paths.artifacts_dir.resolve())
-        rewritten = re.sub(
-            r"(^|[\s\"'=<>\(:;])(?:\./)?artifacts(?=/|[\s\"'\):;]|$)",
-            lambda m: m.group(1) + artifacts_host,
-            rewritten,
-        )
         return rewritten
 
     def _validate_definition(self) -> None:
@@ -122,19 +111,6 @@ class LocalEnvironment(ExecutionEnvironment):
                 except OSError:
                     pass
 
-        # Create workspace convenience symlinks (`workspace/artifacts -> ../artifacts`, `workspace/inputs -> ../inputs`)
-        # so CLI agents that write to relative `artifacts/...` paths automatically land in `/artifacts/`.
-        if not self.trial_paths._compact:
-            for rel_name, target_dir in (
-                ("artifacts", self.trial_paths.artifacts_dir),
-                ("inputs", self.trial_paths.inputs_dir),
-            ):
-                link_path = self.trial_paths.workspace_dir / rel_name
-                if not link_path.exists() and not link_path.is_symlink():
-                    try:
-                        link_path.symlink_to(target_dir)
-                    except OSError:
-                        pass
         if self.environment_dir.is_dir():
             for item in self.environment_dir.iterdir():
                 if item.name in ("Dockerfile", "docker-compose.yaml"):
@@ -224,7 +200,6 @@ class LocalEnvironment(ExecutionEnvironment):
         exec_env = os.environ.copy()
         exec_env["HOME"] = str(self.home_dir.resolve())
         exec_env["LEXVERSE_WORKSPACE"] = str(self.trial_paths.workspace_dir.resolve())
-        exec_env["LEXVERSE_INPUTS"] = str(self.trial_paths.inputs_dir.resolve())
         exec_env["LEXVERSE_SKILLS"] = str(self.skills_root.resolve())
         exec_env["LEXVERSE_ARTIFACTS"] = str(self.trial_paths.artifacts_dir.resolve())
         exec_env["LEXVERSE_LOGS"] = str(self.trial_paths.agent_dir.parent.resolve())
@@ -251,6 +226,7 @@ class LocalEnvironment(ExecutionEnvironment):
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            start_new_session=True,
         )
 
         try:
@@ -260,10 +236,13 @@ class LocalEnvironment(ExecutionEnvironment):
                 )
             else:
                 stdout_bytes, stderr_bytes = await process.communicate()
-        except asyncio.TimeoutError:
-            process.kill()
+        except (asyncio.TimeoutError, asyncio.CancelledError) as exc:
+            from lexverse.trial.executor import _terminate
+            await asyncio.shield(_terminate(process))
             await process.communicate()
-            raise TimeoutError(f"Command timed out after {timeout_sec} seconds")
+            if isinstance(exc, asyncio.TimeoutError):
+                raise TimeoutError(f"Command timed out after {timeout_sec} seconds") from exc
+            raise
 
         stdout = stdout_bytes.decode(errors="replace") if stdout_bytes else None
         stderr = stderr_bytes.decode(errors="replace") if stderr_bytes else None

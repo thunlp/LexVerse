@@ -5,7 +5,7 @@ from pathlib import Path
 
 from lexverse.benchmarks.plugin import TaskImporter
 from lexverse.benchmarks.catalog import dataset_files, load_catalog
-from lexverse.tasks.schema import EvaluationSpec, InteractionSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput
+from lexverse.models.task.task import VerificationSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput
 from . import UPSTREAM
 
 STAGES = ["LC", "DRAFT", "CI", "SD", "APPEAL_DRAFT", "CIA"]
@@ -84,8 +84,7 @@ class LegalWorldImporter(TaskImporter):
                     input=TaskInput(instruction=f"Run native {role} pipeline from {start} through {end}."),
                     participants=[ParticipantSpec(id="lawyer", role="lawyer"),
                                   ParticipantSpec(id="simulation", role="simulation")],
-                    interaction=InteractionSpec(policy="legalworld_native"),
-                    evaluation=EvaluationSpec(verifier="legalworld"),
+                    verification=VerificationSpec(verifier="legalworld"),
                     metadata={"original_id": case["original_id"], "party_role": role,
                               "start_stage": start, "end_stage": end},
                     # Gold stays in the evaluator dataset, never in the public task prompt/payload.

@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import shlex
+import stat
+import sys
 from pathlib import Path
 
 from lexverse.environments.base import (
@@ -11,7 +13,8 @@ from lexverse.environments.base import (
     EnvironmentResourceCapabilities,
     ExecResult,
 )
-from lexverse.models.trial import EnvironmentPaths, EnvironmentType
+from lexverse.models.trial.paths import EnvironmentPaths
+from lexverse.models.task.environment import EnvironmentType
 from lexverse.environments.permissions import READ_ONLY, READ_WRITE, RUNTIME, validate_roots
 from lexverse.environments.network import NetworkPolicy
 
@@ -22,7 +25,7 @@ class DockerEnvironment(ExecutionEnvironment):
 
     Supports prebuilt images (`task_env_config.docker_image`), custom
     `environment/Dockerfile`, or a default `python:3.12-slim` image.
-    Automatically bind-mounts `/inputs` (ro), `/skills` (ro), `/workspace` (rw),
+    Automatically bind-mounts `/skills` (ro), `/workspace` (rw),
     `/artifacts` (rw), `/logs/agent` (rw), and `/logs/verifier` (rw).
     """
 
@@ -38,6 +41,7 @@ class DockerEnvironment(ExecutionEnvironment):
         self._prepared_container = self._container_name
         self._execution_image = None
         self._network_container = self._prepared_container + "-network"
+        self._network_policy = None
         self._network_monitor = None
         self._network_failed = False
         self._image_name = (
@@ -117,25 +121,16 @@ class DockerEnvironment(ExecutionEnvironment):
 
         dockerfile = self.environment_dir / "Dockerfile"
         if dockerfile.exists() and (force_build or not self.task_env_config.docker_image):
-            df_hash = hashlib.sha256(dockerfile.read_bytes()).hexdigest()[:12]
-            self._image_name = f"lexverse-env__df-{df_hash}:latest"
-            inspect_res = await self._run_docker(["image", "inspect", self._image_name])
-            if force_build or inspect_res.return_code != 0:
-                build_args = [
-                    "build",
-                    "-t",
-                    self._image_name,
-                    "-f",
-                    str(dockerfile.resolve()),
-                    str(self.environment_dir.resolve()),
-                ]
-                res = await self._run_docker(
-                    build_args, timeout_sec=int(self.task_env_config.build_timeout_sec)
-                )
-                if res.return_code != 0:
-                    raise RuntimeError(
-                        f"Docker image build failed (exit {res.return_code}): {res.stderr or res.stdout}"
-                    )
+            context_id = hashlib.sha256(str(self.environment_dir.resolve()).encode()).hexdigest()[:16]
+            self._image_name = f"lexverse-env__{context_id}:latest"
+            # Always ask Docker to inspect the build context; its layer cache detects changed materials.
+            build_args = ["build", "-t", self._image_name, "-f", str(dockerfile.resolve())]
+            if force_build:
+                build_args.append("--no-cache")
+            build_args.append(str(self.environment_dir.resolve()))
+            res = await self._run_docker(build_args, timeout_sec=int(self.task_env_config.build_timeout_sec))
+            if res.return_code != 0:
+                raise RuntimeError(f"Docker image build failed (exit {res.return_code}): {res.stderr or res.stdout}")
         elif not self.task_env_config.docker_image:
             self._image_name = self.DEFAULT_IMAGE
 
@@ -161,9 +156,7 @@ class DockerEnvironment(ExecutionEnvironment):
             "--memory",
             f"{self.task_env_config.memory_mb}m",
             "-v",
-            f"{self.trial_paths.inputs_dir.resolve()}:{READ_ONLY[0]}:ro",
-            "-v",
-            f"{self.skills_root.resolve()}:{READ_ONLY[1]}:ro",
+            f"{self.skills_root.resolve()}:{READ_ONLY[0]}:ro",
             "-v",
             f"{self.trial_paths.runtime_dir.resolve()}:{RUNTIME}:rw",
             "-v",
@@ -238,10 +231,16 @@ class DockerEnvironment(ExecutionEnvironment):
 
     async def _begin_agent_execution(self):
         self._network_failed = False
-        validate_roots([self.trial_paths.inputs_dir, self.skills_root],
+        validate_roots([self.skills_root],
                        [self.trial_paths.workspace_dir, self.trial_paths.artifacts_dir, self.trial_paths.runtime_dir])
         # Setup is trusted; freeze its installed dependencies into a disposable image.
         # Bind mounts (including Skills, credentials and task data) are not copied by docker commit.
+        if sys.platform == "darwin":
+            # Docker Desktop cannot even chown write-only host files through its mount.
+            for path in self.trial_paths.runtime_dir.rglob("*"):
+                mode = path.lstat().st_mode
+                if stat.S_ISREG(mode) and not mode & stat.S_IRUSR:
+                    path.chmod(mode | stat.S_IRUSR)
         result = await self.exec(
             "chown -R 1000:1000 /runtime /workspace /artifacts && "
             "chmod a+rX /root && if [ -d /installed-agent ]; then chmod -R a+rX /installed-agent; fi", user="root")
@@ -276,7 +275,7 @@ class DockerEnvironment(ExecutionEnvironment):
                 del args[n:n + 2]
         if self._network_policy.network_mode == "allowlist":
             args += ["-v", f"{hosts.resolve()}:/etc/hosts:ro"]
-        args += ["--read-only", "--cap-drop=ALL", "--security-opt", "no-new-privileges", "--user", "1000:1000",
+        args += ["--cap-drop=ALL", "--security-opt", "no-new-privileges", "--user", "1000:1000",
                  "-e", "HOME=/runtime/home", "-e", "TMPDIR=/runtime/tmp", self._execution_image,
                  "sh", "-c", "trap 'exit 0' TERM; while :; do sleep 1; done"]
         result = await self._run_docker(args, timeout_sec=180)
@@ -324,10 +323,7 @@ class DockerEnvironment(ExecutionEnvironment):
         await self._run_docker(["kill", self._prepared_container + "-agent"])
 
     async def _end_agent_execution(self):
-        agent_container = self._container_name
-        self._container_name = self._prepared_container
-        await self._run_docker(["rm", "-f", agent_container])
-        await self._stop_network_control()
+        # Keep the completed container available for artifact collection and shared verification.
         if self._network_failed:
             raise RuntimeError("Task network controller stopped during execution")
 
@@ -359,7 +355,7 @@ class DockerEnvironment(ExecutionEnvironment):
             )
         except Exception:
             pass
-        await self._run_docker(["rm", "-f", self._container_name], timeout_sec=60)
+        await self._run_docker(["rm", "-f", self._container_name, self._prepared_container], timeout_sec=60)
         if self._execution_image:
             await self._run_docker(["image", "rm", "-f", self._execution_image], timeout_sec=60)
 
@@ -397,6 +393,33 @@ class DockerEnvironment(ExecutionEnvironment):
         )
         if res.return_code != 0:
             raise RuntimeError(f"Failed to download directory from container: {res.stderr}")
+
+    async def download_task_skills(self, source: str, destination: Path):
+        if not (source == "/skills" or source.startswith("/skills/")):
+            return await self.download_dir(source, destination)
+        # The execution Skill mount hides the image's /skills; inspect an unmounted copy.
+        name = self._prepared_container + "-task-skills"
+        try:
+            created = await self._run_docker(["create", "--name", name, self._image_name, "true"])
+            if created.return_code:
+                raise RuntimeError(f"Cannot read task Skills: {created.stderr}")
+            destination.mkdir(parents=True, exist_ok=True)
+            copied = await self._run_docker(["cp", f"{name}:{source}/.", str(destination)])
+            if copied.return_code:
+                raise RuntimeError(f"Cannot copy task Skills: {copied.stderr}")
+        finally:
+            await self._run_docker(["rm", "-f", name])
+
+    async def mcp_for_host(self, server):
+        if server.transport != "stdio":
+            return server
+        args = ["exec", "-i"]
+        if self._execution_depth:
+            args += ["--user", "1000:1000"]
+        for name, value in server.env.items():
+            args += ["--env", f"{name}={value}"]
+        return server.model_copy(update={"command": "docker", "args": [*args, self._container_name,
+                                                                       server.command, *server.args], "env": {}})
 
     async def exec(
         self,

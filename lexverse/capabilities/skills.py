@@ -14,9 +14,9 @@ from urllib.parse import quote
 from filelock import FileLock
 import yaml
 
-from lexverse.capabilities.registry import ResourceRegistry, SkillSource, validate_registry
+from lexverse.capabilities.sources import SkillSources, SkillSource, validate_sources
 from lexverse.config import ConfigError
-from lexverse.runtime.results import atomic_write_json
+from lexverse.utils.files import atomic_write_json
 
 
 def tree_hashes(root: Path) -> dict[str, str]:
@@ -132,7 +132,7 @@ def _directory_root(name: str, source: SkillSource, cache: Path) -> Path:
     return root
 
 
-def load_download_registry(path: Path | None = None, *, cache_dir=None) -> ResourceRegistry:
+def load_skill_sources(path: Path | None = None, *, cache_dir=None) -> SkillSources:
     if path is None:
         from huggingface_hub import hf_hub_download
         from huggingface_hub.errors import HfHubHTTPError
@@ -155,10 +155,10 @@ def load_download_registry(path: Path | None = None, *, cache_dir=None) -> Resou
             raise ConfigError(f"Unsupported skills delivery type: {name}")
         sources[name] = {"repository": entry.get("upstream_url"), "commit": entry.get("upstream_revision"),
                          "path": entry.get("upstream_path")}
-    return validate_registry({"skill_sources": sources})
+    return validate_sources({"skill_sources": sources})
 
 
-def download_skills(registry: ResourceRegistry, selected: list[str] | None, cache: Path, *, dry_run=False) -> int:
+def download_skills(registry: SkillSources, selected: list[str] | None, cache: Path, *, dry_run=False) -> int:
     selected = list(dict.fromkeys(selected)) if selected else list(registry.skill_sources)
     unknown = set(selected) - registry.skill_sources.keys()
     if unknown:
@@ -181,74 +181,81 @@ def download_skills(registry: ResourceRegistry, selected: list[str] | None, cach
     return 0
 
 
-def prepare_skills(registry: ResourceRegistry, selected: list[str], cache: Path,
-                   agent_root: Path) -> dict:
+def prepare_skills(selected, cache: Path, agent_root: Path) -> dict:
+    """Project explicit Skill directories; a later source replaces the same directory name."""
     destination = agent_root / "skills"
     destination.mkdir(parents=True, exist_ok=True)
-    records = []
-    names = set()
-    folders = set()
-    roots = {}
-    for skill_id in selected:
-        definition = registry.skills.get(skill_id)
-        if definition is None:
-            raise ConfigError(f"Unknown skill: {skill_id}")
-        if definition.source not in roots:
-            roots[definition.source] = source_root(definition.source, registry.skill_sources[definition.source], cache)
-        root = roots[definition.source]
-        folder = root / definition.path
+    records = {}
+    overrides = []
+    for reference in selected:
+        if reference.repository:
+            source = SkillSource(repository=reference.repository, commit=reference.commit,
+                                 path=reference.path.as_posix())
+            source_id = hashlib.sha256(reference.repository.encode()).hexdigest()[:16]
+            folder = source_root(source_id, source, cache)
+            name = reference.path.name
+        else:
+            folder = reference.path
+            name = folder.name
+        if not name or name in {".", ".."}:
+            raise ConfigError("Skill directory needs a name")
         skill_file = folder / "SKILL.md"
         if not skill_file.is_file():
-            raise ConfigError(f"Missing SKILL.md: {skill_id}")
+            raise ConfigError(f"Missing SKILL.md: {folder}")
+        tree_hashes(folder)
         content = skill_file.read_text(encoding="utf-8")
         match = re.match(r"\A---\s*\n(.*?)\n---(?:\n|$)", content, re.S)
         metadata = yaml.safe_load(match.group(1)) if match else None
-        if not isinstance(metadata, dict) or not all(isinstance(metadata.get(k), str) and metadata[k].strip() for k in ("name", "description")):
-            raise ConfigError(f"Invalid skill frontmatter: {skill_id}")
-        if metadata["name"] in names:
-            raise ConfigError(f"Duplicate skill name: {metadata['name']}")
-        names.add(metadata["name"])
-        target = destination / definition.source / folder.relative_to(root)
-        if target in folders:
-            raise ConfigError(f"Duplicate skill folder: {folder.name}")
-        folders.add(target)
-        shutil.copytree(folder, target, dirs_exist_ok=True)
-        _copy_references(root, folder, target, agent_root / "skills")
-        hashes = tree_hashes(target)
-        records.append({
-            "id": skill_id, "name": metadata["name"], "description": metadata["description"],
-            "path": "/" + (target / "SKILL.md").relative_to(agent_root).as_posix(), "source": definition.source,
-            "commit": registry.skill_sources[definition.source].commit, "files": hashes,
-        })
-    exposed = {p.parent for p in destination.rglob("SKILL.md")}
-    if exposed != folders:
-        raise ConfigError("Skill references expose unselected skill instructions")
-    return {"skills": records,
-            "paths": ["/" + folder.relative_to(agent_root).as_posix() + "/" for folder in sorted({target.parent for target in folders})], "files": tree_hashes(agent_root / "skills")}
+        if not isinstance(metadata, dict) or not all(isinstance(metadata.get(k), str) and metadata[k].strip()
+                                                    for k in ("name", "description")):
+            raise ConfigError(f"Invalid skill frontmatter: {folder}")
+        target = destination / name
+        if name in records:
+            overrides.append({"name": name, "previous": records[name]["source"],
+                              "replacement": reference.model_dump(mode="json")})
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.copytree(folder, target)
+        records[name] = {"id": name, "name": name, "description": metadata["description"],
+                         "path": f"/skills/{name}/SKILL.md", "source": reference.model_dump(mode="json"),
+                         "commit": reference.commit, "files": tree_hashes(target)}
+    return {"skills": list(records.values()), "paths": ["/skills/"],
+            "overrides": overrides, "files": tree_hashes(destination)}
 
 
-def _copy_references(source_root: Path, folder: Path, target: Path, projection_root: Path) -> None:
-    pending = [(p, target / p.relative_to(folder)) for p in folder.rglob("*.md")]
-    seen = set()
-    while pending:
-        source, projected = pending.pop()
-        if source in seen:
-            continue
-        seen.add(source)
-        for link in re.findall(r"\]\(([^)]+)\)", source.read_text(encoding="utf-8")):
-            link = link.split("#", 1)[0]
-            if not link or ":" in link or link.startswith("/"):
-                continue
-            original = (source.parent / link).resolve()
-            output = (projected.parent / link).resolve()
-            if not original.is_relative_to(source_root.resolve()) or not output.is_relative_to(projection_root.resolve()):
-                raise ConfigError("Skill reference escapes its resource projection")
-            if not original.is_file():
-                raise ConfigError(f"Missing skill reference: {link}")
-            if original.name == "SKILL.md" and not output.exists():
-                raise ConfigError("Skill reference exposes unselected skill instructions")
-            output.parent.mkdir(parents=True, exist_ok=True)
-            if not output.exists():
-                shutil.copyfile(original, output)
-            if original.suffix == ".md":
-                pending.append((original, output))
+async def prepare_task_skills(environment, spec, resources, cache: Path):
+    if not spec.task_skills:
+        return
+    from lexverse.capabilities.resources import SkillRef
+    from lexverse.capabilities.base import identity
+
+    with tempfile.TemporaryDirectory(prefix="task-skills-") as temporary:
+        fixed, origins = [], {}
+        for index, source in enumerate(spec.task_skills):
+            root = Path(temporary) / str(index) / Path(source).name
+            await environment.download_task_skills(source, root)
+            tree_hashes(root)
+            folders = [root] if (root / "SKILL.md").is_file() else sorted(path.parent for path in root.rglob("SKILL.md"))
+            if not folders:
+                raise ConfigError(f"Task Skill directory contains no SKILL.md: {source}")
+            for folder in folders:
+                fixed.append(SkillRef(path=folder))
+                origins[str(folder)] = {"environment_path": str(Path(source) / folder.relative_to(root))}
+        prepared = prepare_skills([*fixed, *spec.selection.skills], cache, spec.run_dir / ".internal/agent_fs")
+
+        def provenance(value):
+            if isinstance(value, dict):
+                if value.get("path") in origins:
+                    return origins[value["path"]]
+                return {key: provenance(item) for key, item in value.items()}
+            if isinstance(value, list):
+                return [provenance(item) for item in value]
+            return value
+
+        prepared = provenance(prepared)
+        prepared["execution_files"] = resources["skills"].get("execution_files", resources["skills"]["files"])
+        resources["skills"] = prepared
+        manifest_path = spec.run_dir / ".internal/manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest.update(resources=resources, resource_hash=identity(resources))
+        atomic_write_json(manifest_path, manifest)

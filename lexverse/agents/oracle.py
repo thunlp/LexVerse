@@ -24,7 +24,7 @@ from lexverse.agents.base import BaseAgent
 from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
-from lexverse.models.trial import EnvironmentPaths
+from lexverse.models.trial.paths import EnvironmentPaths
 
 
 class OracleAgent(BaseAgent):
@@ -32,6 +32,9 @@ class OracleAgent(BaseAgent):
     Reference solution agent that uploads `solution/` into `/solution` and executes
     `solve.sh` inside the sandbox environment.
     """
+
+    SUPPORTS_NETWORK_ALLOWLIST = True
+    MODEL_CONNECTION = None
 
     _ORACLE_LOG_FILE = "oracle.txt"
     SUPPORTS_WINDOWS: bool = True
@@ -67,7 +70,7 @@ class OracleAgent(BaseAgent):
 
     @override
     def version(self) -> str:
-        return "1.0.0"
+        return "1.0"
 
     @override
     async def setup(self, environment: ExecutionEnvironment) -> None:

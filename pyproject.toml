@@ -17,6 +17,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Report exports.
+reports = ["openpyxl>=3.1"]
+
+# Agent capabilities (Skills, knowledge, and MCP).
 capability-task = [
     "deepagents==0.7.22",
     "langchain[mcp]==1.4.3",
@@ -37,6 +41,7 @@ capability-task = [
     "pypdf==6.19.0",
     "python-docx==1.2.0",
 ]
+
 # Model backends.
 openai = [
     "openai>=1.0",
@@ -122,7 +127,7 @@ test = [
 ]
 
 [project.scripts]
-lexverse = "lexverse.commands.main:main"
+lexverse = "lexverse.cli.main:main"
 
 [tool.lexverse.macos-arm64]
 python-version = "3.12"
@@ -150,8 +155,8 @@ include = ["lexverse", "lexverse.*"]
 exclude = ["reference_harness*", "tests*", "data*", "docs*"]
 
 [tool.setuptools.package-data]
+"lexverse.agents.external" = ["*.mjs"]
 "lexverse.environments" = ["egress/*", "egress/bin/*"]
-"lexverse.capabilities" = ["catalog.yaml"]
 "lexverse.benchmarks.dlawbench" = ["catalog.yaml"]
 "lexverse.benchmarks.j1bench" = ["patches/*.patch", "catalog.yaml"]
 "lexverse.benchmarks.lawbench" = ["patches/*.patch", "catalog.yaml"]

@@ -31,6 +31,7 @@ data/*
 .env.local
 configs/secrets.local.yaml
 configs/benchmarks/*.local.yaml
+configs/jobs/*.local.yaml
 configs/capabilities/*.local.yaml
 
 # Editable architecture sources stay local
@@ -48,3 +49,4 @@ docs/*.drawio
 
 # Independently managed Hugging Face dataset repository
 /hf-dataset/
+/tests/

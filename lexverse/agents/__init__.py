@@ -4,14 +4,14 @@ _EXPORTS = {
     "AgentFactory": "lexverse.agents.factory:AgentFactory",
     "AgentSetupInfo": "lexverse.agents.base:AgentSetupInfo",
     "BaseAgent": "lexverse.agents.base:BaseAgent",
-    "BaseInstalledAgent": "lexverse.agents.installed.base:BaseInstalledAgent",
-    "CliFlag": "lexverse.agents.installed.base:CliFlag",
-    "EnvVar": "lexverse.agents.installed.base:EnvVar",
-    "LexVerseAgent": "lexverse.agents.lexverse_agent:LexVerseAgent",
-    "NonZeroAgentExitCodeError": "lexverse.agents.installed.base:NonZeroAgentExitCodeError",
+    "BaseInstalledAgent": "lexverse.agents.external.base:BaseInstalledAgent",
+    "CliFlag": "lexverse.agents.external.base:CliFlag",
+    "EnvVar": "lexverse.agents.external.base:EnvVar",
+    "VanillaAgent": "lexverse.agents.vanilla:VanillaAgent",
+    "NonZeroAgentExitCodeError": "lexverse.agents.external.base:NonZeroAgentExitCodeError",
     "NopAgent": "lexverse.agents.nop:NopAgent",
     "OracleAgent": "lexverse.agents.oracle:OracleAgent",
-    "with_prompt_template": "lexverse.agents.installed.base:with_prompt_template",
+    "with_prompt_template": "lexverse.agents.external.base:with_prompt_template",
 }
 
 __all__ = list(_EXPORTS)

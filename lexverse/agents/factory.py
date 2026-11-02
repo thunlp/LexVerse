@@ -17,7 +17,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from lexverse.agents.installed.acp_registry import (
+from lexverse.agents.external.acp_registry import (
     is_acp_registry_shorthand,
     registry_spec_from_agent_name,
 )
@@ -27,7 +27,7 @@ from lexverse.utils.import_path import import_class
 
 if TYPE_CHECKING:
     from lexverse.agents.base import BaseAgent
-    from lexverse.models.trial import AgentConfig
+    from lexverse.models.trial.config import AgentConfig
 
 
 def _import_agent_class(import_path: str) -> "type[BaseAgent]":
@@ -45,39 +45,39 @@ class AgentFactory:
     """
 
     _AGENT_MAP: dict[AgentName, str] = {
-        AgentName.LEXVERSE: "lexverse.agents.lexverse_agent:LexVerseAgent",
+        AgentName.VANILLA: "lexverse.agents.vanilla:VanillaAgent",
         AgentName.ORACLE: "lexverse.agents.oracle:OracleAgent",
         AgentName.NOP: "lexverse.agents.nop:NopAgent",
-        AgentName.ACP: "lexverse.agents.installed.acp:AcpAgent",
-        AgentName.CLAUDE_CODE: "lexverse.agents.installed.claude_code:ClaudeCode",
-        AgentName.COPILOT_CLI: "lexverse.agents.installed.copilot_cli:CopilotCli",
-        AgentName.AIDER: "lexverse.agents.installed.aider:Aider",
-        AgentName.CLINE_CLI: "lexverse.agents.installed.cline:ClineCli",
-        AgentName.CODEX: "lexverse.agents.installed.codex:Codex",
-        AgentName.CURSOR_CLI: "lexverse.agents.installed.cursor_cli:CursorCli",
-        AgentName.GEMINI_CLI: "lexverse.agents.installed.gemini_cli:GeminiCli",
-        AgentName.ANTIGRAVITY_CLI: "lexverse.agents.installed.antigravity_cli:AntigravityCli",
-        AgentName.ROVODEV_CLI: "lexverse.agents.installed.rovodev_cli:RovodevCli",
-        AgentName.GOOSE: "lexverse.agents.installed.goose:Goose",
-        AgentName.GROK_BUILD: "lexverse.agents.installed.grok_build:GrokBuild",
-        AgentName.HERMES: "lexverse.agents.installed.hermes:Hermes",
-        AgentName.KIMI_CLI: "lexverse.agents.installed.kimi_cli:KimiCli",
-        AgentName.LANGGRAPH: "lexverse.agents.installed.langgraph:LangGraph",
-        AgentName.DEERFLOW: "lexverse.agents.installed.deerflow:DeerFlow",
-        AgentName.MINI_SWE_AGENT: "lexverse.agents.installed.mini_swe_agent:MiniSweAgent",
-        AgentName.NEMO_AGENT: "lexverse.agents.installed.nemo_agent:NemoAgent",
-        AgentName.SWE_AGENT: "lexverse.agents.installed.swe_agent:SweAgent",
-        AgentName.OPENCODE: "lexverse.agents.installed.opencode:OpenCode",
-        AgentName.MIMO: "lexverse.agents.installed.mimo:MiMo",
-        AgentName.OPENCLAW: "lexverse.agents.installed.openclaw:OpenClaw",
-        AgentName.OPENHANDS: "lexverse.agents.installed.openhands:OpenHands",
-        AgentName.OPENHANDS_SDK: "lexverse.agents.installed.openhands_sdk:OpenHandsSDK",
-        AgentName.PI: "lexverse.agents.installed.pi:Pi",
-        AgentName.QWEN_CODE: "lexverse.agents.installed.qwen_code:QwenCode",
-        AgentName.DEVIN: "lexverse.agents.installed.devin:Devin",
-        AgentName.TRAE_AGENT: "lexverse.agents.installed.trae_agent:TraeAgent",
-        AgentName.EVE: "lexverse.agents.installed.eve:Eve",
-        AgentName.VIBE: "lexverse.agents.installed.vibe:Vibe",
+        AgentName.ACP: "lexverse.agents.external.acp:AcpAgent",
+        AgentName.CLAUDE_CODE: "lexverse.agents.external.claude_code:ClaudeCode",
+        AgentName.COPILOT_CLI: "lexverse.agents.external.copilot_cli:CopilotCli",
+        AgentName.AIDER: "lexverse.agents.external.aider:Aider",
+        AgentName.CLINE_CLI: "lexverse.agents.external.cline:ClineCli",
+        AgentName.CODEX: "lexverse.agents.external.codex:Codex",
+        AgentName.CURSOR_CLI: "lexverse.agents.external.cursor_cli:CursorCli",
+        AgentName.GEMINI_CLI: "lexverse.agents.external.gemini_cli:GeminiCli",
+        AgentName.ANTIGRAVITY_CLI: "lexverse.agents.external.antigravity_cli:AntigravityCli",
+        AgentName.ROVODEV_CLI: "lexverse.agents.external.rovodev_cli:RovodevCli",
+        AgentName.GOOSE: "lexverse.agents.external.goose:Goose",
+        AgentName.GROK_BUILD: "lexverse.agents.external.grok_build:GrokBuild",
+        AgentName.HERMES: "lexverse.agents.external.hermes:Hermes",
+        AgentName.KIMI_CLI: "lexverse.agents.external.kimi_cli:KimiCli",
+        AgentName.LANGGRAPH: "lexverse.agents.external.langgraph:LangGraph",
+        AgentName.DEERFLOW: "lexverse.agents.external.deerflow:DeerFlow",
+        AgentName.MINI_SWE_AGENT: "lexverse.agents.external.mini_swe_agent:MiniSweAgent",
+        AgentName.NEMO_AGENT: "lexverse.agents.external.nemo_agent:NemoAgent",
+        AgentName.SWE_AGENT: "lexverse.agents.external.swe_agent:SweAgent",
+        AgentName.OPENCODE: "lexverse.agents.external.opencode:OpenCode",
+        AgentName.MIMO: "lexverse.agents.external.mimo:MiMo",
+        AgentName.OPENCLAW: "lexverse.agents.external.openclaw:OpenClaw",
+        AgentName.OPENHANDS: "lexverse.agents.external.openhands:OpenHands",
+        AgentName.OPENHANDS_SDK: "lexverse.agents.external.openhands_sdk:OpenHandsSDK",
+        AgentName.PI: "lexverse.agents.external.pi:Pi",
+        AgentName.QWEN_CODE: "lexverse.agents.external.qwen_code:QwenCode",
+        AgentName.DEVIN: "lexverse.agents.external.devin:Devin",
+        AgentName.TRAE_AGENT: "lexverse.agents.external.trae_agent:TraeAgent",
+        AgentName.EVE: "lexverse.agents.external.eve:Eve",
+        AgentName.VIBE: "lexverse.agents.external.vibe:Vibe",
     }
 
     @classmethod
@@ -153,6 +153,10 @@ class AgentFactory:
             )
         if config.override_timeout_sec is not None:
             agent_kwargs.setdefault("timeout_sec", config.override_timeout_sec)
+        if config.max_timeout_sec is not None:
+            timeout = agent_kwargs.get("timeout_sec")
+            agent_kwargs["timeout_sec"] = (min(timeout, config.max_timeout_sec)
+                                           if timeout is not None else config.max_timeout_sec)
 
         if import_path is not None:
             return cls.create_agent_from_import_path(
@@ -175,38 +179,62 @@ class AgentFactory:
         )
 
 
-def build_agent(model, environment, *, tools=(), skills=None, checkpointer=None,
-                middleware=(), interactive=False, system_prompt="", timeout_sec: float = 60):
-    from deepagents import create_deep_agent
-    from lexverse.agents.environment_backend import EnvironmentBackend
-    from deepagents.profiles import (
-        GeneralPurposeSubagentProfile, HarnessProfile, register_harness_profile,
-    )
-    from pydantic import ValidationError
 
-    provider = model._get_ls_params().get("ls_provider")
-    identifier = getattr(model, "model_name", None) or getattr(model, "model", None)
-    if not provider:
-        raise ValueError("Chat model must identify its provider for single-agent configuration")
-    key = f"{provider}:{identifier}" if identifier else provider
-    register_harness_profile(key, HarnessProfile(
-        general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False),
-        excluded_tools=frozenset({"task", "delete"}),
-    ))
-    backend = EnvironmentBackend(environment, timeout_sec=timeout_sec)
-    user_tool = next((tool for tool in tools if getattr(tool, "name", None) == "ask_user"), None)
+def agent_kind(name: str) -> str:
+    """Resolve a name without importing heavyweight implementations."""
+    if name in {"static", "native", "vanilla"}:
+        return name
+    if name in AgentFactory.supported_agent_names() or is_acp_registry_shorthand(name) or ":" in name:
+        return "external"
+    raise ValueError(f"Unknown agent: {name}")
 
-    def valid_question(request):
+
+def validate_agent(name, allowed, *, source, model=None, environment=None, network_mode=None):
+    from lexverse.config import ConfigError
+    try:
+        kind = agent_kind(name)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+    if kind not in allowed:
+        raise ConfigError(f"{source}: incompatible agent {name}; allowed kinds: {', '.join(sorted(allowed))}")
+    if kind in {"vanilla", "external"} and model is not None and model.get("provider") != "openai_compatible":
+        raise ConfigError(f"{name}: requires an OpenAI-compatible model service")
+    if kind in {"vanilla", "external"} and environment is not None:
+        from lexverse.models.task.environment import EnvironmentType
+        if not isinstance(environment, str):
+            raise ConfigError("environment must be a name or module:Class")
+        if ":" not in environment:
+            try:
+                EnvironmentType(environment)
+            except ValueError as exc:
+                raise ConfigError(f"Unknown environment: {environment}") from exc
+    if kind in {"vanilla", "external"} and network_mode == "allowlist":
+        if environment != "docker":
+            raise ConfigError("Network allowlists require Docker")
+        if name not in {"vanilla", "codex", "claude-code", "oracle"}:
+            raise ConfigError(f"{name}: network allowlist is unsupported")
+
+
+def parse_agents(value: str) -> list[str]:
+    from lexverse.config import ConfigError
+    names = [name.strip() for name in value.split(",")]
+    if not all(names) or len(set(names)) != len(names):
+        raise ConfigError("--agents requires nonempty, distinct comma-separated names")
+    for name in names:
+        agent_kind(name)
+    return names
+
+
+# argparse does not reject repeated store options by itself.
+import argparse
+
+
+class AgentsSelection(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if getattr(namespace, self.dest, None) is not None:
+            parser.error("--agents may be supplied only once; use comma-separated names")
         try:
-            arguments = user_tool.args_schema.model_validate(request.tool_call["args"])
-            return bool(arguments.question.strip())
-        except ValidationError:
-            return False
-
-    return create_deep_agent(
-        model=model, backend=backend,
-        tools=list(tools), skills=skills, middleware=list(middleware),
-        checkpointer=checkpointer, system_prompt=system_prompt,
-        interrupt_on={"ask_user": {"allowed_decisions": ["respond"], "when": valid_question}}
-        if user_tool is not None else None,
-    )
+            names = parse_agents(values)
+        except ValueError as exc:
+            parser.error(str(exc))
+        setattr(namespace, self.dest, names)

@@ -1,4 +1,4 @@
-from lexverse.commands.main import main
+from lexverse.cli.main import main
 
 if __name__ == "__main__":
     raise SystemExit(main())

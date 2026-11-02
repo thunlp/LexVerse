@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -21,8 +22,8 @@ def convert_langchain_messages_to_atif(
     messages: list[Any],
     *,
     session_id: str | None = None,
-    agent_name: str = "lexverse",
-    agent_version: str = "1.0.0",
+    agent_name: str = "vanilla",
+    agent_version: str = "1.0",
     model_name: str | None = None,
     usage: dict[str, Any] | None = None,
 ) -> Trajectory | None:
@@ -217,7 +218,13 @@ def convert_langchain_messages_to_atif(
 
 def write_atif_trajectory(trajectory: Trajectory, target_path: Path) -> None:
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    target_path.write_text(
-        format_trajectory_json(trajectory.to_json_dict()),
-        encoding="utf-8",
-    )
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=target_path.parent,
+                                         prefix=".trajectory-", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(format_trajectory_json(trajectory.to_json_dict()))
+        temporary.replace(target_path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)

@@ -1,10 +1,4 @@
-from .base import TaskVerifier, VerifierProvenance, VerifierResult
-from .sandbox import SandboxVerifier, SandboxVerifierResult
+from .benchmark import BenchmarkVerifier
+from .task import TaskVerifier
 
-__all__ = [
-    "SandboxVerifier",
-    "SandboxVerifierResult",
-    "TaskVerifier",
-    "VerifierProvenance",
-    "VerifierResult",
-]
+__all__ = ["TaskVerifier", "BenchmarkVerifier"]

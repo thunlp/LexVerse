@@ -8,11 +8,11 @@ import re
 import sys
 from tempfile import TemporaryDirectory
 
-from lexverse.capabilities.registry import ResourceRegistry
 from lexverse.config import ConfigError, load_profile
-from lexverse.models.trial import MCPServerConfig
-from lexverse.runtime.paths import AGENT_RUNTIME_ROOT, PROJECT_ROOT, RunPaths
-from lexverse.runtime.results import atomic_write_json
+from lexverse.models.task.environment import MCPServerConfig
+from lexverse.utils.paths import AGENT_RUNTIME_ROOT, PROJECT_ROOT
+from lexverse.models.trial.paths import RunPaths
+from lexverse.utils.files import atomic_write_json
 
 
 def failure_category(error: Exception) -> str:
@@ -67,19 +67,18 @@ def tool_name(alias: str, remote_name: str) -> str:
 
 
 @asynccontextmanager
-async def open_mcp_tools(registry: ResourceRegistry, selected: list[str], *, adapter_factory=None):
+async def open_mcp_tools(selected, *, adapter_factory=None):
     if adapter_factory is None:
         from langchain.mcp import MCPAdapter
         adapter_factory = MCPAdapter
-    if len(selected) != len(set(selected)):
+    if len(selected) != len({service.name for service in selected}):
         raise ConfigError("Duplicate MCP selections")
     tools, services, names = [], [], set()
     async with AsyncExitStack() as stack:
-        for alias in selected:
-            service = registry.mcp.get(alias)
-            if service is None:
-                raise ConfigError(f"Unknown MCP service: {alias}")
-            config = {"url": service.url, "transport": service.transport}
+        for service in selected:
+            alias = service.name
+            config = ({"command": service.command, "args": service.args, "env": service.env, "transport": "stdio"}
+                      if service.transport == "stdio" else {"url": service.url, "transport": service.transport})
             try:
                 if service.credential_ref:
                     config["headers"] = {"Authorization": "Bearer " + load_profile(service.credential_ref).api_key}

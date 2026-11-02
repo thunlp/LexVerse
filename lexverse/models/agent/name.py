@@ -18,7 +18,7 @@ from enum import Enum
 
 
 class AgentName(str, Enum):
-    LEXVERSE = "lexverse"
+    VANILLA = "vanilla"
     ORACLE = "oracle"
     NOP = "nop"
     ACP = "acp"

@@ -5,7 +5,8 @@ from pathlib import Path
 from lexverse.environments.base import ExecutionEnvironment
 from lexverse.environments.docker import DockerEnvironment
 from lexverse.environments.local import LocalEnvironment
-from lexverse.models.trial import EnvironmentType, TaskEnvConfig, TrialPaths
+from lexverse.models.task.environment import EnvironmentType, TaskEnvConfig
+from lexverse.models.trial.paths import TrialPaths
 from lexverse.utils.import_path import import_class
 
 
@@ -39,6 +40,11 @@ class EnvironmentFactory:
 
         resolved_type = EnvironmentType(env_type)
         env_cls = cls._ENV_MAP[resolved_type]
+        if (environment_dir / "docker-compose.yaml").is_file():
+            if resolved_type != EnvironmentType.DOCKER:
+                raise ValueError("Compose tasks require Docker")
+            from lexverse.environments.compose import ComposeEnvironment
+            env_cls = ComposeEnvironment
         return env_cls(
             environment_dir=environment_dir,
             environment_name=environment_name,

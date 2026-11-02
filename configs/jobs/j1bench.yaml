@@ -1,0 +1,32 @@
+# Example for `lexverse run -b j1bench`; j1bench.local.yaml takes precedence.
+benchmark:
+  name: j1bench
+  tasks:
+  - id: CI
+    limit: 2
+models:
+  default:
+    provider: openai_compatible
+    profile: yeysai
+    name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+  summary:
+    provider: openai_compatible
+    profile: yeysai
+    name: gpt-4o-2024-08-06
+    generation_parameters:
+      temperature: 0
+      max_tokens: 4096
+  verifiers:
+  - provider: openai_compatible
+    profile: yeysai
+    name: gpt-4o-mini
+generation:
+  timeout_sec: 3600
+attempts: 1
+concurrency: 2
+max_retries: 0
+agents:
+- name: native
+schema_version: '1.0'

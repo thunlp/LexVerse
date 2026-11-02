@@ -1,0 +1,22 @@
+# Example for `lexverse run -b lawbench`; lawbench.local.yaml takes precedence.
+benchmark:
+  name: lawbench
+  tasks:
+  - id: 1-1
+    limit: 2
+  shot: zero_shot
+models:
+  default:
+    provider: openai_compatible
+    profile: yeysai
+    name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+      max_tokens: 256
+generation: {}
+attempts: 1
+concurrency: 2
+max_retries: 0
+agents:
+- name: static
+schema_version: '1.0'

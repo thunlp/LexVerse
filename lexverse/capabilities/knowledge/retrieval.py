@@ -5,8 +5,8 @@ import re
 from lexverse.capabilities.knowledge.index import KnowledgeIndex
 from lexverse.capabilities.knowledge.keyword import KeywordSearch
 from lexverse.config import ConfigError
-from lexverse.runtime.paths import CAPABILITIES_ROOT
-from lexverse.tasks.user import KnowledgeFilters
+from lexverse.utils.paths import CAPABILITIES_ROOT
+from lexverse.models.task.config import KnowledgeFilters
 
 
 def _fuse(rankings):

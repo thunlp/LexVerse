@@ -11,8 +11,8 @@ from pydantic import Field
 
 from lexverse.capabilities.knowledge.index import KnowledgeIndex
 from lexverse.capabilities.knowledge.retrieval import TaskRetriever
-from lexverse.runtime.paths import CAPABILITIES_ROOT
-from lexverse.tasks.user import KnowledgeFilters, RetrievalConfig
+from lexverse.utils.paths import CAPABILITIES_ROOT
+from lexverse.models.task.config import KnowledgeFilters, RetrievalConfig
 
 
 def _load_retriever(indexes_manifest: Path, cache_dir: Path | None = None, *, recorder=None) -> TaskRetriever:
@@ -35,7 +35,7 @@ def _load_retriever(indexes_manifest: Path, cache_dir: Path | None = None, *, re
             mode = config.mode if config else manifest.get("identity", {}).get("retrieval", {}).get("mode", "keyword")
             if mode != "keyword" and embedding is None:
                 from lexverse.capabilities.knowledge.embeddings import create_embeddings
-                from lexverse.tasks.user import EmbeddingConfig
+                from lexverse.models.task.config import EmbeddingConfig
 
                 emb_cfg = config.embedding if config else EmbeddingConfig.model_validate(manifest.get("embedding_config", {}))
                 effective_cache = cache_dir or path.parents[1]

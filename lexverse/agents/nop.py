@@ -23,6 +23,8 @@ from lexverse.models.agent.name import AgentName
 
 
 class NopAgent(BaseAgent):
+    SUPPORTS_NETWORK_ALLOWLIST = True
+    MODEL_CONNECTION = None
     SUPPORTS_WINDOWS: bool = True
 
     @staticmethod
@@ -32,7 +34,7 @@ class NopAgent(BaseAgent):
 
     @override
     def version(self) -> str:
-        return "1.0.0"
+        return "1.0"
 
     @override
     async def setup(self, environment: ExecutionEnvironment) -> None:

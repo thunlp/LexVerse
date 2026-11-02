@@ -15,12 +15,9 @@ from lexverse.capabilities.knowledge.loaders import (
 )
 from lexverse.capabilities.knowledge.keyword import create_tokenizer, tokenize
 from lexverse.config import ConfigError
-from lexverse.runtime.results import atomic_write_json
-from lexverse.tasks.user import RetrievalConfig
-
-
-def _hash(value) -> str:
-    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+from lexverse.utils.files import atomic_write_json
+from lexverse.utils.identity import identity as _hash
+from lexverse.models.task.config import RetrievalConfig
 
 
 def is_index_directory(path: Path) -> bool:
@@ -239,7 +236,7 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
     except importlib.metadata.PackageNotFoundError:
         splitter_version = "fallback-1.0"
     identity = {
-        "format_version": 6, "loader_version": LOADER_VERSION, "source_id": source_id, "files": files,
+        "format_version": "1.0", "loader_version": LOADER_VERSION, "source_id": source_id, "files": files,
         "kinds": {relative: source_kind((source / relative).parent) for relative in files},
         "retrieval": retrieval_identity, "embedding": embedding_identity,
         "jieba": importlib.metadata.version("jieba"), "dictionary": hash_file(Path(tokenizer.get_dict_file().name)),
@@ -254,19 +251,6 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
             if progress is not None:
                 progress(len(files), len(files), manifest["chunk_count"])
             return destination
-        # Reuse older, verified indexes whose identity included query settings.
-        # Keep their manifests and citation IDs unchanged.
-        for candidate in sorted(destination.parent.glob("*/manifest.json")):
-            try:
-                previous = json.loads(candidate.read_text())["identity"]
-                comparable = {**previous, "retrieval": _build_recipe(previous["retrieval"])}
-            except (OSError, ValueError, KeyError, TypeError):
-                continue
-            if comparable == identity:
-                manifest = verify_index(candidate.parent)
-                if progress is not None:
-                    progress(len(files), len(files), manifest["chunk_count"])
-                return candidate.parent
         with tempfile.TemporaryDirectory(dir=destination.parent) as temporary:
             staged = Path(temporary) / "index"
             staged.mkdir()
@@ -345,6 +329,9 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
 def verify_index(path: Path) -> dict:
     try:
         manifest = json.loads((path / "manifest.json").read_text())
+        if (manifest["identity"].get("format_version") != "1.0"
+                or manifest["identity"].get("loader_version") != LOADER_VERSION):
+            raise ValueError("Unsupported knowledge index version; rebuild or download a 1.0 index")
         if manifest["index_hash"] != path.name or _hash(manifest["identity"]) != path.name:
             raise ValueError("Index identity mismatch")
         for name, expected in manifest["files"].items():
@@ -352,7 +339,7 @@ def verify_index(path: Path) -> dict:
                 raise ValueError("Index content mismatch")
         return manifest
     except (OSError, ValueError, KeyError) as exc:
-        raise ConfigError("Invalid or damaged knowledge index") from exc
+        raise ConfigError("Invalid, unsupported or damaged knowledge index; expected format 1.0") from exc
 
 
 def preparation_report(index, cache: Path, *, skipped=None) -> dict:

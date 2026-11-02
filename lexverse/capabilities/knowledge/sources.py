@@ -13,7 +13,7 @@ MANIFEST_NAME = ".lexverse-knowledge.yaml"
 
 class SourceManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    schema_version: Literal[1] = 1
+    schema_version: Literal["1.0"] = "1.0"
     kind: Literal["user", "legal_laws", "legal_cases", "legal_concepts", "legal_qa", "legal_templates"] = "user"
     text_fields: list[str] = Field(min_length=1)
     title_field: str | None = None

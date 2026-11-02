@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import math
+from copy import deepcopy
 import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from lexverse.utils.identity import identity
 
 
 _ENV_VAR_RE = re.compile(r"\$\{([A-Z_][A-Z0-9_]*)\}")
@@ -48,22 +49,26 @@ class ModelsConfig:
     default: ModelConfig
     roles: dict[str, ModelConfig] = field(default_factory=dict)
     summary: ModelConfig | None = None
-    evaluators: list[ModelConfig] = field(default_factory=list)
+    verifiers: list[ModelConfig] = field(default_factory=list)
 
 
 @dataclass
 class ResolvedConfig:
-    schema_version: float
     benchmark: dict[str, Any]
     models: ModelsConfig
+    agent: str
     generation: dict[str, Any]
-    evaluation: dict[str, Any]
+    verification: dict[str, Any]
     raw: dict[str, Any]
     source_path: Path
+    legacy: bool = False
+    resources: Any = None
+    retrieval: Any = None
+    limits: Any = None
 
     def hash(self) -> str:
-        blob = json.dumps(self.raw, sort_keys=True, ensure_ascii=False).encode("utf-8")
-        return hashlib.sha256(blob).hexdigest()[:16]
+        from lexverse.models.verification_compat import convert_config_names
+        return identity(convert_config_names(self.raw, legacy=self.legacy))[:16]
 
 
 def is_local_path(name: str) -> bool:
@@ -121,8 +126,8 @@ def parse_model_config(value: object, *, field: str, base_dir: Path | None = Non
     generation = value.get("generation_parameters", {})
     input_config = value.get("input", {})
     if provider == "openai_compatible":
-        if not isinstance(profile, str) or not profile.strip():
-            raise ConfigError(f"{field}.profile is required for API models")
+        if profile is not None and (not isinstance(profile, str) or not profile.strip()):
+            raise ConfigError(f"{field}.profile must be a nonempty string")
         if "load_parameters" in value or "input" in value:
             raise ConfigError(f"{field}: load_parameters and input are only for local providers")
     else:
@@ -238,113 +243,75 @@ def profile_available(name: str) -> bool:
         return False
 
 
-def parse_config(data: dict, *, source_path: Path) -> ResolvedConfig:
-    def reject_inline_keys(value):
-        if isinstance(value, dict):
-            if set(value) & {"api_key", "token", "hf_token"}:
-                raise ConfigError("credentials belong in secrets profiles or HF_TOKEN, not the saved run configuration")
-            for item in value.values():
-                reject_inline_keys(item)
-        elif isinstance(value, list):
-            for item in value:
-                reject_inline_keys(item)
-    reject_inline_keys(data)
-    schema = data.get("schema_version", 1)
-    modern = schema == 2 or (isinstance(schema, float) and schema == 1.0)
-    if schema not in (1, 2):
-        raise ConfigError(f"unsupported schema_version: {schema}")
-    if modern:
-        unknown = set(data) - {"schema_version", "benchmark", "models", "generation", "evaluation"}
-        if unknown:
-            raise ConfigError(f"schema_version 1.0: unsupported fields {sorted(unknown)}")
-    elif set(data) & {"models", "generation"}:
-        raise ConfigError("models and generation require schema_version: 1.0")
+def j1_summary_default(profile: str | None) -> dict:
+    return {"provider": "openai_compatible", "profile": profile or "openai",
+            "name": "gpt-4o-2024-08-06",
+            "generation_parameters": {"temperature": 0, "max_tokens": 4096}}
 
-    bench = data.get("benchmark")
-    if not isinstance(bench, dict) or "name" not in bench:
-        raise ConfigError("benchmark.name is required")
-    if bench["name"] not in {"lexeval", "j1bench", "lawbench", "plawbench", "dlawbench", "legalworld"}:
+
+def parse_config(data: dict, *, source_path: Path, legacy: bool = False) -> ResolvedConfig:
+    from lexverse.models.job.config import JobConfig
+    try:
+        job = JobConfig.model_validate(data).resolve(source_path.parent)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+    if len(job.agents) != 1:
+        raise ConfigError("Resolve one agent per benchmark execution")
+    return resolve_benchmark_config(job, 0, source_path=source_path, legacy=legacy)
+
+
+def resolve_benchmark_config(job, agent_index: int, *, source_path: Path, legacy: bool = False) -> ResolvedConfig:
+    """Build one benchmark execution from an already resolved Job configuration."""
+    if job.benchmark is None:
+        raise ConfigError("Expected a benchmark Job")
+    data = job.model_dump(mode="json", exclude_none=True)
+    selected = job.agents[agent_index]
+    data["agents"] = [selected.model_dump(mode="json", exclude_none=True)]
+    if selected.model is not None:
+        data["models"]["default"] = data["agents"][0]["model"]
+    bench = data["benchmark"]
+    from lexverse.benchmarks.registry import available_plugins
+    if bench["name"] not in available_plugins():
         raise ConfigError(f"unknown benchmark: {bench['name']!r}")
-    for name in ("case_database", "few_shot_path"):
-        if bench.get(name):
-            bench[name] = str(Path(bench[name]).resolve())
-    if isinstance(bench.get("case_databases"), dict):
-        bench["case_databases"] = {
-            name: str(Path(path).resolve()) for name, path in bench["case_databases"].items()
-        }
-
-    generation_key = "generation" if modern else "execution"
-    generation = data.get(generation_key, {}) or {}
-    evaluation = data.get("evaluation", {}) or {}
-    if not isinstance(generation, dict) or not isinstance(evaluation, dict):
-        raise ConfigError(f"{generation_key} and evaluation must be mappings")
-    if "resume" in generation:
-        raise ConfigError(f"{generation_key}.resume was removed; use run --resume RUN_DIR")
-    if modern:
-        models = data.get("models")
-        if not isinstance(models, dict):
-            raise ConfigError("models must be a mapping")
-        unknown = set(models) - {"default", "roles", "summary", "evaluators"}
-        if unknown:
-            raise ConfigError(f"models: unsupported fields {sorted(unknown)}")
-        if set(evaluation) & {"model", "judges"} or "summary_model" in bench:
-            raise ConfigError("put all model definitions in models in schema_version 1.0")
-        if bench["name"] == "lexeval" and set(evaluation) & {"choice_metric", "generation_metric"}:
-            raise ConfigError("LexEval metrics are defined by the native catalog")
-    else:
-        # Legacy snapshots retain their raw layout and hash; only the resolved view changes.
-        roles = data.get("roles", {}) or {}
-        if not isinstance(roles, dict):
-            raise ConfigError("roles must be a mapping")
-        for role, value in roles.items():
-            if not isinstance(value, dict) or set(value) - {"model"}:
-                raise ConfigError(f"roles.{role}: use a complete model mapping; put generation parameters inside it")
-        if "model" in evaluation and evaluation.get("judges"):
-            raise ConfigError("evaluation.model and evaluation.judges cannot be combined")
-        judges = evaluation.get("judges", [])
-        if not isinstance(judges, list):
-            raise ConfigError("evaluation.judges must be a list")
-        models = {
-            "default": data.get("model"),
-            "roles": {role: value["model"] for role, value in roles.items() if "model" in value},
-            "evaluators": [evaluation["model"]] if "model" in evaluation else judges,
-        }
-        if "summary_model" in bench:
-            models["summary"] = bench["summary_model"]
-        evaluation = {key: value for key, value in evaluation.items() if key not in {"model", "judges"}}
-    model = parse_model_config(
-        models.get("default"), field="models.default" if modern else "model", base_dir=source_path.parent,
-    )
+    generation = deepcopy(job.generation)
+    if selected.override_timeout_sec is not None:
+        generation['limits'] = {**generation.get('limits', {}),
+                                'active_timeout_sec': selected.override_timeout_sec}
+    verification = data.get("verification", {}) or {}
+    models = data["models"]
+    if set(verification) & {"model", "judges"} or "summary_model" in bench:
+        raise ConfigError("put all model definitions in models")
+    if bench["name"] == "lexeval" and set(verification) & {"choice_metric", "generation_metric"}:
+        raise ConfigError("LexEval metrics are defined by the native catalog")
+    parsed_models = deepcopy(job._resolved_models)
+    model = parsed_models[f"agents.{agent_index}.model" if selected.model is not None else "default"]
     roles = models.get("roles", {}) or {}
     if not isinstance(roles, dict):
         raise ConfigError("models.roles must be a mapping")
     if roles and bench["name"] not in {"j1bench", "dlawbench", "legalworld"}:
         raise ConfigError("roles model overrides are currently supported only by J1Bench, DLawBench and Legal-world")
-    role_models = {role: parse_model_config(value, field=f"models.roles.{role}", base_dir=source_path.parent)
-                   for role, value in roles.items()}
-    evaluators = models.get("evaluators", [])
-    if not isinstance(evaluators, list):
-        raise ConfigError("models.evaluators must be a list of model mappings")
-    evaluator_models = [parse_model_config(value, field=f"models.evaluators.{index}", base_dir=source_path.parent)
-                        for index, value in enumerate(evaluators)]
+    role_models = {role: parsed_models[f"roles.{role}"] for role in roles}
+    verifiers = models.get("verifiers", [])
+    if not isinstance(verifiers, list):
+        raise ConfigError("models.verifiers must be a list of model mappings")
+    evaluator_models = [parsed_models[f"verifiers.{index}"] for index in range(len(verifiers))]
     if bench["name"] != "dlawbench" and len(evaluator_models) > 1:
-        raise ConfigError("this benchmark accepts one model in models.evaluators")
-    if modern and bench["name"] in {"lexeval", "lawbench"} and evaluator_models:
-        raise ConfigError("this benchmark uses its native scorer without models.evaluators")
+        raise ConfigError("this benchmark accepts one model in models.verifiers")
+    if bench["name"] in {"lexeval", "lawbench"} and evaluator_models:
+        raise ConfigError("this benchmark uses its native scorer without models.verifiers")
     summary_model = None
     if "summary" in models and bench["name"] != "j1bench":
         raise ConfigError("models.summary is supported only by J1Bench KQ/LC")
     if bench["name"] == "j1bench":
         # Upstream KQ/LC summaries use this fixed model independently of role models.
-        summary = models.setdefault("summary", {
-            "provider": "openai_compatible", "profile": model.profile or "openai",
-            "name": "gpt-4o-2024-08-06",
-            "generation_parameters": {"temperature": 0, "max_tokens": 4096},
-        })
-        summary_model = parse_model_config(
-            summary, field="models.summary", base_dir=source_path.parent,
-        )
-    for scope in (generation, evaluation):
+        summary = models.setdefault("summary", j1_summary_default(model.profile))
+        summary_model = parsed_models.get("summary")
+        if summary_model is None:
+            summary_model = parse_model_config(summary, field="models.summary", base_dir=source_path.parent)
+    for scope in (generation, verification):
+        for key in ("concurrency", "max_attempts", "n_attempts"):
+            if key in scope and (type(scope[key]) is not int or scope[key] < 1):
+                raise ConfigError(f"{key} must be a positive integer")
         for key in ("timeout_sec", "model_startup_timeout_sec", "model_request_timeout_sec"):
             if key in scope and (isinstance(scope[key], bool) or not isinstance(scope[key], (int, float)) or not math.isfinite(scope[key]) or scope[key] <= 0):
                 raise ConfigError(f"{key} must be positive")
@@ -369,25 +336,49 @@ def parse_config(data: dict, *, source_path: Path) -> ResolvedConfig:
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
 
-    if "capabilities" in generation:
-        from lexverse.capabilities.benchmark import parse_capabilities
-        generation = {**generation, "capabilities": parse_capabilities(
-            generation["capabilities"], bench["name"], model, source_path.parent)}
-        if generation["capabilities"]["enabled"]:
-            data = {**data, generation_key: generation}
+    from lexverse.benchmarks.registry import get_plugin
+    from lexverse.agents.factory import validate_agent
+    plugin = get_plugin(bench["name"])
+    agent = selected.name
+    resources = job.resources
+    if not isinstance(resources, dict):
+        raise ConfigError("resources must be a mapping")
+    validate_agent(agent, plugin.supported_agents, source=plugin.name,
+                     model={"provider": model.provider}, environment=job.environment.type,
+                     network_mode=resources.get("network_mode", "public"))
+    if agent in {"static", "native"} and resources:
+        raise ConfigError(f"{agent} does not accept resources; choose an Agent")
+    retrieval = job._resolved_retrieval
+    limits = None
+    if agent not in {"static", "native"}:
+        from lexverse.models.task.config import RetrievalConfig, AgentLimits
+        try:
+            if retrieval is None:
+                retrieval = RetrievalConfig()
+                retrieval.embedding.resolve_path(source_path.parent)
+            if retrieval.overlap_tokens >= retrieval.chunk_tokens:
+                raise ValueError("retrieval overlap must be smaller than chunk size")
+            limits = AgentLimits.model_validate(generation.get("limits", {}))
+            context = generation.get("context_window_tokens")
+            if context is not None and (type(context) is not int or context <= 0):
+                raise ValueError("context_window_tokens must be a positive integer")
+        except (ValueError, OSError) as exc:
+            raise ConfigError(f"resources: {exc}") from exc
 
     return ResolvedConfig(
-        schema_version=1.0,
         benchmark=bench,
+        agent=agent,
         generation=generation,
-        evaluation=evaluation,
-        models=ModelsConfig(default=model, roles=role_models, summary=summary_model, evaluators=evaluator_models),
+        verification=verification,
+        models=ModelsConfig(default=model, roles=role_models, summary=summary_model, verifiers=evaluator_models),
         raw=data,
         source_path=source_path,
+        legacy=legacy,
+        resources=job._resolved_resources, retrieval=retrieval, limits=limits,
     )
 
 
-def load_config(path: str | Path) -> ResolvedConfig:
+def load_config(path: str | Path, *, agent: str | None = None) -> ResolvedConfig:
     import yaml
 
     p = Path(path).resolve()
@@ -397,4 +388,6 @@ def load_config(path: str | Path) -> ResolvedConfig:
     if not isinstance(data, dict):
         raise ConfigError(f"config root must be a mapping, got {type(data).__name__}")
 
+    if agent is not None:
+        data["agents"] = [{"name": agent}]
     return parse_config(data, source_path=p)

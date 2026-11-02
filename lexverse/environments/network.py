@@ -2,14 +2,13 @@
 
 import ipaddress
 import hashlib
-import os
 import re
 from urllib.parse import urlsplit, urlunsplit
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from lexverse.config import ConfigError, load_profile
+from lexverse.config import ConfigError
 
 
 def normalize_hosts(hosts):
@@ -55,28 +54,18 @@ def mcp_header_env(server, header):
     return "LEXVERSE_MCP_" + hashlib.sha256((server + ":" + header).encode()).hexdigest()[:16].upper()
 
 
-def resolve_network_policy(spec, agent_name, resources, extra_env):
+def runtime_url(url, environment):
+    kind = getattr(environment, "value", environment)
+    return docker_url(url) if kind == "docker" else url
+
+
+def resolve_network_policy(spec, endpoints, *, supports_allowlist=False):
     policy = NetworkPolicy(network_mode=spec.network_mode, allowed_hosts=spec.allowed_hosts)
     if policy.network_mode == "public":
         return policy
-    hosts = list(policy.allowed_hosts)
-    if agent_name not in {"oracle", "nop"}:
-        if agent_name == "lexverse":
-            url = load_profile(spec.model.profile).base_url or "https://api.openai.com/v1"
-        elif agent_name == "codex":
-            url = extra_env.get("OPENAI_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1"
-            if os.environ.get("CODEX_FORCE_AUTH_JSON") or os.environ.get("CODEX_AUTH_JSON_PATH"):
-                hosts.extend(["chatgpt.com", "auth.openai.com"])
-        elif agent_name == "claude-code":
-            url = extra_env.get("ANTHROPIC_BASE_URL") or os.environ.get("ANTHROPIC_BASE_URL") or "https://api.anthropic.com"
-            if os.environ.get("CLAUDE_FORCE_OAUTH") or os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
-                hosts.append("platform.claude.com")
-        else:
-            raise ConfigError("allowlist currently supports lexverse, codex, claude-code and oracle; other adapters must declare their model endpoints and disable native web tools first")
-        hosts.append(endpoint_host(docker_url(url)))
-    registry = resources.get("registry", {}).get("mcp", {})
-    for alias in spec.selection.mcp:
-        if alias not in registry:
-            raise ConfigError(f"Unknown MCP service: {alias}")
-        hosts.append(endpoint_host(docker_url(registry[alias]["url"])))
+    if not supports_allowlist:
+        raise ConfigError("This agent does not declare support for network allowlists")
+    hosts = [*policy.allowed_hosts, *(endpoint_host(runtime_url(url, spec.environment)) for url in endpoints)]
+    hosts.extend(endpoint_host(runtime_url(service.url, spec.environment))
+                 for service in spec.selection.mcp_servers if service.url)
     return NetworkPolicy(network_mode="allowlist", allowed_hosts=hosts)

@@ -1,0 +1,50 @@
+# Example for `lexverse run -b legalworld`; legalworld.local.yaml takes precedence.
+benchmark:
+  name: legalworld
+  retrieval:
+    laws:
+      enabled: false
+    cases:
+      enabled: false
+  tasks:
+  - id: plaintiff_full
+    limit: 2
+    party_role: plaintiff
+    start_stage: LC
+    end_stage: CIA
+  - id: defendant_full
+    limit: 2
+    party_role: defendant
+    start_stage: LC
+    end_stage: CIA
+models:
+  default:
+    provider: openai_compatible
+    profile: openai
+    name: gpt-4o-mini
+    generation_parameters:
+      max_tokens: 8192
+  roles:
+    simulation:
+      provider: openai_compatible
+      profile: openai
+      name: gpt-4o-mini
+      generation_parameters:
+        max_tokens: 8192
+  verifiers:
+  - provider: openai_compatible
+    profile: openai
+    name: gpt-4o
+    generation_parameters:
+      temperature: 0
+      max_tokens: 8192
+generation:
+  timeout_sec: 7200
+verification:
+  timeout_sec: 7200
+attempts: 1
+concurrency: 10
+max_retries: 0
+agents:
+- name: native
+schema_version: '1.0'

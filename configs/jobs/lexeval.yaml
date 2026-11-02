@@ -1,0 +1,64 @@
+# Example for `lexverse run -b lexeval`; lexeval.local.yaml takes precedence.
+benchmark:
+  name: lexeval
+  tasks:
+  - id: '1_1'
+    limit: 2
+  - id: '1_2'
+    limit: 2
+  - id: '1_3'
+    limit: 2
+  - id: '2_1'
+    limit: 2
+  - id: '2_2'
+    limit: 2
+  - id: '2_3'
+    limit: 2
+  - id: '2_4'
+    limit: 2
+  - id: '2_5'
+    limit: 2
+  - id: '3_1'
+    limit: 2
+  - id: '3_2'
+    limit: 2
+  - id: '3_3'
+    limit: 2
+  - id: '3_4'
+    limit: 2
+  - id: '3_5'
+    limit: 2
+  - id: '3_6'
+    limit: 2
+  - id: '4_1'
+    limit: 2
+  - id: '4_2'
+    limit: 2
+  - id: '5_1'
+    limit: 2
+  - id: '5_2'
+    limit: 2
+  - id: '5_3'
+    limit: 2
+  - id: '5_4'
+    limit: 2
+  - id: '6_1'
+    limit: 2
+  - id: '6_2'
+    limit: 2
+  - id: '6_3'
+    limit: 2
+models:
+  default:
+    provider: openai_compatible
+    profile: openai
+    name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+generation: {}
+attempts: 1
+concurrency: 10
+max_retries: 0
+agents:
+- name: static
+schema_version: '1.0'

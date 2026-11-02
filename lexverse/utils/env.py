@@ -20,9 +20,6 @@ import os
 import re
 
 _TEMPLATE_PATTERN = re.compile(r"\$\{([^}:]+)(?::-(.*))?\}")
-_SENSITIVE_KEY_RE = re.compile(
-    r"(KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL|AUTH)", re.IGNORECASE
-)
 _TRUE_BOOL_VALUES = frozenset({"true", "1", "yes"})
 _FALSE_BOOL_VALUES = frozenset({"false", "0", "no"})
 
@@ -56,20 +53,6 @@ def parse_bool_env_value(
     raise ValueError(
         f"Invalid value for '{name}': expected bool, got {value.__class__.__name__}"
     )
-
-
-def is_env_template(value: str) -> bool:
-    return bool(_TEMPLATE_PATTERN.fullmatch(value))
-
-
-def is_sensitive_env_key(key: str) -> bool:
-    return bool(_SENSITIVE_KEY_RE.search(key))
-
-
-def redact_sensitive_value(value: str) -> str:
-    if len(value) <= 8:
-        return "****"
-    return value[:4] + "****" + value[-3:]
 
 
 def resolve_env_vars(env_dict: dict[str, str]) -> dict[str, str]:

@@ -4,12 +4,12 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from lexverse.interaction.engine import InteractionEnvironment
-from lexverse.providers.base import Provider
+from lexverse.agents.native import NativeRunner
 from lexverse.tasks.bundle import TaskBundle, TaskSelection
-from lexverse.tasks.schema import LexVerseTask
-from lexverse.verifiers.base import TaskVerifier, BenchmarkAggregator
-from lexverse.runtime.sources import UpstreamSource
+from lexverse.models.task.task import LexVerseTask
+from lexverse.verifiers.benchmark import BenchmarkVerifier
+from lexverse.benchmarks.aggregation import BenchmarkAggregator
+from lexverse.benchmarks.sources import UpstreamSource
 from .catalog import load_catalog
 
 
@@ -31,11 +31,11 @@ def load_upstream(catalog_path: Path) -> UpstreamSource:
 class BenchmarkPlugin(ABC):
     name: str
     source_version: str
-    default_policy: str
-    default_environment: str
     catalog_path: Path
     upstream: UpstreamSource
     adapter_version = "1.0"
+    supported_agents = frozenset({"native"})
+    default_agent = "native"
 
     def create_bundle(self, config: Any) -> TaskBundle:
         benchmark = config.benchmark
@@ -97,20 +97,18 @@ class BenchmarkPlugin(ABC):
         """Shared dataset files required to reconstruct selected tasks."""
         return {}
 
-    @abstractmethod
-    def create_interaction_environment(
-        self, config: Any, provider: Provider
-    ) -> InteractionEnvironment: ...
+    def create_native_runner(self, config: Any) -> NativeRunner:
+        raise ValueError(f"{self.name} has no native runner")
 
-    def evaluation_context(self, config: Any) -> dict[str, Any]:
+    def build_verification_context(self, config: Any) -> dict[str, Any]:
         return {}
 
-    def evaluation_inputs(self, config: Any) -> dict[str, Path]:
+    def resolve_verification_inputs(self, config: Any) -> dict[str, Path]:
         """External files used by the native evaluator outside the task bundle."""
         return {}
 
     @abstractmethod
-    def create_verifier(self, config: dict[str, Any] | None = None) -> TaskVerifier: ...
+    def create_verifier(self, config: dict[str, Any] | None = None) -> BenchmarkVerifier: ...
 
     @abstractmethod
     def create_aggregator(self) -> BenchmarkAggregator: ...

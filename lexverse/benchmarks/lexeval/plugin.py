@@ -3,22 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 
 from lexverse.benchmarks.plugin import BenchmarkPlugin
-from lexverse.interaction.engine import DirectResponseEnvironment
-from lexverse.interaction.participants import ModelParticipant, AgentParticipant
-from lexverse.interaction.policies import DirectResponsePolicy
-from lexverse.providers.runtime import LocalProvider
 from lexverse.benchmarks.lexeval import UPSTREAM as LEXEVAL
 
-from .evaluation import LexEvalAggregator, LexEvalTaskVerifier
+from .verifier import LexEvalAggregator, LexEvalVerifier
 from .tasks import LexEvalImporter, LexEvalLoader
 
 
 class LexEvalPlugin(BenchmarkPlugin):
     name = "lexeval"
+    supported_agents = frozenset({"static", "vanilla", "external"})
+    default_agent = "static"
     upstream = LEXEVAL
     source_version = LEXEVAL.commit
-    default_policy = "direct_response"
-    default_environment = "direct_response"
     catalog_path = Path(__file__).with_name("catalog.yaml")
 
     def create_importer(self, config=None):
@@ -35,22 +31,10 @@ class LexEvalPlugin(BenchmarkPlugin):
             paths["few_shot"] = Path(config.benchmark["few_shot_path"])
         return paths
 
-    def create_interaction_environment(self, config, provider):
-        from lexverse.runtime.enhancement import enabled
-        if enabled(config):
-            return DirectResponseEnvironment(
-                policy=DirectResponsePolicy(),
-                participants={"assistant": AgentParticipant("assistant", config)},
-            )
-        generation_config = {"extra_body": {"lexeval_truncate": True}} if isinstance(provider, LocalProvider) else {}
-        return DirectResponseEnvironment(
-            policy=DirectResponsePolicy(),
-            participants={"assistant": ModelParticipant("assistant", provider, generation_config)},
-        )
 
     def create_verifier(self, config=None):
         config = config or {}
-        return LexEvalTaskVerifier(offline=config.get("offline", False))
+        return LexEvalVerifier(offline=config.get("offline", False))
 
     def create_aggregator(self):
         return LexEvalAggregator()

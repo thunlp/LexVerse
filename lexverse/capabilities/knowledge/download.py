@@ -14,7 +14,7 @@ from filelock import FileLock
 import yaml
 
 from lexverse.config import ConfigError
-from lexverse.runtime.paths import CAPABILITIES_ROOT as DEFAULT_ROOT
+from lexverse.utils.paths import CAPABILITIES_ROOT as DEFAULT_ROOT
 
 DATASET_REPO = "TsinghuaNLP/LexVerse"
 CATALOG = "indexes/collections.json"
@@ -186,7 +186,7 @@ def run(args):
 def read_catalog(path: Path) -> dict:
     try:
         catalog = json.loads(path.read_text(encoding="utf-8"))
-        if catalog["schema_version"] != 1 or catalog["retrieval_config"] != RETRIEVAL:
+        if catalog["schema_version"] != "1.0" or catalog["retrieval_config"] != RETRIEVAL:
             raise ValueError("Unsupported collection catalog")
         records = catalog["collections"]
         ids = set()
@@ -215,17 +215,17 @@ def resolve_knowledge(sources: list[Path], base: Path, *, cache: Path | None = N
             if catalog is None:
                 if not (root / CATALOG).is_file():
                     raise ConfigError("No knowledge collection catalog; build local knowledge with "
-                                      "lexverse environment build --knowledge <directory> or run "
-                                      "lexverse environment download indexes")
+                                      "lexverse resources build-index --knowledge <directory> or run "
+                                      "lexverse resources download indexes")
                 catalog = {record["id"]: record for record in read_catalog(root / CATALOG)["collections"]}
             if name not in catalog:
                 raise ConfigError(f"Collection {name!r} is not downloaded or locally registered; "
                                   "build its source directory or run "
-                                  f"lexverse environment download indexes --collections {name}")
+                                  f"lexverse resources download indexes --collections {name}")
             path = (root / catalog[name]["path"]).resolve()
             if not path.is_relative_to(root.resolve()) or not (path / "manifest.json").is_file():
                 raise ConfigError(f"Collection {name!r} is missing; rebuild its source directory or run "
-                                  f"lexverse environment download indexes --collections {name}")
+                                  f"lexverse resources download indexes --collections {name}")
         else:
             path = source.expanduser()
             path = (path if path.is_absolute() else base / path).resolve()
@@ -251,7 +251,7 @@ def _verify_collection(path, record):
 def register_collection(source: Path, index: Path, config, *, cache: Path) -> dict:
     from lexverse.capabilities.knowledge.index import is_index_directory, verify_index
     from lexverse.capabilities.knowledge.loaders import KINDS
-    from lexverse.runtime.results import atomic_write_json
+    from lexverse.utils.files import atomic_write_json
 
     source, index, cache = source.resolve(), index.resolve(), cache.resolve()
     manifest = verify_index(index)
@@ -274,7 +274,7 @@ def register_collection(source: Path, index: Path, config, *, cache: Path) -> di
     indexes.mkdir(parents=True, exist_ok=True)
     with FileLock(str(indexes / ".collections.lock")):
         installed = read_catalog(cache / CATALOG) if (cache / CATALOG).exists() else {
-            "schema_version": 1, "retrieval_config": RETRIEVAL, "collections": [],
+            "schema_version": "1.0", "retrieval_config": RETRIEVAL, "collections": [],
         }
         destination = cache / record["path"]
         if index != destination:
@@ -299,7 +299,7 @@ def register_collection(source: Path, index: Path, config, *, cache: Path) -> di
 
 def download_indexes(args):
     from huggingface_hub import hf_hub_download
-    from lexverse.runtime.results import atomic_write_json
+    from lexverse.utils.files import atomic_write_json
 
     root = args.local_dir.expanduser().resolve()
     cache = str(root / "cache/huggingface")
@@ -323,7 +323,7 @@ def download_indexes(args):
     indexes.mkdir(parents=True, exist_ok=True)
     with FileLock(str(indexes / ".collections.lock")):
         installed = read_catalog(root / CATALOG) if (root / CATALOG).exists() else {
-            "schema_version": 1, "retrieval_config": RETRIEVAL, "collections": [],
+            "schema_version": "1.0", "retrieval_config": RETRIEVAL, "collections": [],
         }
         entries = {record["id"]: record for record in installed["collections"]}
         manifests = []
@@ -360,7 +360,7 @@ def download_indexes(args):
             manifests.append(manifest)
         config_path = hf_hub_download(DATASET_REPO, RETRIEVAL, repo_type="dataset",
                                      revision=revision, cache_dir=cache)
-        from lexverse.tasks.user import RetrievalConfig
+        from lexverse.models.task.config import RetrievalConfig
 
         from lexverse.capabilities.knowledge.index import _build_recipe, _index_retrieval
 
