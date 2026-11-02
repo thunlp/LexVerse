@@ -15,6 +15,7 @@ from urllib.request import urlopen
 from lexverse.config import ConfigError, ModelConfig
 from lexverse.agents.model_connection import ModelConnectionSpec, resolve_model_connection
 from lexverse.utils.files import atomic_write_json
+from lexverse.trial.errors import EmptyResponseError
 from .api import OpenAICompatibleProvider
 
 
@@ -31,6 +32,8 @@ class LocalProvider(OpenAICompatibleProvider):
     async def generate(self, messages, *, config=None):
         try:
             return await super().generate(messages, config=config)
+        except EmptyResponseError:
+            raise
         except BaseException as exc:
             # A rejected request does not invalidate the loaded model or connection.
             if getattr(exc.__cause__, "status_code", None) != 400:

@@ -50,5 +50,22 @@ class LegalWorldPlugin(BenchmarkPlugin):
     def create_aggregator(self):
         return LegalWorldAggregator()
 
+    def validate_model_config(self, bench, models, modern):
+        if len(models.verifiers) > 1:
+            raise ConfigError("this benchmark accepts one model in models.verifiers")
+        if models.summary is not None:
+            raise ConfigError("models.summary is supported only by J1Bench KQ/LC")
+        if "start_stage" in bench or "end_stage" in bench:
+            raise ConfigError("put Legal-world start_stage and end_stage inside each benchmark.tasks entry")
+        task_ranges(bench.get("tasks"))
+        if set(models.roles) - {"lawyer", "simulation"}:
+            raise ConfigError("Legal-world roles must be lawyer or simulation")
+
+    def generation_models(self, config, bundle):
+        return {role: config.models.roles.get(role, config.models.default)
+                for role in ("lawyer", "simulation")}
+
+    def tested_model(self, config):
+        return config.models.roles.get("lawyer", config.models.default)
 
 PLUGIN = LegalWorldPlugin()

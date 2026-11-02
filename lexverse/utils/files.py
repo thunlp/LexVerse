@@ -58,3 +58,27 @@ def read_jsonl(path: Path):
                 continue
             if isinstance(event, dict):
                 yield event
+
+
+def execution_artifacts_valid(record: dict, run_dir: Path) -> bool:
+    """Verify that declared execution artifacts exist and match any saved SHA256 hashes."""
+    import hashlib
+
+    artifacts = record.get("execution_artifacts", {})
+    hashes = record.get("execution_artifact_hashes")
+    if not isinstance(artifacts, dict):
+        return False
+    if hashes is not None and (not isinstance(hashes, dict) or set(hashes) != set(artifacts)):
+        return False
+    for name, filename in artifacts.items():
+        if not isinstance(filename, str):
+            return False
+        path = run_dir / filename
+        try:
+            if not path.is_file():
+                return False
+            if hashes is not None and hashlib.sha256(path.read_bytes()).hexdigest() != hashes[name]:
+                return False
+        except OSError:
+            return False
+    return True

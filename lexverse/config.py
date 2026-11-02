@@ -80,9 +80,15 @@ def resolve_path(name: str, base_dir: Path | None) -> str:
     return str((path if path.is_absolute() else (base_dir or Path.cwd()) / path).resolve())
 
 
-def validate_local_generation(options: dict, *, field: str = "generation_parameters") -> None:
-    if set(options) - {"temperature", "max_tokens", "top_p"}:
-        raise ConfigError(f"{field}: local generation supports temperature, max_tokens and top_p only")
+def validate_local_generation(options: dict, *, provider: str = "transformers", field: str = "generation_parameters") -> None:
+    if set(options) - {"temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty"}:
+        raise ConfigError(f"{field}: local generation supports temperature, max_tokens, top_p, frequency_penalty and presence_penalty only")
+    for key in ("frequency_penalty", "presence_penalty"):
+        value = options.get(key, 0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not -2 <= value <= 2:
+            raise ConfigError(f"{field}.{key} must be a finite number in [-2, 2]")
+        if provider == "transformers" and value != 0:
+            raise ConfigError(f"{field}.{key}: nonzero values are supported only by vllm")
     for key, default in (("temperature", 0), ("top_p", 1)):
         value = options.get(key, default)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not (0 <= value if key == "temperature" else 0 < value <= 1):
@@ -133,9 +139,9 @@ def parse_model_config(value: object, *, field: str, base_dir: Path | None = Non
     else:
         if "profile" in value:
             raise ConfigError(f"{field}: local providers do not accept profile")
-        shared = {"revision", "cache_dir", "local_files_only", "trust_remote_code", "dtype"}
+        shared = {"revision", "cache_dir", "local_files_only", "trust_remote_code", "dtype", "max_model_len"}
         allowed = shared | ({"device_map"} if provider == "transformers" else {
-            "tensor_parallel_size", "gpu_memory_utilization", "max_model_len",
+            "tensor_parallel_size", "gpu_memory_utilization",
         })
         if set(loading) - allowed:
             raise ConfigError(f"{field}.load_parameters: unsupported fields for {provider}: {sorted(set(loading) - allowed)}")
@@ -166,19 +172,21 @@ def parse_model_config(value: object, *, field: str, base_dir: Path | None = Non
                 raise ConfigError(f"{field}.load_parameters.{key} must be a nonempty string")
         if "cache_dir" in loading:
             loading["cache_dir"] = resolve_path(loading["cache_dir"], base_dir)
-        if set(input_config) - {"format", "chat_template", "chat_template_kwargs"}:
+        if set(input_config) - {"format", "chat_template", "chat_template_kwargs", "use_fast"}:
             raise ConfigError(f"{field}.input contains unsupported fields")
+        if not isinstance(input_config.get("use_fast", True), bool):
+            raise ConfigError(f"{field}.input.use_fast must be boolean")
         if not isinstance(input_config.get("format", "chat"), str) or input_config.get("format", "chat") not in {"chat", "text"}:
             raise ConfigError(f"{field}.input.format must be chat or text")
         if not isinstance(input_config.get("chat_template_kwargs", {}), dict):
             raise ConfigError(f"{field}.input.chat_template_kwargs must be a mapping")
-        if input_config.get("format") == "text" and set(input_config) - {"format"}:
+        if input_config.get("format") == "text" and set(input_config) - {"format", "use_fast"}:
             raise ConfigError(f"{field}: text input does not accept chat template options")
         if "chat_template" in input_config:
             if not isinstance(input_config["chat_template"], str) or not input_config["chat_template"]:
                 raise ConfigError(f"{field}.input.chat_template must be a template file path")
             input_config["chat_template"] = resolve_path(input_config["chat_template"], base_dir)
-        validate_local_generation(generation, field=field)
+        validate_local_generation(generation, provider=provider, field=field)
     return ModelConfig(provider=provider, profile=profile, name=name,
                        load_parameters=loading, generation_parameters=generation, input=input_config)
 
@@ -288,14 +296,14 @@ def resolve_benchmark_config(job, agent_index: int, *, source_path: Path, legacy
     roles = models.get("roles", {}) or {}
     if not isinstance(roles, dict):
         raise ConfigError("models.roles must be a mapping")
-    if roles and bench["name"] not in {"j1bench", "dlawbench", "legalworld"}:
-        raise ConfigError("roles model overrides are currently supported only by J1Bench, DLawBench and Legal-world")
+    if roles and bench["name"] not in {"j1bench", "dlawbench", "legalworld", "maser"}:
+        raise ConfigError("roles model overrides are currently supported only by J1Bench, DLawBench, Legal-world and MASER")
     role_models = {role: parsed_models[f"roles.{role}"] for role in roles}
     verifiers = models.get("verifiers", [])
     if not isinstance(verifiers, list):
         raise ConfigError("models.verifiers must be a list of model mappings")
     evaluator_models = [parsed_models[f"verifiers.{index}"] for index in range(len(verifiers))]
-    if bench["name"] != "dlawbench" and len(evaluator_models) > 1:
+    if bench["name"] not in {"dlawbench", "simucourt"} and len(evaluator_models) > 1:
         raise ConfigError("this benchmark accepts one model in models.verifiers")
     if bench["name"] in {"lexeval", "lawbench"} and evaluator_models:
         raise ConfigError("this benchmark uses its native scorer without models.verifiers")
@@ -339,6 +347,7 @@ def resolve_benchmark_config(job, agent_index: int, *, source_path: Path, legacy
     from lexverse.benchmarks.registry import get_plugin
     from lexverse.agents.factory import validate_agent
     plugin = get_plugin(bench["name"])
+    plugin.validate_model_config(bench, ModelsConfig(default=model, roles=role_models, summary=summary_model, verifiers=evaluator_models), True)
     agent = selected.name
     resources = job.resources
     if not isinstance(resources, dict):

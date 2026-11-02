@@ -124,7 +124,8 @@ class Trial:
                 return False
         artifacts = record.get('execution_artifacts', record.get('artifacts', {}))
         if isinstance(artifacts, dict):
-            return all(Path(path).exists() for path in artifacts.values())
+            from lexverse.utils.files import execution_artifacts_valid
+            return execution_artifacts_valid({**record, "execution_artifacts": artifacts}, self.directory)
         for item in artifacts:
             path = Path(item['path'])
             if not path.is_file():

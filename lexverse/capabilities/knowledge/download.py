@@ -5,6 +5,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import sys
+import tarfile
 import tempfile
 from urllib.error import HTTPError
 from urllib.parse import quote, unquote, urlparse
@@ -15,6 +16,7 @@ import yaml
 
 from lexverse.config import ConfigError
 from lexverse.utils.paths import CAPABILITIES_ROOT as DEFAULT_ROOT
+from lexverse.utils.files import file_hash
 
 DATASET_REPO = "TsinghuaNLP/LexVerse"
 CATALOG = "indexes/collections.json"
@@ -35,6 +37,12 @@ def download_plan(manifest, local_dir, sources=None, lexverse_revision="main"):
             for item in spec["files"]:
                 local = item["local_path"]
                 target = local_target(root, local)
+                if "extract_to" in item:
+                    destination = local_target(root, item["extract_to"])
+                    if (not local.endswith(".tar.gz") or target.is_relative_to(destination)
+                            or not re.fullmatch(r"[0-9a-f]{64}", item.get("sha256", ""))
+                            or type(item.get("file_count")) is not int or item["file_count"] < 1):
+                        raise ValueError(f"Invalid knowledge archive configuration: {local}")
                 path = quote(local, safe="/")
                 url = f"https://huggingface.co/datasets/{DATASET_REPO}/resolve/{lexverse_revision}/{path}"
                 plan.append((name, url, target, True))
@@ -150,17 +158,83 @@ def add_arguments(parser):
     parser.add_argument("--dry-run", action="store_true", help="List data downloads; use --manifest to avoid fetching the HF manifest")
 
 
+def download_archive(url, archive, destination, spec, *, cache_dir=None):
+    """Verify and stage a tar.gz before publishing its original knowledge paths."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with FileLock(str(destination) + ".extract.lock"):
+        if destination.exists() and not destination.is_dir():
+            raise ValueError(f"Knowledge extraction target is not a directory: {destination}")
+        if not archive.exists():
+            download_file(url, archive, True, cache_dir=cache_dir)
+        if file_hash(archive) != spec["sha256"]:
+            raise ValueError(f"Knowledge archive checksum mismatch: {archive}")
+        with tempfile.TemporaryDirectory(dir=destination.parent) as temporary:
+            staged = Path(temporary) / "extracted"
+            staged.mkdir()
+            expected = {}
+            with tarfile.open(archive, "r:gz") as bundle:
+                for member in bundle:
+                    relative = PurePosixPath(member.name)
+                    if (relative.is_absolute() or ".." in relative.parts or not relative.parts
+                            or "\\" in member.name or not (member.isfile() or member.isdir())):
+                        raise ValueError(f"Unsafe knowledge archive member: {member.name}")
+                    target = staged / relative
+                    if not target.resolve().is_relative_to(staged):
+                        raise ValueError(f"Unsafe knowledge archive member: {member.name}")
+                    if member.isdir():
+                        target.mkdir(parents=True, exist_ok=True)
+                        continue
+                    if relative.as_posix() in expected:
+                        raise ValueError(f"Duplicate knowledge archive member: {member.name}")
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with bundle.extractfile(member) as source, target.open("xb") as output:
+                        shutil.copyfileobj(source, output)
+                    expected[relative.as_posix()] = file_hash(target)
+                    if len(expected) > spec["file_count"]:
+                        raise ValueError("Knowledge archive contains too many files")
+            if len(expected) != spec["file_count"]:
+                raise ValueError("Knowledge archive file count mismatch")
+            previous = None
+            if destination.exists():
+                for path in destination.rglob("*"):
+                    if path.is_symlink():
+                        raise ValueError(f"Existing knowledge contains a symbolic link: {path}")
+                    if path.is_file():
+                        relative = path.relative_to(destination).as_posix()
+                        if relative not in expected or file_hash(path) != expected[relative]:
+                            raise ValueError(f"Existing knowledge differs; refusing to overwrite: {path}")
+                previous = Path(temporary) / "previous"
+                destination.rename(previous)
+            try:
+                staged.rename(destination)
+            except OSError:
+                if previous is not None:
+                    previous.rename(destination)
+                raise
+        print(f"EXTRACTED {destination}: {len(expected)} verified files", flush=True)
+
+
 def run(args):
     cache_dir = str(args.local_dir.resolve() / "cache" / "huggingface")
     manifest, revision = load_manifest(args.manifest, cache_dir=cache_dir)
     plan = download_plan(manifest, args.local_dir, args.sources, revision)
+    archives = {local_target(args.local_dir.resolve(), item["local_path"]): item
+                for name in dict.fromkeys(row[0] for row in plan)
+                for item in manifest[name]["files"] if "extract_to" in item}
     failed = False
     for name, url, target, is_hf in plan:
         if args.dry_run:
             suffix = "**" if url.endswith("/") else ""
             print(f"{name}: {url}{suffix}\n  -> {target}")
+            if target in archives:
+                print(f"  EXTRACT -> {local_target(args.local_dir.resolve(), archives[target]['extract_to'])}")
             continue
         try:
+            if target in archives:
+                spec = archives[target]
+                destination = local_target(args.local_dir.resolve(), spec["extract_to"])
+                download_archive(url, target, destination, spec, cache_dir=cache_dir)
+                continue
             files = [(url, target)]
             if url.endswith("/"):
                 files = []
@@ -175,7 +249,7 @@ def run(args):
                     continue
                 print(f"DOWNLOAD {name}: {file_target}", flush=True)
                 download_file(file_url, file_target, is_hf, cache_dir=cache_dir)
-        except (OSError, ValueError, ImportError, HTTPError) as exc:
+        except (OSError, ValueError, ImportError, HTTPError, tarfile.TarError) as exc:
             failed = True
             print(f"FAILED {name}: {exc}", file=sys.stderr)
             if is_hf:

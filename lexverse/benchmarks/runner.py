@@ -38,10 +38,7 @@ def _read_json(path: Path) -> dict:
 
 
 def _tested_model(config):
-    if config.benchmark["name"] in {"dlawbench", "legalworld"}:
-        return config.models.roles.get("lawyer", config.models.default)
-
-    return config.models.default
+    return get_plugin(config.benchmark["name"]).tested_model(config)
 
 
 @contextmanager
@@ -226,6 +223,13 @@ async def _verify_run(config, plugin, bundle, run_root, runtime, verifier, *, re
             timeout_sec=config.verification.get("timeout_sec"),
         )
 
+    if plugin.name in {"simucourt", "maser"}:
+        models = plugin.verification_models(config)
+        runtime.validate_phase(list(models.values()))
+        connections = {key: runtime.provider(model, label=f"models.verifiers.{config.models.verifiers.index(model)}")
+                       for key, model in models.items()}
+        verifier_context = plugin.configure_verification_context(config, connections)
+
     verification_started = time.monotonic()
     logger.info("[verification] start")
 
@@ -270,19 +274,8 @@ def restore(job):
 
 
 def generation_models(config, benchmark, tasks):
-    if benchmark == 'j1bench':
-        from lexverse.benchmarks.j1bench.scenarios import require_supported
-        roles = dict.fromkeys(role for task in tasks for role in require_supported(task.source.task_type).roles)
-        models = {role: config.models.roles.get(role, config.models.default) for role in roles}
-        if any(task.source.task_type in {'KQ', 'LC'} for task in tasks):
-            models['summary'] = config.models.summary
-        return models
-
-    if benchmark in {'dlawbench', 'legalworld'}:
-        roles = ('lawyer', 'client') if benchmark == 'dlawbench' else ('lawyer', 'simulation')
-        return {role: config.models.roles.get(role, config.models.default) for role in roles}
-
-    return {'default': config.models.default}
+    plugin = get_plugin(benchmark)
+    return plugin.generation_models(config, TaskBundle(benchmark=benchmark, source_version=plugin.source_version, tasks=tasks))
 
 
 def agent_spec(config, run, *, messages=None, template=None):
@@ -353,7 +346,7 @@ async def execute_agent(trial, config, plugin, runtime, resource_root, work, pro
         models = generation_models(config, plugin.name, [trial.task])
         runtime.validate_phase(list(models.values()))
         runner = plugin.create_native_runner(config)
-        runner.connections = {role: runtime.provider(model, label='models.summary' if role == 'summary' else f'models.roles.{role}') for role, model in models.items()}
+        runner.connections = {role: runtime.provider(model, label='models.default' if role == 'default' else 'models.summary' if role == 'summary' else f'models.roles.{role}') for role, model in models.items()}
         try:
             await runner.prepare({'run_root': str(resource_root)})
             return await runner.run(trial.task, work)
@@ -416,6 +409,11 @@ async def execute_trial(trial: Trial, config, plugin, runtime, resource_root, pr
         from lexverse.trial.errors import TrialTimeoutError
         raise TrialTimeoutError('Benchmark trial timed out') from exc
 
+    from lexverse.trial.errors import TrialError, TrialTimeoutError
+    if result.status == "timeout":
+        raise TrialTimeoutError("environment returned timeout")
+    if result.status != "completed":
+        raise TrialError(f"environment returned {result.status}")
     data = result.model_dump(mode='json')
     artifacts = {key: str((Path(path) if Path(path).is_absolute() else work / path).resolve())
                  for key, path in data['artifacts'].items()}
@@ -440,6 +438,7 @@ async def execute_trial(trial: Trial, config, plugin, runtime, resource_root, pr
             'benchmark': plugin.name, 'status': result.status, 'answer': result.answer,
             'trajectory_ref': str(trial.directory / 'trajectory.json'),
             'artifacts': artifacts,
+            'execution_artifact_hashes': {name: _file_hash(Path(path)) for name, path in artifacts.items()},
             'usage': data['final_state'].get('data', {}).get('usage') or {'status': 'unavailable'}}
 
 
@@ -496,6 +495,10 @@ async def verify_job(job, configs, plugin, bundle, runtimes):
                 for group in verification_records[key].get('groups', []):
                     if group['task_type'] in aggregate['tasks']:
                         aggregate['tasks'][group['task_type']]['metrics'] = group['metrics']
+                extra = plugin.summary_metadata(aggregate)
+                if set(extra) & (set(verification_records[key]) | {"aggregate"}):
+                    raise ValueError("plugin summary metadata cannot overwrite verification fields")
+                verification_records[key].update(extra)
                 verification_records[key]['aggregate'] = aggregate
                 (directory / 'evaluation_result.csv').unlink(missing_ok=True)
                 save_verification(job, verification_data)
@@ -512,6 +515,8 @@ async def _execute_job(job, configs, plugin, bundle, *, resume, verify, excel=Fa
     if verify:
         for config in configs.values():
             plugin.build_verification_context(config)
+            if plugin.name in {"simucourt", "maser"}:
+                plugin.verification_models(config)
 
     # Keep model runtimes, resource roots, and providers per execution configuration.
     runtimes, roots, providers = {}, {}, {}

@@ -37,6 +37,24 @@ class BenchmarkPlugin(ABC):
     supported_agents = frozenset({"native"})
     default_agent = "native"
 
+    def validate_model_config(self, bench, models, modern=True):
+        from lexverse.config import ConfigError
+        if models.roles:
+            raise ConfigError("This benchmark does not support role model overrides")
+        if len(models.verifiers) > 1:
+            raise ConfigError("This benchmark accepts at most one verifier model")
+        if models.summary is not None:
+            raise ConfigError("models.summary is supported only by J1Bench KQ/LC")
+
+    def generation_models(self, config, bundle):
+        return {"default": config.models.default}
+
+    def tested_model(self, config):
+        return config.models.default
+
+    def summary_metadata(self, aggregate):
+        return {}
+
     def create_bundle(self, config: Any) -> TaskBundle:
         benchmark = config.benchmark
         from lexverse.config import ConfigError

@@ -100,3 +100,61 @@
                              system_prompt += p.format(defendant_company_address = defendant['address']) + '\n'
                          elif '{case_details}' in p:
                              system_prompt += p.format(case_details = plaintiff_case_details) + '\n'
+diff --git a/src/agents/defendant_CI.py b/src/agents/defendant_CI.py
+index a9bde7f..eacdbfd 100644
+--- a/src/agents/defendant_CI.py
++++ b/src/agents/defendant_CI.py
+@@ -174,16 +174,16 @@ class GPTDefendant_civilPrediction(Agent):
+             else:
+                 if "gender" in defendant.keys():
+                     for p in profile:
+-                        if '{defendant_person_name}' in p:
+-                            system_prompt += p.format(defendant_person_name = defendant['name']) + '\n'
+-                        elif '{defendant_person_sex}' in p:
+-                            system_prompt += p.format(defendant_person_sex = defendant['gender']) + '\n'
+-                        elif '{defendant_person_birth}' in p:
+-                            system_prompt += p.format(defendant_person_birth = defendant['birth_date']) + '\n'
+-                        elif '{defendant_person_nation}' in p:
+-                            system_prompt += p.format(defendant_person_nation = defendant['ethnicity']) + '\n'
+-                        elif '{defendant_person_address}' in p:
+-                            system_prompt += p.format(defendant_person_address = defendant['address']) + '\n'
++                        if '{defendant_name}' in p:
++                            system_prompt += p.format(defendant_name = defendant['name']) + '\n'
++                        elif '{defendant_sex}' in p:
++                            system_prompt += p.format(defendant_sex = defendant['gender']) + '\n'
++                        elif '{defendant_birth}' in p:
++                            system_prompt += p.format(defendant_birth = defendant['birth_date']) + '\n'
++                        elif '{defendant_nation}' in p:
++                            system_prompt += p.format(defendant_nation = defendant['ethnicity']) + '\n'
++                        elif '{defendant_address}' in p:
++                            system_prompt += p.format(defendant_address = defendant['address']) + '\n'
+                         elif '{plaintiff_company_name}' in p:
+                             system_prompt += p.format(plaintiff_company_name = plaintiff_info['name']) + '\n'
+                         elif '{plaintiff_company_legal_person}' in p:
+@@ -440,16 +440,16 @@ class Qwen3_32BDefendant_civilPrediction(Agent):
+             else:
+                 if "gender" in defendant.keys():
+                     for p in profile:
+-                        if '{defendant_person_name}' in p:
+-                            system_prompt += p.format(defendant_person_name = defendant['name']) + '\n'
+-                        elif '{defendant_person_sex}' in p:
+-                            system_prompt += p.format(defendant_person_sex = defendant['gender']) + '\n'
+-                        elif '{defendant_person_birth}' in p:
+-                            system_prompt += p.format(defendant_person_birth = defendant['birth_date']) + '\n'
+-                        elif '{defendant_person_nation}' in p:
+-                            system_prompt += p.format(defendant_person_nation = defendant['ethnicity']) + '\n'
+-                        elif '{defendant_person_address}' in p:
+-                            system_prompt += p.format(defendant_person_address = defendant['address']) + '\n'
++                        if '{defendant_name}' in p:
++                            system_prompt += p.format(defendant_name = defendant['name']) + '\n'
++                        elif '{defendant_sex}' in p:
++                            system_prompt += p.format(defendant_sex = defendant['gender']) + '\n'
++                        elif '{defendant_birth}' in p:
++                            system_prompt += p.format(defendant_birth = defendant['birth_date']) + '\n'
++                        elif '{defendant_nation}' in p:
++                            system_prompt += p.format(defendant_nation = defendant['ethnicity']) + '\n'
++                        elif '{defendant_address}' in p:
++                            system_prompt += p.format(defendant_address = defendant['address']) + '\n'
+                         elif '{plaintiff_company_name}' in p:
+                             system_prompt += p.format(plaintiff_company_name = plaintiff_info['name']) + '\n'
+                         elif '{plaintiff_company_legal_person}' in p:

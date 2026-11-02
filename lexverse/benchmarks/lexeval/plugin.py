@@ -31,12 +31,17 @@ class LexEvalPlugin(BenchmarkPlugin):
             paths["few_shot"] = Path(config.benchmark["few_shot_path"])
         return paths
 
-
     def create_verifier(self, config=None):
         config = config or {}
         return LexEvalVerifier(offline=config.get("offline", False))
 
     def create_aggregator(self):
         return LexEvalAggregator()
+
+    def validate_model_config(self, bench, models, modern):
+        from lexverse.config import ConfigError
+        super().validate_model_config(bench, models, modern)
+        if modern and models.verifiers:
+            raise ConfigError("this benchmark uses its native scorer without models.verifiers")
 
 PLUGIN = LexEvalPlugin()

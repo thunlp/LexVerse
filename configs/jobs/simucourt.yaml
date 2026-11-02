@@ -1,0 +1,43 @@
+# Example for `lexverse run -b simucourt`; simucourt.local.yaml takes precedence.
+schema_version: '1.0'
+
+benchmark:
+  name: simucourt
+  tasks:
+  - id: first_criminal
+    limit: 1
+  - id: first_civil
+    limit: 1
+  - id: first_administrative
+    limit: 1
+  - id: second_criminal
+    limit: 1
+  - id: second_civil
+    limit: 1
+  - id: second_administrative
+    limit: 1
+
+agents:
+- name: native
+
+models:
+  default:
+    provider: openai_compatible
+    profile: openai
+    name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+      max_tokens: 4096
+  verifiers:
+  - provider: openai_compatible
+    profile: openai
+    name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+      max_tokens: 4096
+
+verification:
+  concurrency: 2
+  max_attempts: 3
+
+concurrency: 2

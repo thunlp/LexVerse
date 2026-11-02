@@ -91,4 +91,23 @@ class J1BenchPlugin(BenchmarkPlugin):
     def create_aggregator(self):
         return J1BenchAggregator()
 
+    def validate_model_config(self, bench, models, modern):
+        from lexverse.config import ConfigError
+        from .scenarios import SCENARIOS
+        if len(models.verifiers) > 1:
+            raise ConfigError("this benchmark accepts one model in models.verifiers")
+        if models.roles:
+            names = TaskSelection.from_config(bench, {}).select_types(list(SCENARIOS))
+            supported_roles = {role for name in names for role in SCENARIOS[name].roles}
+            if set(models.roles) - supported_roles:
+                raise ConfigError(f"roles not present in the selected scenarios: {sorted(set(models.roles) - supported_roles)}")
+
+    def generation_models(self, config, bundle):
+        role_names = dict.fromkeys(role for task in bundle.tasks
+                                   for role in require_supported(task.source.task_type).roles)
+        models = {role: config.models.roles.get(role, config.models.default) for role in role_names}
+        if any(task.source.task_type in {"KQ", "LC"} for task in bundle.tasks):
+            models["summary"] = config.models.summary
+        return models
+
 PLUGIN = J1BenchPlugin()

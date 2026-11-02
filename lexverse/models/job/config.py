@@ -99,7 +99,7 @@ class JobConfig(BaseModel):
 
     def resolve(self, base: Path):
         if self.benchmark:
-            for name in ("few_shot_path",):
+            for name in ("few_shot_path", "data_dir", "case_database", "submission_path", "candidate_pool_path", "decomposed_query_path", "decomposed_doc_path"):
                 if self.benchmark.get(name):
                     self.benchmark[name] = resolve_path(self.benchmark[name], base)
             if isinstance(self.benchmark.get("case_databases"), dict):

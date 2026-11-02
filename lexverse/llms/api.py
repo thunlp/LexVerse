@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .base import ModelResponse
-from lexverse.trial.errors import ProviderError
+from lexverse.trial.errors import ProviderError, EmptyResponseError
 from lexverse.config import ConfigError, ModelConfig
 from lexverse.agents.model_connection import ModelConnectionSpec, resolve_model_connection
 
@@ -32,7 +32,7 @@ class OpenAICompatibleProvider:
             )
             content = response.choices[0].message.content
             if not content:
-                raise ProviderError("model returned an empty response")
+                raise EmptyResponseError("model returned an empty response")
             if "</think>" in content:
                 content = content.split("</think>", 1)[1].lstrip()
             usage = response.usage.model_dump() if response.usage else {}

@@ -28,12 +28,17 @@ class LawBenchPlugin(BenchmarkPlugin):
         loader = LawBenchLoader(offline=True)
         return {kind: loader.task_file(kind, config.benchmark.get("shot", "zero_shot")) for kind in task_types}
 
-
     def create_verifier(self, config=None):
         config = config or {}
         return LawBenchVerifier(offline=config.get("offline", False))
 
     def create_aggregator(self):
         return LawBenchAggregator()
+
+    def validate_model_config(self, bench, models, modern):
+        from lexverse.config import ConfigError
+        super().validate_model_config(bench, models, modern)
+        if modern and models.verifiers:
+            raise ConfigError("this benchmark uses its native scorer without models.verifiers")
 
 PLUGIN = LawBenchPlugin()

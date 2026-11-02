@@ -1,4 +1,6 @@
 # Example for `lexverse run -b dlawbench`; dlawbench.local.yaml takes precedence.
+schema_version: '1.0'
+
 benchmark:
   name: dlawbench
   tasks:
@@ -10,6 +12,10 @@ benchmark:
     limit: 2
   - id: P_CD
     limit: 2
+
+agents:
+- name: native
+
 models:
   default:
     provider: openai_compatible
@@ -32,16 +38,14 @@ models:
     generation_parameters:
       temperature: 0
       max_tokens: 32768
+
 generation:
   max_turns: 10
   timeout_sec: 1800
+
 verification:
   mode: single
   max_attempts: 3
   timeout_sec: 1800
-attempts: 1
+
 concurrency: 10
-max_retries: 0
-agents:
-- name: native
-schema_version: '1.0'

@@ -1,5 +1,7 @@
 # Example for `lexverse run -b plawbench`; plawbench.local.yaml takes precedence.
 # Use --agents vanilla for capability enhancement; see README.md for resources.
+schema_version: '1.0'
+
 benchmark:
   name: plawbench
   tasks:
@@ -9,6 +11,10 @@ benchmark:
     limit: 2
   - id: document_generation
     limit: 2
+
+agents:
+- name: static
+
 models:
   default:
     provider: openai_compatible
@@ -24,12 +30,8 @@ models:
     generation_parameters:
       temperature: 0
       max_tokens: 8192
-generation: {}
+
 verification:
   max_attempts: 3
-attempts: 1
+
 concurrency: 10
-max_retries: 0
-agents:
-- name: static
-schema_version: '1.0'

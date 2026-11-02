@@ -59,5 +59,17 @@ class DLawBenchPlugin(BenchmarkPlugin):
     def create_aggregator(self):
         return DLawBenchAggregator()
 
+    def validate_model_config(self, bench, models, modern):
+        if set(models.roles) - {"lawyer", "client"}:
+            raise ConfigError("DLawBench roles must be lawyer or client")
+        if models.summary is not None:
+            raise ConfigError("models.summary is supported only by J1Bench KQ/LC")
+
+    def generation_models(self, config, bundle):
+        return {role: config.models.roles.get(role, config.models.default)
+                for role in ("lawyer", "client")}
+
+    def tested_model(self, config):
+        return config.models.roles.get("lawyer", config.models.default)
 
 PLUGIN = DLawBenchPlugin()

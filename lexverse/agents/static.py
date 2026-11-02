@@ -10,5 +10,5 @@ async def run(task, provider):
     response = await provider.generate(list(messages), config=options)
     messages.append({"role": "assistant", "content": response.content})
     return EnvironmentResult(status="completed", answer=response.content, messages=messages,
-                             dialog_history=[{"actor": task.participants[0].id, "content": response.content}],
+                             dialog_history=[{"actor": task.participants[0].id, "content": response.content, "metadata": {"model": response.model, "usage": response.usage, "finish_reason": response.finish_reason}}],
                              final_state={"data": {"usage": response.usage}})

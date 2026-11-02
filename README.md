@@ -5,7 +5,7 @@
 *A universe where legal agents learn, act, and are evaluated.*
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue?logo=python&logoColor=white)
-![Benchmarks](https://img.shields.io/badge/Benchmarks-6-334155)
+![Benchmarks](https://img.shields.io/badge/Benchmarks-9-334155)
 ![License](https://img.shields.io/badge/License-Apache%202.0-yellow)
 
 </div>
@@ -49,7 +49,7 @@ conda activate lexverse
 Then install LexVerse in the active environment:
 
 ```bash
-pip install -e ".[lawbench,lexeval,j1bench,plawbench,dlawbench,legalworld,openai]"
+pip install -e ".[lawbench,lexeval,j1bench,plawbench,dlawbench,legalworld,simucourt,maser,lecardv2,openai]"
 ```
 
 Configure API connections in `configs/secrets.local.yaml`:
@@ -169,7 +169,7 @@ lexverse run -c configs/jobs/lawbench.yaml
 
 Explicit CLI options override the corresponding YAML settings; see [configuration selection](#job-configuration-selection-bench-and-task) for details.
 
-LawBench, LexEval and PLawBench support static, vanilla and external Agents. J1Bench, DLawBench and Legal-world use native runners and scoring rules.
+LawBench, LexEval and PLawBench support static, vanilla and external Agents. J1Bench, DLawBench, Legal-world, SimuCourt, MASER and LeCaRDv2 use native runners and scoring rules.
 
 Optional operations:
 

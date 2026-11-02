@@ -179,11 +179,15 @@ def compute_verification_status(job, data, *, trials=None):
 def summarize(job: Job) -> JobResult:
     """Derive progress from saved Trial and evaluation records without writing."""
     trials, groups = [], {}
+    invalid_artifacts = []
     verification_records = load_verification(job)
     planned = job.plan()
     for trial in planned:
         path = trial.directory / 'result.json'
         record = json.loads(path.read_text()) if path.exists() else {'status': 'pending'}
+        if (record['status'] == 'completed' and 'execution_artifact_hashes' in record
+                and not trial._completed_artifacts_valid(record)):
+            invalid_artifacts.append(trial.task.id)
         trials.append({'trial_id': trial.id, 'task_id': trial.task.id, 'config_id': trial.execution.id,
                        'attempt': trial.attempt, 'status': record['status'],
                        'result': str(path.relative_to(job.directory))})
@@ -200,6 +204,9 @@ def summarize(job: Job) -> JobResult:
                          {'completed', 'not_configured'} else execution_status,
                'planned_trials': len(trials), 'statuses': dict(counts), 'groups': groups,
                'execution_status': execution_status, 'verification_status': scoring_status, 'trials': trials}
+    if invalid_artifacts:
+        summary.update(status='incomplete', execution_status='incomplete',
+                       invalid_artifact_task_ids=invalid_artifacts)
     return summary
 
 
