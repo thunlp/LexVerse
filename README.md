@@ -1,18 +1,20 @@
+<div align="center">
+
 # LexVerse
 
 *A universe where legal agents learn, act, and are evaluated.*
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue?logo=python&logoColor=white)
 ![Benchmarks](https://img.shields.io/badge/Benchmarks-9-334155)
-![License](<https://img.shields.io/badge/License-Apache%202.0-yellow>)
+![License](https://img.shields.io/badge/License-Apache%202.0-yellow)
+
+</div>
 
 LexVerse is **a unified framework** for legal language models and agents, spanning from benchmark evaluation to real-world legal tasks. On the evaluation side, it integrates diverse legal benchmarks into a standardized workflow for task preparation, execution, and result management—preserving each benchmark's native formats and evaluators while supporting capability-augmented testing and trajectory-level diagnostics. On the practice side, it provides configurable runtime environments and sandboxes equipped with legal knowledge retrieval, domain skills, and MCP tools, enabling agents to process custom user materials, ground their reasoning in authoritative sources, and produce verifiable deliverables.
 
 Researchers can use it to evaluate models and conduct controlled ablation studies, developers can use it to build and customize legal agents, and legal professionals can bring their own materials to test whether AI holds up in real workflows. **Whoever you are, LexVerse is a place to start.** We are continuing to integrate more benchmarks, expand our framework and runtime environments, and unlock multi-agent workflows and trajectory-based learning.
 
-## Supported benchmarks
-
-LexVerse preserves each benchmark's original evaluation rules.
+## Supported benchmark
 
 | Benchmark                                                 | Coverage                                         | Execution                   |
 | :-------------------------------------------------------- | :----------------------------------------------- | :-------------------------- |
@@ -68,7 +70,7 @@ lexverse setup
 
 #### Step 2. Prepare Skills and knowledge (optional)
 
-Skills and knowledge are optional; `setup` does not download them. Downloads are saved under the project root's `.lexverse/capabilities/` by default (`--local-dir` overrides this).
+`setup` does not download Skills or knowledge. Downloads are saved under the project root's `.lexverse/capabilities/` by default.
 
 Declare Agent resources in Job `resources` or Task environment settings. Static and native executions do not accept Agent resources. For benchmark evaluation, keep reference answers out of knowledge sources.
 
@@ -105,8 +107,6 @@ Task packages define the work, environment and verification. Job configurations 
 lexverse task init user_workspace/tasks/contract-review
 ```
 
-Task initialization creates only the task package, without choosing a model or Agent:
-
 ```text
 user_workspace/tasks/contract-review/
 ├── task.toml                 # Environment, artifacts and verifier
@@ -138,7 +138,13 @@ lexverse run -p user_workspace/tasks/contract-review \
   --agents vanilla,codex --model gpt-5.6-terra --profile openai --dry-run
 ```
 
-Both interfaces use the same Job schema. Model profiles refer to host secrets. Tasks do not contain models or Agents. `--attempts` specifies independent repetitions, `--max-retries` specifies additional retries on execution errors, and `--concurrency` bounds simultaneous Trials. Interactivity is opt-in with `--interactive` and requires a single Trial.
+`--attempts` specifies independent repetitions, `--max-retries` specifies additional retries on execution errors, and `--concurrency` bounds simultaneous Trials.
+
+Run the task with the saved configuration:
+
+```bash
+lexverse run -p user_workspace/tasks/contract-review
+```
 
 #### Step 5. View results
 
@@ -160,8 +166,6 @@ Override the Agent and model, or select a configuration explicitly:
 lexverse run -b lawbench --agents static --model MODEL --profile openai
 lexverse run -c configs/jobs/lawbench.yaml
 ```
-
-Explicit CLI options override the corresponding YAML settings; see [configuration selection](#job-configuration-selection-bench-and-task) for details.
 
 Optional operations:
 
