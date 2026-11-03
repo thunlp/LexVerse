@@ -1,4 +1,3 @@
-"""Atomic result writes and safe names for current native artifacts."""
 from __future__ import annotations
 
 import json

@@ -1,4 +1,3 @@
-"""Execute LeCaRDv2 retrieval across BM25, dual-encoders, KELLER sub-facts, and LLM query rewrites."""
 from __future__ import annotations
 
 from collections import Counter

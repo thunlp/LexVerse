@@ -1,4 +1,3 @@
-"""Task-authored Compose services with one isolated project per environment instance."""
 import copy
 from pathlib import Path
 import re

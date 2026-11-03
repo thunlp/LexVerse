@@ -1,4 +1,3 @@
-"""Local installation and cache locations; no optional dependencies."""
 from pathlib import Path
 
 

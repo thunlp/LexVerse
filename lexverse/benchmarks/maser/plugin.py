@@ -1,4 +1,3 @@
-"""MILE benchmark adapter for native generation and evaluation."""
 from __future__ import annotations
 
 from pathlib import Path

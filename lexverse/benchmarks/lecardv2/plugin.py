@@ -1,4 +1,3 @@
-"""LeCaRDv2 benchmark plugin supporting Mode A (encoder/submission) and Mode B (LLM query rewrite)."""
 from __future__ import annotations
 
 from lexverse.benchmarks.plugin import BenchmarkPlugin

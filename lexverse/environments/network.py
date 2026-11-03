@@ -1,5 +1,3 @@
-"""Task network selection and the endpoints needed by its chosen agent."""
-
 import ipaddress
 import hashlib
 import re

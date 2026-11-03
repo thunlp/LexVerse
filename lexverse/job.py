@@ -1,4 +1,3 @@
-"""Job planning, bounded scheduling, and aggregate reports."""
 from __future__ import annotations
 
 import asyncio

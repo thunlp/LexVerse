@@ -1,4 +1,3 @@
-"""Collect declared outputs and restore only sanitized files for verification."""
 import fnmatch
 import hashlib
 from pathlib import Path

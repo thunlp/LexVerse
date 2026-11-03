@@ -1,4 +1,3 @@
-"""Benchmark-owned execution lifecycle; world rules stay in each benchmark."""
 from abc import ABC, abstractmethod
 from pathlib import Path
 from lexverse.models.trial.result import EnvironmentResult

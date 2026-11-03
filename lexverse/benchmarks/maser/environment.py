@@ -1,4 +1,3 @@
-"""Run native MILE Law_Fact generation in an isolated subprocess per Trial."""
 from __future__ import annotations
 
 import importlib.util

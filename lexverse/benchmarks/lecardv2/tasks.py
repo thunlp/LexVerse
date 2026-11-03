@@ -1,4 +1,3 @@
-"""Import LeCaRDv2 queries and query-rewriting templates while isolating qrels to the verifier."""
 from __future__ import annotations
 
 import hashlib

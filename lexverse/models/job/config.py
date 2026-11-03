@@ -1,4 +1,3 @@
-"""Saved experiment configuration shared by user tasks and benchmarks."""
 from pathlib import Path
 from typing import Literal
 

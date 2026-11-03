@@ -1,7 +1,3 @@
-"""Naming compatibility at configuration and saved-Job boundaries.
-
-Only framework-owned keys are translated. Native payloads are never traversed.
-"""
 from copy import deepcopy
 
 

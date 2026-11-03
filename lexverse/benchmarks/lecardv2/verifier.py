@@ -1,4 +1,3 @@
-"""Verify LeCaRDv2 TREC rankings via pytrec_eval and aggregate recall and pool metrics."""
 from __future__ import annotations
 
 import csv

@@ -1,4 +1,3 @@
-"""MILE benchmark adapter for native generation and evaluation."""
 from pathlib import Path
 from lexverse.benchmarks.plugin import load_upstream
 

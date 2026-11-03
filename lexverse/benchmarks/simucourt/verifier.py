@@ -1,4 +1,3 @@
-"""Invoke public formatter/scorers and aggregate native counts, not per-case F1."""
 from __future__ import annotations
 
 import asyncio

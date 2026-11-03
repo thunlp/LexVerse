@@ -1,4 +1,3 @@
-"""Single model request without a Participant or interaction engine."""
 from lexverse.models.trial.result import EnvironmentResult
 
 

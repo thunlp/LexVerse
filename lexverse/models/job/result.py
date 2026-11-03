@@ -1,4 +1,3 @@
-"""Rebuildable Job progress summary; job.json remains configuration authority."""
 from typing import TypedDict
 
 

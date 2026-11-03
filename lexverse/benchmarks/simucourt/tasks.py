@@ -1,4 +1,3 @@
-"""Six-category SimuCourt case importer with isolated derived references."""
 from __future__ import annotations
 
 import ast

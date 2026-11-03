@@ -1,4 +1,3 @@
-"""Explicit resource references and deterministic execution overrides."""
 from pathlib import Path
 import re
 from typing import Literal

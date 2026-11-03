@@ -1,4 +1,3 @@
-"""Source manifests used only by the Skill downloader, not execution aliases."""
 from pathlib import Path
 import re
 

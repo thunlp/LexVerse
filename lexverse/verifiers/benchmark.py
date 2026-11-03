@@ -1,4 +1,3 @@
-"""Native scoring checkpoints and recovery for current Job evaluation exports."""
 from __future__ import annotations
 
 import asyncio

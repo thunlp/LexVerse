@@ -1,4 +1,3 @@
-"""Errors raised during task execution and scoring."""
 import asyncio
 
 

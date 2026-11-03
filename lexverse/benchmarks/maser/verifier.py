@@ -1,4 +1,3 @@
-"""Invoke patched MILE Goal and Interaction evaluators and aggregate results."""
 from __future__ import annotations
 
 import asyncio

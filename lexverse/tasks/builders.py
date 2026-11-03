@@ -1,4 +1,3 @@
-"""Convert a task package into the contract shared with benchmark importers."""
 from pathlib import Path
 
 from lexverse.models.task.task import VerificationSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput

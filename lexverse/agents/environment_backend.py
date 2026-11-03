@@ -1,4 +1,3 @@
-"""DeepAgents filesystem and shell operations inside a LexVerse environment."""
 from __future__ import annotations
 
 import asyncio

@@ -1,4 +1,3 @@
-"""Import MILE evaluation cases while keeping reference outputs isolated to the verifier."""
 from __future__ import annotations
 
 import ast

@@ -1,4 +1,3 @@
-"""Single-candidate SimuCourt generation and independent native scoring."""
 from __future__ import annotations
 
 from dataclasses import asdict

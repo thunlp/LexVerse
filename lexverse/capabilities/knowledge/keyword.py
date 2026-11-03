@@ -1,4 +1,3 @@
-"""A disposable FTS5 cache with collection-wide BM25 statistics."""
 from contextlib import closing
 import hashlib
 import json
