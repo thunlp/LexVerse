@@ -1,11 +1,10 @@
-"""LeCaRDv2 benchmark plugin supporting Mode A (encoder/submission) and Mode B (LLM query rewrite)."""
 from __future__ import annotations
 
 from lexverse.benchmarks.plugin import BenchmarkPlugin
 from lexverse.config import ConfigError
 from . import CATALOG_PATH, UPSTREAM
 from .environment import LeCaRDv2Environment
-from .evaluation import LeCaRDv2Aggregator, LeCaRDv2TaskVerifier
+from .verifier import LeCaRDv2Aggregator, LeCaRDv2BenchmarkVerifier
 from .tasks import (
     LeCaRDv2Importer, evaluation_source_inputs, source_inputs, validate_benchmark,
 )
@@ -15,8 +14,6 @@ class LeCaRDv2Plugin(BenchmarkPlugin):
     name = "lecardv2"
     upstream = UPSTREAM
     source_version = UPSTREAM.commit
-    default_policy = "lecardv2_ranked_submission"
-    default_environment = "lecardv2_retrieval"
     catalog_path = CATALOG_PATH
 
     def validate_model_config(self, bench, models, modern):
@@ -30,17 +27,14 @@ class LeCaRDv2Plugin(BenchmarkPlugin):
             )
         if models.summary is not None:
             raise ConfigError("models.summary is supported only by J1Bench KQ/LC")
-        if modern and models.evaluators:
-            raise ConfigError("this benchmark uses its native scorer without models.evaluators")
+        if modern and models.verifiers:
+            raise ConfigError("this benchmark uses its native scorer without models.verifiers")
 
     def generation_models(self, config, bundle):
         mode = config.benchmark.get("mode", "ranked_submission")
         if mode in {"ranked_submission", "bm25_retrieval", "encoder_retrieval", "keller_subfact_retrieval"}:
             return {}
         return {"default": config.models.default}
-
-    def configure_environment(self, config, providers):
-        return self.create_environment(config, providers.get("default"))
 
     def create_importer(self, config=None):
         settings = dict(config or {})
@@ -50,16 +44,16 @@ class LeCaRDv2Plugin(BenchmarkPlugin):
         del task_types
         return source_inputs(config.benchmark, offline=True)
 
-    def evaluation_inputs(self, config):
+    def resolve_verification_inputs(self, config):
         return evaluation_source_inputs(
             config.benchmark, offline=bool(config.generation.get("offline", False))
         )
 
-    def create_environment(self, config, provider):
-        return LeCaRDv2Environment(config, provider)
+    def create_native_runner(self, config):
+        return LeCaRDv2Environment(config)
 
     def create_verifier(self, config=None):
-        return LeCaRDv2TaskVerifier(config=config)
+        return LeCaRDv2BenchmarkVerifier(config=config)
 
     def create_aggregator(self):
         return LeCaRDv2Aggregator()

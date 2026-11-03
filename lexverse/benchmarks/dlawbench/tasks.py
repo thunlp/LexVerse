@@ -1,4 +1,3 @@
-"""Select public case/persona cells without constructing gold-bearing prompts."""
 from __future__ import annotations
 
 import json
@@ -6,9 +5,7 @@ from pathlib import Path
 
 from lexverse.benchmarks.plugin import TaskImporter
 from lexverse.benchmarks.catalog import dataset_files, load_catalog
-from lexverse.tasks.schema import (
-    EvaluationSpec, InteractionSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput,
-)
+from lexverse.models.task.task import VerificationSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput
 from . import UPSTREAM
 
 CATALOG_PATH = Path(__file__).with_name("catalog.yaml")
@@ -60,8 +57,7 @@ class DLawBenchImporter(TaskImporter):
                     input=TaskInput(instruction=row["opening"]),
                     participants=[ParticipantSpec(id="lawyer", role="lawyer"),
                                   ParticipantSpec(id="client", role="client")],
-                    interaction=InteractionSpec(policy="dlawbench_native"),
-                    evaluation=EvaluationSpec(verifier="dlawbench", metrics=list(self.catalog["tasks"][persona]["metrics"])),
+                    verification=VerificationSpec(verifier="dlawbench", metrics=list(self.catalog["tasks"][persona]["metrics"])),
                     metadata={"persona_key": persona, "jurisdiction": row["jurisdiction"],
                               "case_file": filename, "case_line": line},
                     raw_payload=row,

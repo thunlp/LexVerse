@@ -1,4 +1,3 @@
-"""Import LeCaRDv2 queries and query-rewriting templates while isolating qrels to the verifier."""
 from __future__ import annotations
 
 import hashlib
@@ -8,8 +7,8 @@ import re
 
 from lexverse.benchmarks.catalog import load_catalog
 from lexverse.benchmarks.plugin import TaskImporter
-from lexverse.tasks.schema import (
-    EvaluationSpec, InteractionSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput,
+from lexverse.models.task.task import (
+    VerificationSpec,  LexVerseTask, ParticipantSpec, SourceRef, TaskInput,
 )
 from . import CATALOG_PATH, UPSTREAM
 
@@ -327,8 +326,7 @@ class LeCaRDv2Importer(TaskImporter):
                     ),
                     input=TaskInput(instruction=instruction, content=content, messages=messages),
                     participants=[ParticipantSpec(id=role, role=role, kind="model" if mode == "llm_query_rewrite" else "scripted")],
-                    interaction=InteractionSpec(policy=f"lecardv2_{mode}", max_steps=1),
-                    evaluation=EvaluationSpec(
+                    verification=VerificationSpec(
                         verifier="lecardv2", metrics=list(self.catalog["tasks"][kind]["metrics"]), reference=None,
                     ),
                     metadata={

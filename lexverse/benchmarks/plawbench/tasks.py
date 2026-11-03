@@ -1,4 +1,3 @@
-"""Map the pinned public release without exposing rubrics to generation."""
 from __future__ import annotations
 
 import ast
@@ -10,9 +9,7 @@ from pathlib import Path
 from lexverse.benchmarks.plugin import TaskImporter
 from lexverse.benchmarks.catalog import dataset_files, load_catalog
 from lexverse.tasks.bundle import TaskSelection
-from lexverse.tasks.schema import (
-    EvaluationSpec, InteractionSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput,
-)
+from lexverse.models.task.task import VerificationSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput
 from . import UPSTREAM
 
 FILES = {
@@ -109,8 +106,7 @@ class PLawBenchImporter(TaskImporter):
                              provenance={key: metadata[key] for key in ("difficulty", "document_role") if key in metadata}),
             input=TaskInput(instruction=prompt),
             participants=[ParticipantSpec(id="assistant", role="respondent")],
-            interaction=InteractionSpec(policy="direct_response", max_steps=1),
-            evaluation=EvaluationSpec(verifier="plawbench", metrics=metrics, reference=rubric,
+            verification=VerificationSpec(verifier="plawbench", metrics=metrics, reference=rubric,
                                       config={"task_type": scorer, "item": item}),
             metadata={**metadata, "score_source": score_source},
             raw_payload=row,

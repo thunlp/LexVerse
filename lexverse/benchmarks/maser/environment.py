@@ -1,4 +1,3 @@
-"""Run native MILE Law_Fact generation in an isolated subprocess per Trial."""
 from __future__ import annotations
 
 import importlib.util
@@ -10,10 +9,10 @@ import sys
 import threading
 from types import ModuleType, SimpleNamespace
 
-from lexverse.environments.base import ExecutionEnvironment
-from lexverse.interaction.schema import EnvironmentResult
-from lexverse.runtime.executor import run_subprocess
-from lexverse.runtime.results import atomic_write_json
+from lexverse.agents.native import NativeRunner
+from lexverse.models.trial.result import EnvironmentResult
+from lexverse.trial.executor import run_subprocess
+from lexverse.utils.files import atomic_write_json
 from . import UPSTREAM
 from .tasks import PROFILE_KEYS, max_turns
 
@@ -115,7 +114,7 @@ class NativeTransport:
         return self.request(model, messages, origin=origin, **kwargs).choices[0].message.content
 
 
-class MILEEnvironment(ExecutionEnvironment):
+class MILEEnvironment(NativeRunner):
     name = "mile_native"
 
     def __init__(self, config):

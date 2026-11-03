@@ -27,30 +27,34 @@ Judicial adjudication takes different forms depending on the trial stage and the
 
 ```bash
 python -m pip install -e ".[simucourt,openai,test]"
-python -m lexverse catalog simucourt
+lexverse task catalog simucourt
 ```
 
 ### 2.2 Configuration
 
-In the upstream SimuCourt pipeline, evaluation requires an independent model in `models.evaluators`:
+In the upstream SimuCourt pipeline, evaluation requires an independent model in `models.verifiers`:
 1. **Structural Extraction (`judge_result_process.py`)**: Prompts an LLM to parse the candidate model's free-text `[审判依据]` and `[最终判决]` sections into structured Python lists and dictionaries.
 2. **Metric Scoring (`evaluation_*.py`)**: Statutory citations (`evaluation_laws.py`) and criminal holdings (`evaluation_crimial.py`) are scored deterministically from the extracted dictionary, while civil and administrative holdings (`evaluation_other.py`) prompt an LLM judge to count matched key points.
 
-Copy `configs/benchmarks/simucourt.example.yaml` to `configs/benchmarks/simucourt.local.yaml` and configure your candidate model (`models.default`) and evaluator (`models.evaluators`):
+Copy `configs/jobs/simucourt.yaml` to `configs/jobs/simucourt.local.yaml` and configure your candidate model (`models.default`) and evaluator (`models.verifiers`):
 
 ```yaml
-schema_version: 1.0
-
+schema_version: '1.0'
 benchmark:
   name: simucourt
   tasks:
-    - {id: "first_criminal", limit: 1}        # Set limit to null for all 419 cases
-    - {id: "first_civil", limit: 1}
-    - {id: "first_administrative", limit: 1}
-    - {id: "second_criminal", limit: 1}
-    - {id: "second_civil", limit: 1}
-    - {id: "second_administrative", limit: 1}
-
+  - id: first_criminal
+    limit: 1
+  - id: first_civil
+    limit: 1
+  - id: first_administrative
+    limit: 1
+  - id: second_criminal
+    limit: 1
+  - id: second_civil
+    limit: 1
+  - id: second_administrative
+    limit: 1
 models:
   default:
     provider: openai_compatible
@@ -59,35 +63,35 @@ models:
     generation_parameters:
       temperature: 0
       max_tokens: 4096
-  evaluators:
-    - provider: openai_compatible
-      profile: openai
-      name: gpt-4o-mini
-      generation_parameters:
-        temperature: 0
-        max_tokens: 4096
-
-generation:
-  concurrency: 2
-
-evaluation:
+  verifiers:
+  - provider: openai_compatible
+    profile: openai
+    name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+      max_tokens: 4096
+generation: {}
+agents:
+- name: native
+verification:
   concurrency: 2
   max_attempts: 3
+concurrency: 2
 ```
 
 ### 2.3 Execution Commands
 
 ```bash
 # Preflight check
-python -m lexverse run simucourt --config configs/benchmarks/simucourt.local.yaml --dry-run
+lexverse run -b simucourt -c configs/jobs/simucourt.local.yaml --dry-run
 
 # Run generation, structural extraction, and scoring
-python -m lexverse run simucourt --config configs/benchmarks/simucourt.local.yaml --output-root runs/simucourt-experiment
+lexverse run -b simucourt -c configs/jobs/simucourt.local.yaml --output-dir runs/simucourt-experiment
 
 # Resume, re-evaluate, or rebuild summary tables
-python -m lexverse run --resume runs/simucourt-experiment
-python -m lexverse evaluate --run-dir runs/simucourt-experiment
-python -m lexverse collect --run-dir runs/simucourt-experiment
+lexverse job resume runs/simucourt-experiment
+lexverse job verify runs/simucourt-experiment
+lexverse job report runs/simucourt-experiment
 ```
 
 ---

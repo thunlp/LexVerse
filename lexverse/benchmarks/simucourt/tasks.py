@@ -1,4 +1,3 @@
-"""Six-category SimuCourt case importer with isolated derived references."""
 from __future__ import annotations
 
 import ast
@@ -7,9 +6,8 @@ from pathlib import Path
 
 from lexverse.benchmarks.plugin import TaskImporter
 from lexverse.benchmarks.catalog import load_catalog
-from lexverse.tasks.schema import (
-    EvaluationSpec,
-    InteractionSpec,
+from lexverse.models.task.task import (
+    VerificationSpec,
     LexVerseTask,
     ParticipantSpec,
     SourceRef,
@@ -170,8 +168,7 @@ class SimuCourtImporter(TaskImporter):
                         ],
                     ),
                     participants=[ParticipantSpec(id="assistant", role="assistant")],
-                    interaction=InteractionSpec(policy="direct_response", max_steps=1),
-                    evaluation=EvaluationSpec(
+                    verification=VerificationSpec(
                         verifier="simucourt",
                         metrics=self.catalog["tasks"][kind]["metrics"],
                         reference=derived_reference(row, stage),

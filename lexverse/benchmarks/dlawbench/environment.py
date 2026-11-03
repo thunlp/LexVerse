@@ -1,4 +1,3 @@
-"""Run native consultation and scoring in isolated subprocesses."""
 from __future__ import annotations
 
 import asyncio
@@ -11,12 +10,12 @@ import sys
 import threading
 import time
 
-from lexverse.environments.base import ExecutionEnvironment
-from lexverse.interaction.schema import EnvironmentResult
-from lexverse.providers.openai_compatible import OpenAICompatibleProvider
-from lexverse.runtime.executor import run_subprocess
-from lexverse.runtime.errors import TrialError
-from lexverse.runtime.results import atomic_write_json
+from lexverse.agents.native import NativeRunner
+from lexverse.models.trial.result import EnvironmentResult
+from lexverse.llms.api import OpenAICompatibleProvider
+from lexverse.trial.executor import run_subprocess
+from lexverse.trial.errors import TrialError
+from lexverse.utils.files import atomic_write_json
 from . import UPSTREAM
 
 
@@ -45,10 +44,9 @@ def validate_response(text, messages, case):
     if not isinstance(value, dict):
         raise ValueError("judge output must be a JSON object")
     if "memo_expectation_scores" in messages[-1]["content"]:
-        for key, reference in (("memo_expectation_scores", "memo_expectations"),
-                               ("expected_action_scores", "expected_actions")):
+        for key in ("memo_expectation_scores", "expected_action_scores"):
             scores = value.get(key)
-            if (not isinstance(scores, list) or len(scores) != len(case["evaluation"][reference])
+            if (not isinstance(scores, list)
                     or any(type(score) not in {int, float} or score not in (0, 1) for score in scores)):
                 raise ValueError(f"missing or invalid {key}")
     else:
@@ -59,9 +57,10 @@ def validate_response(text, messages, case):
                 not isinstance(value[section].get(key), list) for key in keys
             ):
                 raise ValueError(f"missing or invalid {section}")
-        count = value["grounding"].get("total_claims")
-        if (type(count) is not int or count < 0
-                or count != len(value["grounding"]["grounded_claims"]) + len(value["grounding"]["ungrounded_claims"])):
+        # Match upstream: use the declared total, or the list lengths when absent.
+        count = value["grounding"].get("total_claims", len(value["grounding"]["grounded_claims"])
+                                      + len(value["grounding"]["ungrounded_claims"]))
+        if type(count) is not int or count < 0:
             raise ValueError("invalid total_claims")
         ids = {fact["id"] for fact in case["facts"]}
         covered, missed = value["discovery"]["covered"], value["discovery"]["missed"]
@@ -69,10 +68,6 @@ def validate_response(text, messages, case):
                 or set(covered) & set(missed) or set(covered + missed) != ids
                 or len(covered + missed) != len(ids)):
             raise ValueError("DAG judge must cover each reference fact exactly once")
-        correct = value["accuracy"]["correct"]
-        incorrect = [item.get("fact_id") for item in value["accuracy"]["incorrect"] if isinstance(item, dict)]
-        if set(correct + incorrect) != set(covered) or len(correct + incorrect) != len(covered):
-            raise ValueError("DAG accuracy coverage incomplete")
 
 
 async def run_bridge(root, mode, settings, connections, work_dir, timeout):
@@ -119,7 +114,7 @@ class NativeTransport:
 
         async def request():
             try:
-                if not spec["local"] and api_utils._is_gpt5_family(spec["model"]):
+                if not spec["local"]:
                     params = {"model": spec["model"], **{
                         key: value for key, value in options.items()
                         if key in {"temperature", "max_tokens", "top_p", "seed", "stop"}
@@ -161,7 +156,7 @@ class NativeTransport:
         return {}, response
 
 
-class DLawBenchEnvironment(ExecutionEnvironment):
+class DLawBenchEnvironment(NativeRunner):
     name = "dlawbench_native"
 
     def __init__(self, config):

@@ -25,7 +25,7 @@ In real-world legal practice, drafting a civil complaint rarely starts from a ne
 
 ```bash
 python -m pip install -e ".[maser,openai,test]"
-python -m lexverse catalog maser
+lexverse task catalog maser
 ```
 
 ### 2.2 Configuration
@@ -33,7 +33,7 @@ python -m lexverse catalog maser
 A MILE evaluation run binds three sets of models:
 1. **Candidate Lawyer (`models.default`)**: The model being evaluated.
 2. **Environment Simulators (`models.roles.client` & `models.roles.supervisor`)**: The models that role-play the plaintiff and keep the client's responses grounded in the case profile.
-3. **Evaluator (`models.evaluators[0]`)**: The independent judge model used during the `Goal` and `Interaction` scoring stages.
+3. **Evaluator (`models.verifiers[0]`)**: The independent judge model used during the `Goal` and `Interaction` scoring stages.
 
 Add your API profiles to `configs/secrets.local.yaml`:
 
@@ -49,16 +49,15 @@ maser-scoring:
   api_key: ${LEXVERSE_API_KEY}
 ```
 
-Copy `configs/benchmarks/maser.example.yaml` to `configs/benchmarks/maser.local.yaml` and configure your candidate model:
+Copy `configs/jobs/maser.yaml` to `configs/jobs/maser.local.yaml` and configure your candidate model:
 
 ```yaml
-schema_version: 1.0
-
+schema_version: '1.0'
 benchmark:
   name: maser
   tasks:
-    - {id: "complaint_generation", limit: 2}   # Set limit to null for all 693 cases
-
+  - id: complaint_generation
+    limit: 2
 models:
   default:
     provider: vllm
@@ -68,7 +67,8 @@ models:
       tensor_parallel_size: 1
       max_model_len: 32768
       trust_remote_code: false
-    input: {format: chat}
+    input:
+      format: chat
     generation_parameters:
       temperature: 0
       max_tokens: 4096
@@ -77,40 +77,46 @@ models:
       provider: openai_compatible
       profile: maser-client
       name: gpt-4o-2024-08-06
-      generation_parameters: {temperature: 0.5, max_tokens: 2048}
+      generation_parameters:
+        temperature: 0.5
+        max_tokens: 2048
     supervisor:
       provider: openai_compatible
       profile: maser-supervisor
       name: gpt-4o-2024-08-06
-      generation_parameters: {temperature: 0, max_tokens: 2048}
-  evaluators:
-    - provider: openai_compatible
-      profile: maser-scoring
-      name: gpt-4o-2024-08-06
-      generation_parameters: {temperature: 0, max_tokens: 1024}
-
+      generation_parameters:
+        temperature: 0
+        max_tokens: 2048
+  verifiers:
+  - provider: openai_compatible
+    profile: maser-scoring
+    name: gpt-4o-2024-08-06
+    generation_parameters:
+      temperature: 0
+      max_tokens: 1024
 generation:
   offline: false
-  concurrency: 1
   max_turns: 15
-
-evaluation:
+agents:
+- name: native
+verification:
   concurrency: 4
+concurrency: 1
 ```
 
 ### 2.3 Execution Commands
 
 ```bash
 # Preflight check
-python -m lexverse run maser --config configs/benchmarks/maser.local.yaml --dry-run
+lexverse run -b maser -c configs/jobs/maser.local.yaml --dry-run
 
 # Run generation and evaluation
-python -m lexverse run maser --config configs/benchmarks/maser.local.yaml --output-root runs/maser-experiment
+lexverse run -b maser -c configs/jobs/maser.local.yaml --output-dir runs/maser-experiment
 
 # Resume, re-evaluate, or rebuild summary tables
-python -m lexverse run --resume runs/maser-experiment
-python -m lexverse evaluate --run-dir runs/maser-experiment
-python -m lexverse collect --run-dir runs/maser-experiment
+lexverse job resume runs/maser-experiment
+lexverse job verify runs/maser-experiment
+lexverse job report runs/maser-experiment
 ```
 
 ---

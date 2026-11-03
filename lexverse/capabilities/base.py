@@ -1,21 +1,6 @@
-from __future__ import annotations
-
-from typing import Any, Protocol
-
-from pydantic import BaseModel, Field
+from lexverse.utils.identity import identity
 
 
-class CapabilitySelection(BaseModel):
-    enabled: bool = False
-    knowledge: list[str] = Field(default_factory=list)
-    tools: list[str] = Field(default_factory=list)
-    skills: list[str] = Field(default_factory=list)
-    workflows: list[str] = Field(default_factory=list)
-    mcp: list[str] = Field(default_factory=list)
-
-
-class Capability(Protocol):
-    name: str
-
-    async def invoke(self, payload: dict[str, Any]) -> dict[str, Any]: ...
-
+def execution_conditions(identity):
+    conditions = {key: value for key, value in identity.items() if key not in {"code", "code_commit"}}
+    return conditions

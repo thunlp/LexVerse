@@ -1,4 +1,3 @@
-"""Read packaged catalogs and resolve their declared dataset files."""
 from __future__ import annotations
 
 import json
@@ -8,7 +7,7 @@ from pathlib import Path
 from filelock import FileLock
 import yaml
 
-from lexverse.runtime.errors import TrialError
+from lexverse.trial.errors import TrialError
 
 
 def load_catalog(path: Path) -> dict:
@@ -17,7 +16,7 @@ def load_catalog(path: Path) -> dict:
     if (not isinstance(source, dict) or set(source) != {"name", "repo_url", "commit"}
             or any(not isinstance(value, str) or not value.strip() for value in source.values())):
         raise ValueError(f"catalog source must define name, repo_url and commit: {path}")
-    if (catalog.get("schema_version") != 1.0
+    if (catalog.get("schema_version") != "1.0"
             or not isinstance(catalog.get("dataset"), dict)
             or not isinstance(catalog.get("tasks"), dict)):
         raise ValueError(f"invalid benchmark catalog: {path}")

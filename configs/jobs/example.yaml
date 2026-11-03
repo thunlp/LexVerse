@@ -1,0 +1,25 @@
+# Example for Task id=example; configs/jobs/example.local.yaml takes precedence.
+schema_version: '1.0'
+
+path: ../../user_workspace/tasks/example
+
+agents:
+- name: vanilla
+
+models:
+  default:
+    provider: openai_compatible
+    profile: yeysai
+    name: gpt-4o
+    generation_parameters:
+      temperature: 0
+
+generation:
+  limits:
+    model_calls: 20
+    tool_calls: 30
+    active_timeout_sec: 600
+    tool_timeout_sec: 60
+  context_window_tokens: 131072
+  retrieval:
+    mode: keyword

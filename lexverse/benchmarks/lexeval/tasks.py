@@ -7,12 +7,10 @@ import sys
 
 from lexverse.benchmarks.plugin import TaskImporter
 from lexverse.benchmarks.catalog import dataset_files, load_catalog
-from lexverse.runtime.errors import EvaluationError
-from lexverse.runtime.sources import UpstreamSource
+from lexverse.trial.errors import VerificationError
+from lexverse.benchmarks.sources import UpstreamSource
 from lexverse.benchmarks.lexeval import UPSTREAM as LEXEVAL
-from lexverse.tasks.schema import (
-    EvaluationSpec, InteractionSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput,
-)
+from lexverse.models.task.task import VerificationSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput
 from lexverse.tasks.bundle import TaskSelection
 
 
@@ -49,7 +47,7 @@ class LexEvalLoader:
         self._files = dataset_files(load_catalog(Path(__file__).with_name("catalog.yaml")), root=self._cache)
         self._gen_dir = self._cache / "code" / "generation"
         if not (self._gen_dir / "model_gen.py").exists():
-            raise EvaluationError(
+            raise VerificationError(
                 f"upstream missing code/generation/model_gen.py at {self._gen_dir}"
             )
         if str(self._gen_dir) not in sys.path:
@@ -62,7 +60,7 @@ class LexEvalLoader:
     def task_file(self, task_id: str) -> Path:
         matches = [path for path in self._files.values() if path.name == f"{task_id}.json"]
         if len(matches) != 1:
-            raise EvaluationError(f"LexEval catalog must declare one {task_id}.json")
+            raise VerificationError(f"LexEval catalog must declare one {task_id}.json")
         return matches[0]
 
     def load(
@@ -114,8 +112,7 @@ class LexEvalImporter(TaskImporter):
                                      task_type=task_type, sample_id=str(sample.index)),
                     input=TaskInput(instruction=sample.instruction, content=sample.input_text),
                     participants=[ParticipantSpec(id="assistant", role="respondent")],
-                    interaction=InteractionSpec(policy="direct_response", max_steps=1),
-                    evaluation=EvaluationSpec(verifier="lexeval", metrics=list(spec["metrics"]),
+                    verification=VerificationSpec(verifier="lexeval", metrics=list(spec["metrics"]),
                                               reference=sample.answer,
                                               config={"task_type": task_type}),
                     raw_payload={"input": sample.input_text, "answer": sample.answer},

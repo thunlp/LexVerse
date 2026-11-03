@@ -1,3 +1,4 @@
-from .base import TaskVerifier, VerifierProvenance, VerifierResult
+from .benchmark import BenchmarkVerifier
+from .task import TaskVerifier
 
-__all__ = ["TaskVerifier", "VerifierProvenance", "VerifierResult"]
+__all__ = ["TaskVerifier", "BenchmarkVerifier"]

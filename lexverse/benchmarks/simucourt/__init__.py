@@ -1,4 +1,3 @@
-"""SimuCourt single-candidate benchmark and native scoring adapter."""
 from pathlib import Path
 from lexverse.benchmarks.plugin import load_upstream
 

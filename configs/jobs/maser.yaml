@@ -1,0 +1,60 @@
+# Example for `lexverse run -b maser`; maser.local.yaml takes precedence.
+schema_version: '1.0'
+
+benchmark:
+  name: maser
+  tasks:
+  - id: complaint_generation
+    limit: 2
+
+agents:
+- name: native
+
+models:
+  default:
+    provider: vllm
+    name: Qwen/Qwen2.5-7B-Instruct
+    load_parameters:
+      dtype: bfloat16
+      tensor_parallel_size: 1
+      max_model_len: 32768
+      trust_remote_code: false
+    input:
+      format: chat
+    generation_parameters:
+      temperature: 0
+      max_tokens: 4096
+  roles:
+    client:
+      provider: openai_compatible
+      profile: maser-client
+      name: gpt-4o-2024-08-06
+      generation_parameters:
+        temperature: 0.5
+        max_tokens: 2048
+    supervisor:
+      provider: openai_compatible
+      profile: maser-supervisor
+      name: gpt-4o-2024-08-06
+      generation_parameters:
+        temperature: 0
+        max_tokens: 2048
+  verifiers:
+  - provider: openai_compatible
+    profile: maser-scoring
+    name: gpt-4o-2024-08-06
+    generation_parameters:
+      temperature: 0
+      max_tokens: 1024
+
+generation:
+  offline: false
+  timeout_sec: 1800
+  model_startup_timeout_sec: 3600
+  model_request_timeout_sec: 600
+  max_turns: 15
+
+verification:
+  timeout_sec: 1800
+  model_request_timeout_sec: 120
+  concurrency: 4

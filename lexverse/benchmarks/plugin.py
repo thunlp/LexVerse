@@ -2,17 +2,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
-if TYPE_CHECKING:
-    from lexverse.config import ModelConfig, ModelsConfig
-
-from lexverse.environments.base import ExecutionEnvironment
-from lexverse.providers.base import Provider
+from lexverse.agents.native import NativeRunner
 from lexverse.tasks.bundle import TaskBundle, TaskSelection
-from lexverse.tasks.schema import LexVerseTask
-from lexverse.verifiers.base import TaskVerifier, BenchmarkAggregator
-from lexverse.runtime.sources import UpstreamSource
+from lexverse.models.task.task import LexVerseTask
+from lexverse.verifiers.benchmark import BenchmarkVerifier
+from lexverse.benchmarks.aggregation import BenchmarkAggregator
+from lexverse.benchmarks.sources import UpstreamSource
 from .catalog import load_catalog
 
 
@@ -34,39 +31,29 @@ def load_upstream(catalog_path: Path) -> UpstreamSource:
 class BenchmarkPlugin(ABC):
     name: str
     source_version: str
-    default_policy: str
-    default_environment: str
     catalog_path: Path
     upstream: UpstreamSource
     adapter_version = "1.0"
+    supported_agents = frozenset({"native"})
+    default_agent = "native"
 
-    def validate_model_config(self, bench: dict, models: ModelsConfig, modern: bool) -> None:
-        """Validate model role bindings supported by this benchmark plugin."""
+    def validate_model_config(self, bench, models, modern=True):
         from lexverse.config import ConfigError
         if models.roles:
-            raise ConfigError("roles model overrides are currently supported only by J1Bench, DLawBench, Legal-world and MASER")
-        if len(models.evaluators) > 1:
-            raise ConfigError("this benchmark accepts one model in models.evaluators")
+            raise ConfigError("This benchmark does not support role model overrides")
+        if len(models.verifiers) > 1:
+            raise ConfigError("This benchmark accepts at most one verifier model")
         if models.summary is not None:
             raise ConfigError("models.summary is supported only by J1Bench KQ/LC")
 
-    def generation_models(self, config: Any, bundle: TaskBundle) -> dict[str, ModelConfig]:
-        """Return models required for the generation phase."""
+    def generation_models(self, config, bundle):
         return {"default": config.models.default}
 
-    def configure_environment(self, config: Any, providers: dict[str, Provider]) -> ExecutionEnvironment:
-        return self.create_environment(config, providers.get("default"))
-
-    def evaluation_models(self, config: Any) -> dict[str, ModelConfig]:
-        """Return models required for the evaluation phase."""
-        return {}
-
-    def configure_evaluation_context(self, config: Any, providers: dict[str, Provider]) -> dict[str, Any]:
-        return self.evaluation_context(config)
-
-    def tested_model(self, config: Any) -> ModelConfig:
-        """Return the primary candidate model reported for the run."""
+    def tested_model(self, config):
         return config.models.default
+
+    def summary_metadata(self, aggregate):
+        return {}
 
     def create_bundle(self, config: Any) -> TaskBundle:
         benchmark = config.benchmark
@@ -128,27 +115,21 @@ class BenchmarkPlugin(ABC):
         """Shared dataset files required to reconstruct selected tasks."""
         return {}
 
-    @abstractmethod
-    def create_environment(
-        self, config: Any, provider: Provider
-    ) -> ExecutionEnvironment: ...
+    def create_native_runner(self, config: Any) -> NativeRunner:
+        raise ValueError(f"{self.name} has no native runner")
 
-    def evaluation_context(self, config: Any) -> dict[str, Any]:
+    def build_verification_context(self, config: Any) -> dict[str, Any]:
         return {}
 
-    def evaluation_inputs(self, config: Any) -> dict[str, Path]:
+    def resolve_verification_inputs(self, config: Any) -> dict[str, Path]:
         """External files used by the native evaluator outside the task bundle."""
         return {}
 
     @abstractmethod
-    def create_verifier(self, config: dict[str, Any] | None = None) -> TaskVerifier: ...
+    def create_verifier(self, config: dict[str, Any] | None = None) -> BenchmarkVerifier: ...
 
     @abstractmethod
     def create_aggregator(self) -> BenchmarkAggregator: ...
-
-    def summary_metadata(self, aggregate: dict[str, Any]) -> dict[str, Any]:
-        """Return benchmark-specific summary metadata without overwriting core fields."""
-        return {}
 
     def task_types(self) -> list[str]:
         return list(self.load_catalog()["tasks"])

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import hashlib
-import json
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from pydantic import BaseModel, Field, StrictInt
 
-from .schema import LexVerseTask
+from lexverse.models.task.task import LexVerseTask
+from lexverse.utils.identity import identity
 
 
 class TaskSelection(BaseModel):
@@ -18,9 +17,9 @@ class TaskSelection(BaseModel):
 
     @classmethod
     def from_config(cls, benchmark: dict, generation: dict):
-        if "default_limit" in benchmark and "limit" in generation:
-            raise ValueError("benchmark.default_limit conflicts with generation.limit")
-        default = benchmark.get("default_limit", generation.get("limit"))
+        if "limit" in generation:
+            raise ValueError("Use benchmark.default_limit or benchmark.tasks[].limit")
+        default = benchmark.get("default_limit")
         entries = benchmark.get("tasks")
         types, limits = None, {}
         if entries is not None:
@@ -76,12 +75,16 @@ class TaskSelection(BaseModel):
 
 
 class TaskBundle(BaseModel):
-    schema_version: int | float = 1.0
+    schema_version: Literal["1.0"] = "1.0"
     benchmark: str
     source_version: str
     tasks: list[LexVerseTask]
 
-    def content_hash(self) -> str:
-        payload = self.model_dump(mode="json")
-        blob = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()
-        return hashlib.sha256(blob).hexdigest()
+    def to_dict(self, *, legacy=False) -> dict:
+        from lexverse.models.verification_compat import convert_task_names
+        data = self.model_dump(mode="json")
+        data["tasks"] = [convert_task_names(task, legacy=legacy) for task in data["tasks"]]
+        return data
+
+    def content_hash(self, *, legacy=False) -> str:
+        return identity(self.to_dict(legacy=legacy))

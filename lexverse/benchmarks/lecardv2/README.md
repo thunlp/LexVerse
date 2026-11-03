@@ -21,34 +21,41 @@ Finding prior cases that are legally analogous to a pending criminal case (*Lega
 
 ---
 
-## 2. Evaluation Modes & Scopes
+## 2. Official benchmark and optional methods
 
-The LeCaRDv2 paper and subsequent LLM literature evaluate two families of methods across two retrieval scopes. LexVerse supports both so you can benchmark **traditional lexical retrieval (`BM25`)**, **dedicated neural retrieval encoders**, or **generative LLMs**:
+### Official LeCaRDv2 setting
 
-### 2.1 Choosing the Evaluation Mode (`benchmark.mode`)
+The [official repository](https://github.com/THUIR/LeCaRDv2#experiment) releases the dataset and relevance labels. Its original experiments retrieve directly from 55,192 candidate cases using BM25, QLD or neural retrievers, without requiring LLM query rewriting. Zero-shot evaluation uses all 800 queries; the fine-tuning setting uses 640 training and 160 test queries. The reported metrics are Recall@100/200/500/1000. The authors identify Pyserini as their traditional retrieval toolkit and `luyug/Dense` as the neural retrieval reference.
 
-1. **Mode A — Direct Retrieval Baselines (`bm25_retrieval` & `encoder_retrieval`)**:
-   - **Origin**: The original LeCaRDv2 paper ([SIGIR 2024, Table 2](https://arxiv.org/abs/2310.17609)), *KELLER* ([EMNLP 2024, Table 2](https://aclanthology.org/2024.emnlp-main.73/)), and *CCE Audit* ([arXiv:2606.12993, Table 8](https://arxiv.org/abs/2606.12993)).
-   - **How it works**: Evaluates non-generative retrieval baselines directly on raw query and candidate texts without any generative rewriting prompt:
-     - `mode: bm25_retrieval`: Runs traditional lexical **BM25** retrieval over the candidate pool or full 55,192-doc corpus.
-     - `mode: encoder_retrieval`: Runs a pretrained bi-encoder (`CSHaitao/SAILER_zh`, `hfl/chinese-roberta-wwm-ext`, `BAAI/bge-base-zh-v1.5`, `google-bert/bert-base-chinese`, `thunlp/Lawformer`) on local GPU.
-     - *(Optional utility)* `mode: ranked_submission`: Directly scores an already-generated external TREC run file (`benchmark.submission_path`) without running retrieval.
+The shipped [Job YAML](../../../configs/jobs/lecardv2.yaml) selects `bm25_retrieval`, `full_corpus` and `split: all`. It runs **two queries as a smoke test**; set the task's `limit: null` for all queries. BM25 uses the original case facts without an LLM or prompt template. The required `models.default` entry is unused in this mode; no model API credentials are needed.
 
-2. **Mode B — Generative LLMs via Case Reformulation (`llm_query_rewrite` & `keller_subfact_retrieval`)**:
-   - **Origin**: Because 55,192 candidate judgments cannot fit into an LLM's context window at once, published LLM papers on LeCaRDv2 prompt a generative LLM (`Qwen3-4B`, `Qwen2.5-7B-Instruct`, `GPT-4o`, `DeepSeek`) to **extract legal elements, summarize sub-facts, or expand legal terminology** before running downstream retrieval (via **BM25** in `llm_query_rewrite` or **SAILER MaxSim** in `keller_subfact_retrieval`).
-   - In `mode: llm_query_rewrite`, you can select any of four published prompts via `benchmark.prompt_template`:
-     - `when_rules_learn_human1` *(default)* — *When Rules Learn* ([ACL Findings 2026, Appendix B](https://arxiv.org/abs/2606.17220)): Expands key legal concepts with synonyms and statutory variants, concatenates them with the original query `fact`, and retrieves over the 55,192-doc BM25 index.
-     - `jurex_4e_fet` — *JUREX-4E* ([EMNLP 2025, Table 14](https://arxiv.org/abs/2502.17166)): Extracts Chinese criminal law's Four Constitutive Elements (`犯罪四要件`: Object, Objective Aspect, Subject, Subjective Aspect), charge, and article in JSON.
-     - `keller_extract` — *KELLER* ([EMNLP 2024, Appendix B](https://aclanthology.org/2024.emnlp-main.73/)): Extracts charges and summarizes each crime's cause, procedure, and outcome (`起因、经过、结果`).
-     - `promptcase_summary` — *PromptCase* ([ADC 2023](https://arxiv.org/abs/2309.02962)): Distills lengthy case narratives into concise `法律事实` (Legal Facts) and `法律纠纷` (Legal Issues).
-     - `custom` — Pair with `benchmark.custom_prompt: "...{fact}..."` to test custom instructions.
-   - In `mode: keller_subfact_retrieval`, LexVerse runs KELLER's crime-decomposed sub-fact representation with local `SAILER_zh` MaxSim scoring.
+**LexVerse supplies its own BM25 implementation and scoring adapter; this is not the official Pyserini runner or a claim of exact score reproduction.** See implementation details below.
 
-### 2.2 Choosing the Retrieval Scope (`benchmark.candidate_scope`)
+### Optional LexVerse modes
 
-In LeCaRDv2, human experts annotated **~30 candidate documents per query** in `relevence.trec`, while the remaining ~55,162 documents per query are unlabeled. Published papers therefore report results under two scopes:
-- **`full_corpus` (55,192 docs, used by the LeCaRDv2 paper, *When Rules Learn*, and *JUREX-4E* Appendix H)**: Retrieves the Top-1000 documents from the entire 55,192-doc corpus and evaluates `Recall@100 / 200 / 500 / 1000`.
-- **`keller_pool` / `labeled_pool` (~30–40 labeled docs per query on the 160 test queries, used by *KELLER* and *CCE Audit*)**: Ranks only the annotated candidate pool to evaluate top-rank precision metrics (`MAP`, `P@3`, `NDCG@3/5/10`) without unlabeled false negatives. `labeled_pool` uses the exact 30-doc pool from `test_relevence.trec` (*CCE Audit* Table 8); `keller_pool` adds 10 BM25 negative distractors (ranks 100–110) to the 21 test queries whose 30 labeled docs are all positives (*KELLER* Table 2).
+| Mode | Behavior |
+| --- | --- |
+| `bm25_retrieval` | Direct lexical retrieval (shipped default) |
+| `encoder_retrieval` | Direct retrieval using a configured encoder |
+| `ranked_submission` | Score an external TREC run specified by `submission_path` |
+| `llm_query_rewrite` | Append LLM-generated text to the original facts, then retrieve with BM25 |
+| `keller_subfact_retrieval` | KELLER-inspired sub-fact retrieval using a local encoder |
+
+The following are **LexVerse template keys referencing separate papers**, not LeCaRDv2 requirements or official template names:
+
+| `prompt_template` | Referenced source | Local template behavior |
+| --- | --- | --- |
+| `when_rules_learn_human1` | [When Rules Learn](https://arxiv.org/abs/2606.17220), Human-1 baseline | Expand synonyms and legal terminology |
+| `jurex_4e_fet` | [JUREX-4E](https://arxiv.org/abs/2502.17166) | Extract crime elements, charges and statutes |
+| `keller_extract` | [KELLER](https://aclanthology.org/2024.emnlp-main.73/) | Extract charges and summarize sub-facts |
+| `promptcase_summary` | [PromptCase](https://arxiv.org/abs/2309.02962) | Summarize legal facts and issues |
+| `custom` | User-defined | Supply `custom_prompt` containing `{fact}` |
+
+These options do not establish full reproduction of those papers. In particular, the Human-1 template does not implement the self-evolving agent in *When Rules Learn*. Exact prompt fidelity and experimental equivalence have not been verified here. Select a template explicitly when enabling `llm_query_rewrite`; if omitted in that mode, the existing fallback remains `when_rules_learn_human1`. BM25 mode rejects prompt settings.
+
+### Retrieval scope
+
+`full_corpus` searches the entire corpus and reports recall. `labeled_pool` and `keller_pool` are optional restricted-pool ranking settings, with MAP, MRR, precision and NDCG metrics. They are not interchangeable with the original full-corpus experiment. LexVerse's `keller_pool` augments all-positive labeled pools with BM25 negatives; record the scope and split when comparing results.
 
 ---
 
@@ -57,27 +64,35 @@ In LeCaRDv2, human experts annotated **~30 candidate documents per query** in `r
 ### 3.1 Installation
 
 ```bash
-python -m pip install -e ".[lecardv2,openai,test]"
-python -m lexverse catalog lecardv2
+python -m pip install -e ".[lecardv2]"
+lexverse task catalog lecardv2
 ```
 
-### 3.2 Config Example A: Evaluating a Retrieval Encoder (`mode: encoder_retrieval`)
+### Default BM25 run
+
+```bash
+lexverse run -c configs/jobs/lecardv2.yaml --dry-run
+lexverse run -c configs/jobs/lecardv2.yaml
+```
+
+Using `-c` explicitly avoids an existing personal YAML overriding the shipped BM25 example. The full candidate corpus is required even for a two-query smoke test.
+
+### 3.2 Optional Example A: Evaluating a Retrieval Encoder (`mode: encoder_retrieval`)
 
 ```yaml
-schema_version: 1.0
-
+schema_version: '1.0'
 benchmark:
   name: lecardv2
   mode: encoder_retrieval
-  split: test                      # "test" (160 queries) or "all" (800 queries)
-  candidate_scope: keller_pool     # "keller_pool" | "labeled_pool" | "full_corpus"
-  document_field: fact             # "fact" or "qw"
-  pooling: cls                     # "cls" (KELLER Table 2) or "mean" (CCE Table 8)
-  normalize: false                 # false (inner product) or true (cosine similarity)
-  max_length: 512                  # 512 for BERT/RoBERTa/SAILER/BGE; 3072 for Lawformer
+  split: test
+  candidate_scope: keller_pool
+  document_field: fact
+  pooling: cls
+  normalize: false
+  max_length: 512
   tasks:
-    - {id: "case_retrieval", limit: null}
-
+  - id: case_retrieval
+    limit: null
 models:
   default:
     provider: transformers
@@ -85,83 +100,86 @@ models:
     load_parameters:
       local_files_only: true
       device_map: cuda
-
 generation:
   offline: true
+agents:
+- name: native
+verification:
   concurrency: 1
-
-evaluation:
-  concurrency: 1
+concurrency: 1
 ```
 
-### 3.3 Config Example B: Evaluating a Generative LLM (`mode: llm_query_rewrite`)
+### 3.3 Optional Example B: Evaluating a Generative LLM (`mode: llm_query_rewrite`)
 
 ```yaml
-schema_version: 1.0
-
+schema_version: '1.0'
 benchmark:
   name: lecardv2
   mode: llm_query_rewrite
-  prompt_template: when_rules_learn_human1   # Or: jurex_4e_fet | keller_extract | promptcase_summary
+  prompt_template: when_rules_learn_human1
   split: all
   candidate_scope: full_corpus
   document_field: qw
   bm25_k1: 1.2
   bm25_b: 0.75
   top_k: 1000
-  cutoffs: [100, 200, 500, 1000]
+  cutoffs:
+  - 100
+  - 200
+  - 500
+  - 1000
   tasks:
-    - {id: "case_retrieval", limit: 10}      # Set limit to null for all 800 queries
-
+  - id: case_retrieval
+    limit: 10
 models:
   default:
     provider: transformers
-    name: Qwen/Qwen2.5-7B-Instruct           # Or an openai_compatible API model
+    name: Qwen/Qwen2.5-7B-Instruct
     load_parameters:
       local_files_only: true
       dtype: bfloat16
       device_map: cuda
-    input: {format: chat}
+    input:
+      format: chat
     generation_parameters:
       temperature: 0
       max_tokens: 512
-
 generation:
   offline: true
+agents:
+- name: native
+verification:
   concurrency: 1
-
-evaluation:
-  concurrency: 1
+concurrency: 1
 ```
 
 ### 3.4 Execution Commands
 
 ```bash
-python -m lexverse run lecardv2 --config configs/benchmarks/lecardv2.local.yaml --dry-run
-python -m lexverse run lecardv2 --config configs/benchmarks/lecardv2.local.yaml --output-root runs/lecardv2-experiment
-python -m lexverse run --resume runs/lecardv2-experiment
-python -m lexverse evaluate --run-dir runs/lecardv2-experiment
-python -m lexverse collect --run-dir runs/lecardv2-experiment
+lexverse run -b lecardv2 -c configs/jobs/lecardv2.local.yaml --dry-run
+lexverse run -b lecardv2 -c configs/jobs/lecardv2.local.yaml --output-dir runs/lecardv2-experiment
+lexverse job resume runs/lecardv2-experiment
+lexverse job verify runs/lecardv2-experiment
+lexverse job report runs/lecardv2-experiment
 ```
 
 ---
 
-## 4. Upstream Adaptation & Rationale
+## 4. LexVerse implementation
 
-When inspecting the public [`THUIR/LeCaRDv2`](https://github.com/THUIR/LeCaRDv2) repository (`commit 3326485a`), we found that it is a **data-only repository** (`query/`, `label/`, `others/`, `candidate/README.md`) with zero `.py` source files. Instead, upstream `README.md` specifies the external toolkits used for the paper's experiments:
-- *"The traditional methods are implemented with [pyserini](https://github.com/castorini/pyserini) toolkit and the code of the pre-trained model is referenced from [dense](https://github.com/luyug/Dense)."*
-- In the authors' companion repositories ([`THUIR/SAILER`](https://github.com/THUIR/SAILER) and [`CSHaitao/DELTA`](https://github.com/CSHaitao/DELTA)), dense encoding is implemented on top of [`luyug/Dense`](https://github.com/luyug/Dense) (`src/dense/driver/encode.py`, `src/dense/modeling.py`, `src/dense/faiss_retriever/`) and evaluation is performed via [`trec_eval`](https://trec.nist.gov/trec_eval/) (`src/eval.sh`).
+The pinned upstream dataset (`3326485a6c41f8aeda15502fea24e658f8fab746`) does not include a runnable retrieval/scoring pipeline. LexVerse implements:
 
-LexVerse integrates these exact upstream reference components in `lexverse/benchmarks/lecardv2/`:
-1. **Dense Dual-Encoder Retrieval Aligned with `luyug/Dense` & `THUIR/SAILER` (`EncoderRetriever`, `KellerSubfactRetriever`)**: Follows `DenseModelForInference` (`src/dense/modeling.py`) and `EncodeDataset` (`src/dense/data.py`) to encode queries and candidate passages (`CLS` or `mean` pooling, inner-product or cosine similarity, configurable `max_length` and `document_field`) and supports KELLER sub-fact MaxSim scoring via LexVerse's standard `resolve_source(model_cfg)` loader.
-2. **Vectorized BM25 Index (`BM25CorpusIndex`)**: Tokenizes the 55,192 candidate documents with `jieba==0.42.1` and the repository's `others/stopword.txt` (matching `myx666/LeCaRD` and `THUIR/LeCaRDv2`), and caches a compressed sparse row (CSR) inverted index so full-corpus retrieval runs in milliseconds per query.
-3. **Official `trec_eval` Scoring via `pytrec_eval` (`LeCaRDv2TaskVerifier`, `LeCaRDv2Aggregator`)**: Delegates per-query metric calculation (`recall_100/200/500/1000`, `map`, `recip_rank`, `P_1/3`, `ndcg_cut_3/5/10/20/30`) directly to `pytrec_eval.RelevanceEvaluator` (the official `trec_eval` C engine wrapped by Pyserini and `THUIR/SAILER`), while computing `macro_nonempty`, `macro_all_zero`, `micro`, `pool_macro`, and `charge_stratified` macro averages.
+- `BM25CorpusIndex`: a sparse BM25 index using Jieba tokenization and upstream stopwords, rather than the original Pyserini/Lucene runner.
+- Encoder and sub-fact retrieval adapters with configurable pooling, normalization, text fields and truncation.
+- A verifier using `pytrec_eval` for per-query metrics and LexVerse aggregation (`macro_nonempty`, `macro_all_zero`, `micro` and pool metrics).
+
+Using the original labels and standard metric library does not establish identical preprocessing, ranking or aggregation to a paper. Full reproduction requires those settings and run artifacts to be checked separately.
 
 ---
 
 ## 5. Reference Results (`lexverse run`) & Implementation Notes
 
-All LexVerse results below are obtained directly by running `python -m lexverse run lecardv2` on a local NVIDIA A100 GPU.
+The tables below are historical results carried over from the benchmark integration branch, which reported runs on an NVIDIA A100. They have not been revalidated during this integration and are not results of the shipped two-query BM25 example. Paper figures and reported LexVerse figures are labeled separately; matching numbers alone do not prove exact reproduction.
 
 ### 5.1 Candidate-Pool Reranking (160 Test Queries)
 
@@ -210,6 +228,5 @@ All LexVerse results below are obtained directly by running `python -m lexverse 
 
 ### Implementation & Protocol Notes
 
-- **Missing Upstream Retrieval & Evaluation Scripts**: Because [`THUIR/LeCaRDv2`](https://github.com/THUIR/LeCaRDv2) contains only the dataset files (`query/`, `label/`, `others/`) and no `.py` source files (only noting in `README.md` that traditional baselines used `pyserini` and dense baselines referenced `luyug/Dense`, with `<!-- ## Evaluation -->` commented out), full-corpus numbers (`R@100..1000`) exhibit slight differences (`0.1218` vs. `0.1165` on `R@100` for `chinese-bert-wwm`) due to unreleased upstream preprocessing/indexing details. By contrast, on the follow-up benchmarks that did release their evaluation protocols (*KELLER* Table 2 and *CCE Audit* Table 8), `lexverse run lecardv2` reproduces the published scores 1:1.
 - **Default `max_length: 512` and `document_field: fact` for Encoders**: Full Chinese criminal judgments (`qw`) begin with ~450 tokens of court headers, docket numbers, and defendant biographical records before the case facts (`fact`) appear (median start offset: token 467). Using `document_field: fact` with `max_length: 512` ensures 512-token encoders encode the actual case facts rather than truncating inside the header preamble.
-- **Zero-Gold Query Denominators**: In `label/relevence_gold.trec` (`grade >= 2`), two queries (`qid 77` and `qid 420`) have zero positive documents. `LeCaRDv2TaskVerifier` reports `macro_nonempty` (798 queries) as the primary metric and simultaneously records `macro_all_zero` (800 queries) and `micro` in `summary.json`.
+- **Zero-Gold Query Denominators**: In `label/relevence_gold.trec` (`grade >= 2`), two queries (`qid 77` and `qid 420`) have zero positive documents. `LeCaRDv2BenchmarkVerifier` reports `macro_nonempty` (798 queries) as the primary metric and simultaneously records `macro_all_zero` (800 queries) and `micro` in `summary.json`.

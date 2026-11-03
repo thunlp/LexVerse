@@ -1,4 +1,3 @@
-"""Execute LeCaRDv2 retrieval across BM25, dual-encoders, KELLER sub-facts, and LLM query rewrites."""
 from __future__ import annotations
 
 from collections import Counter
@@ -7,9 +6,9 @@ import json
 import math
 from pathlib import Path
 
-from lexverse.environments.base import ExecutionEnvironment
-from lexverse.interaction.schema import EnvironmentResult
-from lexverse.runtime.results import atomic_write_json
+from lexverse.agents.native import NativeRunner
+from lexverse.models.trial.result import EnvironmentResult
+from lexverse.utils.files import atomic_write_json
 from .tasks import (
     PROMPT_TEMPLATES, PROTOCOL, TASK_TYPE, identifier, load_candidate_pids, resolve_data_layout,
 )
@@ -177,7 +176,7 @@ class BM25CorpusIndex:
 def _load_local_encoder(model_cfg):
     import torch
     from transformers import AutoModel, AutoTokenizer
-    from lexverse.providers.local import resolve_source
+    from lexverse.llms.local import resolve_source
 
     preferred = model_cfg.load_parameters.get("device_map")
     device = preferred if preferred not in {None, "auto", "cuda"} else ("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -324,7 +323,7 @@ class KellerSubfactRetriever:
         return "\n".join(s for s, m in zip(q_slots, q_mask) if m > 0), scores
 
 
-class LeCaRDv2Environment(ExecutionEnvironment):
+class LeCaRDv2Environment(NativeRunner):
     name = "lecardv2_retrieval"
 
     def __init__(self, config, provider=None):
@@ -345,6 +344,7 @@ class LeCaRDv2Environment(ExecutionEnvironment):
         self._submission_cache = self._keller_bm25_cache = self._bm25_index = self._encoder = self._keller = None
 
     async def prepare(self, context=None):
+        self.provider = getattr(self, "connections", {}).get("default", self.provider)
         del context
         if self.mode == "ranked_submission" and self._submission_cache is None:
             sub_path = Path(self.bench["submission_path"]).expanduser().resolve()

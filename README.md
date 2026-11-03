@@ -1,180 +1,208 @@
-<h1 align="center">LexVerse</h1>
+# LexVerse
 
-<p align="center"><em>A universe where legal agents learn, act, and are evaluated.</em></p>
+*A universe where legal agents learn, act, and are evaluated.*
 
-<p align="center">
-  <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white">
-  <img alt="Benchmarks" src="https://img.shields.io/badge/Benchmarks-LexEval%20%7C%20LawBench%20%7C%20J1Bench-243B53">
-  <img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-C9A227">
-</p>
+![Python](https://img.shields.io/badge/Python-3.12%2B-blue?logo=python&logoColor=white)
+![Benchmarks](https://img.shields.io/badge/Benchmarks-9-334155)
+![License](<https://img.shields.io/badge/License-Apache%202.0-yellow>)
 
-<p align="center">
-  <a href="#-quick-start">Quick Start</a> ·
-  <a href="#-supported-benchmarks">Benchmarks</a> ·
-  <a href="#-outputs">Outputs</a> ·
-  <a href="docs/architecture.html">Architecture</a>
-</p>
+LexVerse is **a unified framework** for legal language models and agents, spanning from benchmark evaluation to real-world legal tasks. On the evaluation side, it integrates diverse legal benchmarks into a standardized workflow for task preparation, execution, and result management—preserving each benchmark's native formats and evaluators while supporting capability-augmented testing and trajectory-level diagnostics. On the practice side, it provides configurable runtime environments and sandboxes equipped with legal knowledge retrieval, domain skills, and MCP tools, enabling agents to process custom user materials, ground their reasoning in authoritative sources, and produce verifiable deliverables.
 
-LexVerse is an evolving runtime for evaluating legal language models and agents.
-It brings legal benchmarks into a shared workflow for task preparation,
-execution, and result management while preserving their original task formats,
-interaction harnesses, and evaluators. We are continuing to integrate more
-benchmarks and develop environment capabilities for richer agent interactions.
+Researchers can use it to evaluate models and conduct controlled ablation studies, developers can use it to build and customize legal agents, and legal professionals can bring their own materials to test whether AI holds up in real workflows. **Whoever you are, LexVerse is a place to start.** We are continuing to integrate more benchmarks, expand our framework and runtime environments, and unlock multi-agent workflows and trajectory-based learning.
 
-## ⚖️ Supported Benchmarks
+## Supported benchmarks
 
-| Benchmark                                           |               Coverage | Interaction                 | Verification                |
-| --------------------------------------------------- | ---------------------: | --------------------------- | --------------------------- |
-| [LexEval](https://github.com/CSHaitao/LexEval)           |               23 tasks | Single response             | Upstream task evaluator     |
-| [LawBench](https://github.com/open-compass/LawBench)       |               20 tasks | Single response             | Upstream task evaluator     |
-| [J1Bench](https://github.com/FudanDISC/J1Bench)            | CI, CR, KQ, LC, CD, DD | Official multi-role harness | Upstream scenario evaluator |
-| [PLawBench](https://github.com/SKYLENAGE-AI/PLawBench)     |                3 tasks | Single response             | Upstream rubric evaluator   |
-| [DLawBench](https://github.com/SKYLENAGE-AI/DLawBench)     |             4 personas | Official consultation loop  | Upstream session evaluator  |
-| [Legal-world](https://github.com/sii-research/Legal-world) |               6 stages | Official stage pipeline     | Upstream stage evaluator    |
-| [SimuCourt](https://github.com/Zhitao-He/AgentsCourt)      |             6 tasks    | Single response             | Upstream task evaluator     |
-| [MASER](https://github.com/FudanDISC/MASER)                |  complaint_generation  | Official Law_Fact runner    | Upstream scenario evaluator |
-| [LeCaRDv2](https://github.com/THUIR/LeCaRDv2)              |       case_retrieval   | Encoder / LLM rewrite retrieval | Recall@K & ranking evaluator |
+LexVerse preserves each benchmark's original evaluation rules.
 
-## 🚀 Quick Start
+| Benchmark                                                 | Coverage                                         | Execution                   |
+| :-------------------------------------------------------- | :----------------------------------------------- | :-------------------------- |
+| [LexEval](https://github.com/CSHaitao/LexEval)             | 23 task types                                    | Static / Vanilla / External |
+| [LawBench](https://github.com/open-compass/LawBench)       | 20 task types                                    | Static / Vanilla / External |
+| [PLawBench](https://github.com/SKYLENAGE-AI/PLawBench)     | Case analysis, consultation, document generation | Static / Vanilla / External |
+| [J1Bench](https://github.com/FudanDISC/J1Bench)            | CI, CR, KQ, LC, CD, DD                           | Native                      |
+| [DLawBench](https://github.com/SKYLENAGE-AI/DLawBench)     | 4 client personas                                | Native                      |
+| [Legal-world](https://github.com/sii-research/Legal-world) | 6 scenarios across the litigation lifecycle      | Native                      |
+| [SimuCourt](https://github.com/Zhitao-He/AgentsCourt)      | 6 task types                                     | Native                      |
+| [MASER](https://github.com/FudanDISC/MASER)                | Complaint generation                             | Native                      |
+| [LeCaRDv2](https://github.com/THUIR/LeCaRDv2)              | Case retrieval                                   | Static                      |
 
-### 1. Install LexVerse
+## Quick start
 
-Use Python 3.10 or newer. Install LexVerse with the dependencies for the benchmarks you want to run:
+Use Python 3.12 or newer.
 
 ```bash
-python -m pip install -e ".[lexeval,lawbench,j1bench,simucourt,maser,lecardv2,openai]"
-python -m lexverse --help
+git clone https://github.com/thunlp/LexVerse.git
+cd LexVerse
 ```
 
-> **Compatibility note**
-> One environment can run all these benchmarks. LexEval and LawBench use
-> different Rouge packages, so some Rouge-based scores may differ slightly
-> from upstream results in a combined installation.
-
-### 2. Create local configuration
-
-Create local configuration files from the tracked `*.example.yaml` templates.
-
-Configure at least one OpenAI-compatible connection in
-`configs/secrets.local.yaml`.
-
-The benchmark YAML selects the connection with `models.default.profile` and the
-actual model with `models.default.name`. Multi-role and LLM-judged benchmarks
-also configure `models.roles` and `models.evaluators`. Model names belong in
-benchmark configuration, not in the secrets file.
-
-### 3. Run LexEval
-
-`run --dry-run` resolves the selected upstream cases and checks the
-configuration without calling the model. `generate` runs model generation only,
-`run` performs generation, official evaluation, and aggregation, and `evaluate`
-scores an existing run independently.
+Install Conda, then create and activate a Python 3.12 environment:
 
 ```bash
-python -m lexverse run lexeval --config configs/benchmarks/lexeval.example.yaml --dry-run
-python -m lexverse run lexeval --config configs/benchmarks/lexeval.local.yaml \
-  --output-root runs/lexeval-experiment
+conda create -n lexverse python=3.12
+conda activate lexverse
 ```
 
-### 4. Run LawBench
+Then install LexVerse in the active environment:
 
 ```bash
-python -m lexverse run lawbench --config configs/benchmarks/lawbench.example.yaml --dry-run
-python -m lexverse run lawbench --config configs/benchmarks/lawbench.local.yaml \
-  --output-root runs/lawbench-experiment
+pip install -e ".[lawbench,lexeval,j1bench,plawbench,dlawbench,legalworld,simucourt,maser,lecardv2,openai]"
 ```
 
-If a run is interrupted, resume it from the frozen manifest snapshot:
+Configure API connections in `configs/secrets.local.yaml`:
+
+```yaml
+openai:
+  base_url: https://api.openai.com/v1
+  api_key: YOUR_API_KEY
+```
+
+Set `profile: openai` in your model configuration to use this connection. Keep credentials local.
+
+### User task
+
+#### Step 1. Prepare dependencies
 
 ```bash
-python -m lexverse run --resume runs/lawbench-experiment
+lexverse setup
 ```
 
-If generation has completed and only scoring needs to be rerun:
+#### Step 2. Prepare Skills and knowledge (optional)
+
+Skills and knowledge are optional; `setup` does not download them. Downloads are saved under the project root's `.lexverse/capabilities/` by default (`--local-dir` overrides this).
+
+Declare Agent resources in Job `resources` or Task environment settings. Static and native executions do not accept Agent resources. For benchmark evaluation, keep reference answers out of knowledge sources.
+
+**Download Skills:**
 
 ```bash
-python -m lexverse evaluate --run-dir runs/lawbench-experiment
+lexverse resources download skills
 ```
 
-### 5. Run J1Bench
+**Prepare knowledge using either option:**
 
-J1Bench uses gated data. Accept the terms on the
-[J1-Eval dataset page](https://huggingface.co/datasets/CimoInkPool/J1-Eval_Dataset/tree/main)
-and authenticate once:
+- Download prebuilt indexes, ready for retrieval:
+
+  ```bash
+  lexverse resources download indexes
+  # Or download selected collections only:
+  lexverse resources download indexes --collections legal_laws legal_cases/JuDGE
+  ```
+- Download source documents and build indexes locally:
+
+  ```bash
+  lexverse resources download knowledge
+  # Example: build the legal_laws collection.
+  lexverse resources build-index --knowledge .lexverse/capabilities/knowledge/legal_laws --mode hybrid
+  ```
+
+Prebuilt indexes use **hybrid retrieval** (BM25 keyword search + FAISS vector search), with **`BAAI/bge-small-zh-v1.5`** as the embedding model. Queries also require this model. Use the same hybrid configuration in your task; select downloaded collections with IDs such as `collection:legal_laws`. For custom index settings, see [retrieval.example.yaml](configs/knowledge/retrieval.example.yaml).
+
+#### Step 3. Initialize a task
+
+Task packages define the work, environment and verification. Job configurations independently select models, Agents and execution settings using the interfaces below.
 
 ```bash
-hf auth login
+lexverse task init user_workspace/tasks/contract-review
 ```
 
-The first `run --dry-run` or `run` downloads the selected `J1-Eval_<SCENARIO>.jsonl`
-files to `.lexverse/datasets/j1bench/`. Later runs reuse this cache and do not
-modify the downloaded files.
+Task initialization creates only the task package, without choosing a model or Agent:
+
+```text
+user_workspace/tasks/contract-review/
+├── task.toml                 # Environment, artifacts and verifier
+├── instruction.md            # Task instructions
+├── environment/
+│   ├── Dockerfile
+│   └── inputs/               # Task materials; copied to /inputs/ when building the image
+└── tests/
+    ├── Dockerfile            # Dedicated verifier image
+    ├── test.sh
+    └── grade.py
+```
+
+#### Step 4. Configure an experiment
+
+User tasks support vanilla and external Agents. Job configuration is optional and separate from task initialization:
 
 ```bash
-python -m lexverse run j1bench --config configs/benchmarks/j1bench.example.yaml --dry-run
-python -m lexverse run j1bench --config configs/benchmarks/j1bench.local.yaml \
-  --output-root runs/j1bench-experiment
+lexverse job init configs/jobs/contract-review.local.yaml \
+  -p user_workspace/tasks/contract-review --agents vanilla,codex \
+  --model gpt-5.6-terra --profile openai
+lexverse run -p user_workspace/tasks/contract-review --dry-run
 ```
 
-J1Bench runs the official multi-role conversation for every case and invokes
-the official evaluator once per scenario. It is slower and more expensive than
-the two single-response benchmarks.
-
-### 6. Run SimuCourt, MASER, and LeCaRDv2
+To override the selected YAML for one run (or provide all required options when no YAML exists):
 
 ```bash
-python -m lexverse run simucourt --config configs/benchmarks/simucourt.example.yaml --dry-run
-python -m lexverse run simucourt --config configs/benchmarks/simucourt.local.yaml \
-  --output-root runs/simucourt-experiment
-
-python -m lexverse run maser --config configs/benchmarks/maser.example.yaml --dry-run
-python -m lexverse run maser --config configs/benchmarks/maser.local.yaml \
-  --output-root runs/maser-experiment
-
-python -m lexverse run lecardv2 --config configs/benchmarks/lecardv2.example.yaml --dry-run
-python -m lexverse run lecardv2 --config configs/benchmarks/lecardv2.local.yaml \
-  --output-root runs/lecardv2-experiment
+lexverse run -p user_workspace/tasks/contract-review \
+  --agents vanilla,codex --model gpt-5.6-terra --profile openai --dry-run
 ```
 
-Adapter details, configuration modes, and local reproduction results are documented in:
-- [`lexverse/benchmarks/maser/README.md`](lexverse/benchmarks/maser/README.md)
-- [`lexverse/benchmarks/simucourt/README.md`](lexverse/benchmarks/simucourt/README.md)
-- [`lexverse/benchmarks/lecardv2/README.md`](lexverse/benchmarks/lecardv2/README.md)
+Both interfaces use the same Job schema. Model profiles refer to host secrets. Tasks do not contain models or Agents. `--attempts` specifies independent repetitions, `--max-retries` specifies additional retries on execution errors, and `--concurrency` bounds simultaneous Trials. Interactivity is opt-in with `--interactive` and requires a single Trial.
 
-## 📂 Outputs
+#### Step 5. View results
 
-Each `--output-root` contains `manifest.json`, `summary.json`, trial records,
-and official evaluation artifacts. LexEval and LawBench report task-level
-scores in `evaluation_result.csv`; J1Bench and MASER keep per-case intermediate
-results and a scenario-level final result under `trials/<scenario>/verifier/`.
+Results are saved under `runs/user_tasks/<task_id>/<job_id>/` or `runs/benchmark_tasks/<benchmark>/<job_id>/`. Each Job includes its configuration, progress summary, per-Trial results and artifacts, and a comparison report at `verification/report.csv`.
 
-`collect` rebuilds `summary.json` from existing Trial records and the existing
-official `evaluation_result.csv`:
+### Benchmark task
+
+Run a benchmark with its example Job configuration:
 
 ```bash
-python -m lexverse collect --run-dir runs/lexeval-experiment
+lexverse run -b lawbench
 ```
 
-For a cheaper smoke test, adjust `benchmark.default_limit` or each task's
-`limit` in a local benchmark YAML (`null` selects all samples). Start a new run
-whenever changing models, tasks, or generation parameters.
+This uses `configs/jobs/lawbench.local.yaml` if present, otherwise `configs/jobs/lawbench.yaml`.
 
-## 🏗️ Architecture
+Override the Agent and model, or select a configuration explicitly:
 
-LexVerse connects benchmark preparation, execution, evaluation, and result
-management in one workflow.
+```bash
+lexverse run -b lawbench --agents static --model MODEL --profile openai
+lexverse run -c configs/jobs/lawbench.yaml
+```
 
-[Open the interactive architecture map →](docs/architecture.html)
+Explicit CLI options override the corresponding YAML settings; see [configuration selection](#job-configuration-selection-bench-and-task) for details.
 
-## 📝 Notes
+Optional operations:
 
-- Do not edit files under `.lexverse/datasets/j1bench/`.
-- Start a new run after modifying a local YAML; `--resume` reads the frozen manifest snapshot.
-- Upstream repositories are pinned in each benchmark's `catalog.yaml`; patches make them relocatable without replacing evaluator logic.
-- Benchmark and dataset licenses remain governed by their original sources.
+```bash
+# Compare Agents with two independent attempts each
+lexverse run -b lawbench --agents vanilla,codex --attempts 2
+# Generate answers without scoring
+lexverse run -b lawbench --no-verify
+# Resume an unfinished Job
+lexverse job resume runs/benchmark_tasks/lawbench/<job_id>
+```
 
-LexVerse is released under the [Apache License 2.0](LICENSE).
+## Commands
 
-## Contact Us
+| Command                                                        | Purpose                                                                             |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `lexverse setup`                                             | Prepare Agent dependencies                                                          |
+| `lexverse agents list`                                       | List registered Agent choices                                                       |
+| `lexverse resources download knowledge/indexes/skills`       | Download resources                                                                  |
+| `lexverse resources build-index --knowledge <paths>`         | Build knowledge indexes                                                             |
+| `lexverse task init <path>`                                  | Create a Task package                                                               |
+| `lexverse task catalog <benchmark>`                          | List Benchmark Tasks and Agent support                                              |
+| `lexverse job init <config.yaml> ...`                        | Save a Job configuration                                                            |
+| `lexverse job schema`                                        | Print the Job configuration JSON Schema                                             |
+| `lexverse run -p <path> / -b <benchmark> / -c <config.yaml>` | Start a Job                                                                         |
+| `lexverse job start ...`                                     | Start a Job (same options as `run`)                                               |
+| `lexverse job inspect <job_dir>`                             | Read current Job status without writing                                             |
+| `lexverse trial inspect <trial_dir> [--trajectory]`          | Inspect one Trial                                                                   |
+| `lexverse job resume <job_dir>`                              | Resume unfinished Trials                                                            |
+| `lexverse trial resume <trial_dir> --reply <text> / --retry` | Resume one paused or failed Trial                                                   |
+| `lexverse job verify <job_dir>`                              | Score saved Benchmark answers or saved User Task artifacts with a separate verifier |
+| `lexverse job report <job_dir>`                              | Rebuild derived reports                                                             |
 
-For issues and feature requests, use GitHub Issues. You can also email xieh@tsinghua.edu.cn.
+Run any command with `--help` for its options.
+
+## License and attribution
+
+LexVerse is licensed under [Apache License 2.0](LICENSE). Upstream code, datasets, skills and services retain their own licenses and usage terms.
+
+Parts of LexVerse are adapted from [Harbor](https://github.com/laude-institute/harbor) (`v0.20.0`, Apache License 2.0).
+
+## Contact
+
+For questions, open a GitHub Issue or email xieh@tsinghua.edu.cn.

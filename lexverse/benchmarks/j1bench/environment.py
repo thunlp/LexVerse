@@ -9,13 +9,14 @@ from typing import Any
 
 from lexverse.benchmarks.j1bench.tasks import J1BenchCase
 from lexverse.config import ResolvedConfig
-from lexverse.environments.base import ExecutionEnvironment
-from lexverse.interaction.schema import EnvironmentResult
-from lexverse.runtime.errors import ArtifactMissingError, TrialError
-from lexverse.runtime.executor import ExecutionResult, run_subprocess
-from lexverse.runtime.sources import UpstreamSource
+from lexverse.agents.native import NativeRunner
+from lexverse.models.trial.result import EnvironmentResult
+from lexverse.trial.errors import ArtifactMissingError, TrialError
+from lexverse.models.trial.result import ExecutionResult
+from lexverse.trial.executor import run_subprocess
+from lexverse.benchmarks.sources import UpstreamSource
 from lexverse.benchmarks.j1bench import UPSTREAM as J1BENCH
-from lexverse.tasks.schema import LexVerseTask
+from lexverse.models.task.task import LexVerseTask
 
 from .scenarios import require_supported
 from .tasks import J1BenchLoader, resolve_case_database
@@ -183,7 +184,7 @@ class J1BenchRunner:
             env["J1BENCH_SUMMARY_PARAMETERS"] = json.dumps(summary.generation_parameters)
 
 
-class J1BenchEnvironment(ExecutionEnvironment):
+class J1BenchEnvironment(NativeRunner):
     name = "j1bench_upstream"
 
     def __init__(self, config: ResolvedConfig) -> None:
@@ -224,8 +225,6 @@ class J1BenchEnvironment(ExecutionEnvironment):
     def _case_database(self, scenario: str) -> Path:
         configured_paths = self.config.benchmark.get("case_databases") or {}
         configured_path = configured_paths.get(scenario)
-        if not configured_path and self.config.benchmark.get("scenario") == scenario:
-            configured_path = self.config.benchmark.get("case_database")
         return (
             Path(configured_path)
             if configured_path

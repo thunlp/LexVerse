@@ -1,0 +1,358 @@
+diff --git a/src/agents/defendant_CI.py b/src/agents/defendant_CI.py
+index a9bde7f..0ab9b9c 100644
+--- a/src/agents/defendant_CI.py
++++ b/src/agents/defendant_CI.py
+@@ -38,7 +38,8 @@ class GPTDefendant_civilPrediction(Agent):
+             openai_api_base=args.defendant_openai_api_base,
+             openai_model_name=args.defendant_openai_model_name,
+             temperature=args.defendant_temperature,
+-            max_tokens=args.defendant_max_tokens
++            max_tokens=args.defendant_max_tokens,
++            generation_parameters=getattr(args, "defendant_lexverse_generation_parameters", {})
+         )
+         
+         #编写profile
+diff --git a/src/agents/defendant_CR.py b/src/agents/defendant_CR.py
+index cd876b3..e1febd8 100644
+--- a/src/agents/defendant_CR.py
++++ b/src/agents/defendant_CR.py
+@@ -37,7 +37,8 @@ class GPTDefendant_criminalPrediction(Agent):
+             openai_api_base=args.defendant_openai_api_base,
+             openai_model_name=args.defendant_openai_model_name,
+             temperature=args.defendant_temperature,
+-            max_tokens=args.defendant_max_tokens
++            max_tokens=args.defendant_max_tokens,
++            generation_parameters=getattr(args, "defendant_lexverse_generation_parameters", {})
+         )
+         
+         #编写profile
+diff --git a/src/agents/general_public_KQ.py b/src/agents/general_public_KQ.py
+index 6a63006..c405ae8 100644
+--- a/src/agents/general_public_KQ.py
++++ b/src/agents/general_public_KQ.py
+@@ -36,7 +36,8 @@ class GPTGeneral_public_consult(Agent):
+             openai_api_base=args.general_public_openai_api_base,
+             openai_model_name=args.general_public_openai_model_name,
+             temperature=args.general_public_temperature,
+-            max_tokens=args.general_public_max_tokens
++            max_tokens=args.general_public_max_tokens,
++            generation_parameters=getattr(args, "general_public_lexverse_generation_parameters", {})
+         )
+ 
+         id = 1
+diff --git a/src/agents/general_public_LC.py b/src/agents/general_public_LC.py
+index 6fc0b66..fe6e941 100644
+--- a/src/agents/general_public_LC.py
++++ b/src/agents/general_public_LC.py
+@@ -43,6 +43,7 @@ class GPTGeneral_public_consult(Agent):
+             openai_model_name=args.general_public_openai_model_name,
+             temperature=args.general_public_temperature,
+             max_tokens=args.general_public_max_tokens,
++            generation_parameters=getattr(args, "general_public_lexverse_generation_parameters", {}),
+         )
+         
+         id = 1
+diff --git a/src/agents/judge_CI.py b/src/agents/judge_CI.py
+index 68ff1c5..f8ebd75 100644
+--- a/src/agents/judge_CI.py
++++ b/src/agents/judge_CI.py
+@@ -38,7 +38,8 @@ class GPTJudge_civilPrediction(Agent):
+             openai_api_base=args.judge_openai_api_base,
+             openai_model_name=args.judge_openai_model_name,
+             temperature=args.judge_temperature,
+-            max_tokens=args.judge_max_tokens
++            max_tokens=args.judge_max_tokens,
++            generation_parameters=getattr(args, "judge_lexverse_generation_parameters", {})
+         )
+         
+         # 编写profile
+diff --git a/src/agents/judge_CR.py b/src/agents/judge_CR.py
+index 1121989..e903f9f 100644
+--- a/src/agents/judge_CR.py
++++ b/src/agents/judge_CR.py
+@@ -37,7 +37,8 @@ class GPTJudge_criminalPrediction(Agent):
+             openai_api_base=args.judge_openai_api_base,
+             openai_model_name=args.judge_openai_model_name,
+             temperature=args.judge_temperature,
+-            max_tokens=args.judge_max_tokens
++            max_tokens=args.judge_max_tokens,
++            generation_parameters=getattr(args, "judge_lexverse_generation_parameters", {})
+         )
+         
+         #编写profile
+diff --git a/src/agents/lawyer_CD.py b/src/agents/lawyer_CD.py
+index ae2d642..17ee5dc 100644
+--- a/src/agents/lawyer_CD.py
++++ b/src/agents/lawyer_CD.py
+@@ -57,7 +57,8 @@ class GPTLawyer_generation(Lawyer_generation):
+             openai_api_base=args.lawyer_openai_api_base,
+             openai_model_name=args.lawyer_openai_model_name,
+             temperature=args.lawyer_temperature,
+-            max_tokens=args.lawyer_max_tokens
++            max_tokens=args.lawyer_max_tokens,
++            generation_parameters=getattr(args, "lawyer_lexverse_generation_parameters", {})
+         )
+             
+         with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+diff --git a/src/agents/lawyer_CR.py b/src/agents/lawyer_CR.py
+index 91b0a38..3cdff10 100644
+--- a/src/agents/lawyer_CR.py
++++ b/src/agents/lawyer_CR.py
+@@ -37,7 +37,8 @@ class GPTLawyer_criminalPrediction(Agent):
+             openai_api_base=args.lawyer_openai_api_base,
+             openai_model_name=args.lawyer_openai_model_name,
+             temperature=args.lawyer_temperature,
+-            max_tokens=args.lawyer_max_tokens
++            max_tokens=args.lawyer_max_tokens,
++            generation_parameters=getattr(args, "lawyer_lexverse_generation_parameters", {})
+         )
+         
+         #编写profile
+diff --git a/src/agents/lawyer_DD.py b/src/agents/lawyer_DD.py
+index 0d76afa..08e5ed8 100644
+--- a/src/agents/lawyer_DD.py
++++ b/src/agents/lawyer_DD.py
+@@ -57,7 +57,8 @@ class GPTLawyer_generation(Lawyer_generation):
+             openai_api_base=args.lawyer_openai_api_base,
+             openai_model_name=args.lawyer_openai_model_name,
+             temperature=args.lawyer_temperature,
+-            max_tokens=args.lawyer_max_tokens
++            max_tokens=args.lawyer_max_tokens,
++            generation_parameters=getattr(args, "lawyer_lexverse_generation_parameters", {})
+         )
+             
+         with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+diff --git a/src/agents/plaintiff_CI.py b/src/agents/plaintiff_CI.py
+index 86a0ce3..5fd4316 100644
+--- a/src/agents/plaintiff_CI.py
++++ b/src/agents/plaintiff_CI.py
+@@ -38,7 +38,8 @@ class GPTPlaintiff_civilPrediction(Agent):
+             openai_api_base=args.plaintiff_openai_api_base,
+             openai_model_name=args.plaintiff_openai_model_name,
+             temperature=args.plaintiff_temperature,
+-            max_tokens=args.plaintiff_max_tokens
++            max_tokens=args.plaintiff_max_tokens,
++            generation_parameters=getattr(args, "plaintiff_lexverse_generation_parameters", {})
+         )
+         
+         #编写profile
+diff --git a/src/agents/procurator_CR.py b/src/agents/procurator_CR.py
+index 6fb7310..6d6369d 100644
+--- a/src/agents/procurator_CR.py
++++ b/src/agents/procurator_CR.py
+@@ -37,7 +37,8 @@ class GPTProcurator_criminalPrediction(Agent):
+             openai_api_base=args.procurator_openai_api_base,
+             openai_model_name=args.procurator_openai_model_name,
+             temperature=args.procurator_temperature,
+-            max_tokens=args.procurator_max_tokens
++            max_tokens=args.procurator_max_tokens,
++            generation_parameters=getattr(args, "procurator_lexverse_generation_parameters", {})
+         )
+         
+         #编写profile
+diff --git a/src/agents/specific_character_CD.py b/src/agents/specific_character_CD.py
+index 8cd91ad..86386e3 100644
+--- a/src/agents/specific_character_CD.py
++++ b/src/agents/specific_character_CD.py
+@@ -38,7 +38,8 @@ class GPTSpecific_character_generation(Agent):
+             openai_api_base=args.specific_character_openai_api_base,
+             openai_model_name=args.specific_character_openai_model_name,
+             temperature=args.specific_character_temperature,
+-            max_tokens=args.specific_character_max_tokens
++            max_tokens=args.specific_character_max_tokens,
++            generation_parameters=getattr(args, "specific_character_lexverse_generation_parameters", {})
+         )
+         
+         #编写profile
+diff --git a/src/agents/specific_character_DD.py b/src/agents/specific_character_DD.py
+index 8b401aa..841d044 100644
+--- a/src/agents/specific_character_DD.py
++++ b/src/agents/specific_character_DD.py
+@@ -38,7 +38,8 @@ class GPTSpecific_character_generation(Agent):
+             openai_api_base=args.specific_character_openai_api_base,
+             openai_model_name=args.specific_character_openai_model_name,
+             temperature=args.specific_character_temperature,
+-            max_tokens=args.specific_character_max_tokens
++            max_tokens=args.specific_character_max_tokens,
++            generation_parameters=getattr(args, "specific_character_lexverse_generation_parameters", {})
+         )
+         
+         id = specific_character_info['id']
+diff --git a/src/agents/trainee_KQ.py b/src/agents/trainee_KQ.py
+index 71bfd9f..05c3d7f 100644
+--- a/src/agents/trainee_KQ.py
++++ b/src/agents/trainee_KQ.py
+@@ -58,7 +58,8 @@ class GPTTrainee_consult(Trainee_consult):
+             openai_api_base=args.trainee_openai_api_base,
+             openai_model_name=args.trainee_openai_model_name,
+             temperature=args.trainee_temperature,
+-            max_tokens=args.trainee_max_tokens
++            max_tokens=args.trainee_max_tokens,
++            generation_parameters=getattr(args, "trainee_lexverse_generation_parameters", {})
+         )
+             
+         with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+diff --git a/src/agents/trainee_LC.py b/src/agents/trainee_LC.py
+index a7eaf2e..c109fe6 100644
+--- a/src/agents/trainee_LC.py
++++ b/src/agents/trainee_LC.py
+@@ -58,7 +58,8 @@ class GPTTrainee_consult(Trainee_consult):
+             openai_api_base=args.trainee_openai_api_base,
+             openai_model_name=args.trainee_openai_model_name,
+             temperature=args.trainee_temperature,
+-            max_tokens=args.trainee_max_tokens
++            max_tokens=args.trainee_max_tokens,
++            generation_parameters=getattr(args, "trainee_lexverse_generation_parameters", {})
+         )
+             
+         with open(os.path.join((os.environ.get("J1BENCH_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "src/agents/profiles.json"), "r", encoding="utf-8") as f:
+diff --git a/src/engine/gpt_4o_1120.py b/src/engine/gpt_4o_1120.py
+index 316649f..9d07b17 100644
+--- a/src/engine/gpt_4o_1120.py
++++ b/src/engine/gpt_4o_1120.py
+@@ -11,7 +11,7 @@ class GPT_1120Engine(Engine):
+     def __init__(
+         self, 
+         openai_api_key, openai_api_base=None, openai_model_name="gpt-4o-2024-11-20", 
+-        temperature=0.0, max_tokens=16384,
++        temperature=0.0, max_tokens=16384, generation_parameters=None,
+         ):
+         openai_api_key = openai_api_key if openai_api_key is not None else os.environ.get("OPENAI_API_KEY")
+         assert openai_api_key is not None, "openai_api_key is required" 
+@@ -20,15 +20,20 @@ class GPT_1120Engine(Engine):
+         self.model_path = openai_model_name
+         self.temperature = temperature
+         self.max_tokens = max_tokens
++        self.generation_parameters = generation_parameters or {}
+         
+         if openai_api_base is not None:
+             self.client = OpenAI(
+                 api_key=openai_api_key,
+-                base_url=openai_api_base
++                base_url=openai_api_base,
++                **({"timeout": float(os.environ["J1BENCH_REQUEST_TIMEOUT"])}
++                   if "J1BENCH_REQUEST_TIMEOUT" in os.environ else {}),
+             )
+         else:
+             self.client = OpenAI(
+-                api_key=openai_api_key
++                api_key=openai_api_key,
++                **({"timeout": float(os.environ["J1BENCH_REQUEST_TIMEOUT"])}
++                   if "J1BENCH_REQUEST_TIMEOUT" in os.environ else {}),
+             )
+             
+     def get_response(self, messages, flag=1):
+@@ -41,8 +46,8 @@ class GPT_1120Engine(Engine):
+                         response = self.client.chat.completions.create(
+                             model=model_path,
+                             messages=messages,
+-                            temperature=self.temperature,
+-                            max_tokens=self.max_tokens,
++                            **{"temperature": self.temperature, "max_tokens": self.max_tokens,
++                               **self.generation_parameters},
+                         )
+                         break
+                     except openai.BadRequestError:
+diff --git a/src/scenario/KQ.py b/src/scenario/KQ.py
+index 905a885..b8c8cf5 100644
+--- a/src/scenario/KQ.py
++++ b/src/scenario/KQ.py
+@@ -219,7 +219,7 @@ class KQ:
+             full_prompt = full_prompt.replace(' ','')
+             if full_prompt.endswith('\n'):
+                 full_prompt = full_prompt[:-1]
+-            memory_response = get_completion(full_prompt, [], flag =0)[0]
++            memory_response = get_completion(full_prompt, [], flag=0, summary=True)[0]
+             present_question = memory_response.split(';')[0].replace('这一轮的咨询话题：', '')
+             present_answer = memory_response.split(';')[-1].replace('这一轮的话题答案：', '')
+             
+diff --git a/src/scenario/LC.py b/src/scenario/LC.py
+index ab6c1f3..2abf7b4 100644
+--- a/src/scenario/LC.py
++++ b/src/scenario/LC.py
+@@ -193,7 +193,7 @@ class LC:
+                 {'role': 'system', 'content': f'你是{role}'},
+                 {'role': 'user', 'content': full_prompt}
+             ]
+-            memory_response = get_completion(full_prompt, [], flag=0)[0]
++            memory_response = get_completion(full_prompt, [], flag=0, summary=True)[0]
+             former_question = memory_response.split(';')[0].replace('这一轮咨询问题：', '')
+             former_answer = memory_response.split(';')[-1].replace('这一轮问题的答案：', '')
+             
+diff --git a/src/utils/options.py b/src/utils/options.py
+index a12df01..1390c22 100644
+--- a/src/utils/options.py
++++ b/src/utils/options.py
+@@ -1,4 +1,5 @@
+ import argparse
++import os
+ from utils.register import registry
+ import json
+ 
+@@ -113,6 +114,17 @@ def get_parser():
+     
+     args, _ = parser.parse_known_args()
+     for arg_name in vars(args):
+-        print(f"{arg_name}: {getattr(args, arg_name)}")
++        if arg_name.endswith("_openai_api_key"):
++            role = arg_name[:-len("_openai_api_key")]
++            parser.add_argument(f"--{role}_lexverse_generation_parameters", type=json.loads, default={})
++    args, _ = parser.parse_known_args()
++    for arg_name in vars(args):
++        if arg_name.endswith("_openai_api_key"):
++            role = arg_name[:-len("_openai_api_key")]
++            key = os.environ.get(f"J1BENCH_{role.upper()}_API_KEY")
++            if key is not None:
++                setattr(args, arg_name, key)
++        else:
++            print(f"{arg_name}: {getattr(args, arg_name)}")
+ 
+     return args
+diff --git a/src/utils/utils_func.py b/src/utils/utils_func.py
+index 25e3ebd..48053e6 100644
+--- a/src/utils/utils_func.py
++++ b/src/utils/utils_func.py
+@@ -33,9 +33,18 @@ def save_json(data, save_path):
+         json.dump(data, f, ensure_ascii=False, indent=4)
+ 
+ 
+-def get_completion(prompt, history, flag):
+-    client = OpenAI(api_key=api_key,
+-                    base_url=api_base)
++def get_completion(prompt, history, flag, *, summary=False):
++    scope = "SUMMARY" if summary else "SCORING"
++    timeout_key = "J1BENCH_REQUEST_TIMEOUT" if summary else "J1BENCH_SCORING_REQUEST_TIMEOUT"
++    client = OpenAI(
++        api_key=os.environ.get("J1BENCH_SUMMARY_API_KEY", api_key) if summary else api_key,
++        base_url=(os.environ.get("J1BENCH_SUMMARY_API_BASE", api_base) or None) if summary else api_base,
++        **({"timeout": float(os.environ[timeout_key])} if timeout_key in os.environ else {}),
++    )
++    # Preserve the upstream summary model and defaults; scoring is configured separately.
++    model = os.environ.get(f"J1BENCH_{scope}_MODEL", "gpt-4o-2024-08-06")
++    parameters = {"max_tokens": 4096, "temperature": 0,
++                  **json.loads(os.environ.get(f"J1BENCH_{scope}_PARAMETERS", "{}"))}
+     max_retries = 3
+     for attempt in range(max_retries):
+         try:
+@@ -52,17 +61,15 @@ def get_completion(prompt, history, flag):
+             if flag == 1:
+                 chat_completion = client.chat.completions.create(
+                     messages=messages,
+-                    model=os.environ.get('J1BENCH_SCORING_MODEL', 'gpt-4o-2024-08-06'),
++                    model=model,
+                     response_format={"type": "json_object"},
+-                    max_tokens=4096,
+-                    temperature=0
++                    **parameters
+                     )
+             else:
+                 chat_completion = client.chat.completions.create(
+                     messages=messages,
+-                    model=os.environ.get('J1BENCH_SCORING_MODEL', 'gpt-4o-2024-08-06'),
+-                    max_tokens=4096,
+-                    temperature=0
++                    model=model,
++                    **parameters
+                     )
+             
+             response = chat_completion.choices[0].message.content

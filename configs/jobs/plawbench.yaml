@@ -1,0 +1,37 @@
+# Example for `lexverse run -b plawbench`; plawbench.local.yaml takes precedence.
+# Use --agents vanilla for capability enhancement; see README.md for resources.
+schema_version: '1.0'
+
+benchmark:
+  name: plawbench
+  tasks:
+  - id: case_analysis
+    limit: 2
+  - id: legal_consultation
+    limit: 2
+  - id: document_generation
+    limit: 2
+
+agents:
+- name: static
+
+models:
+  default:
+    provider: openai_compatible
+    profile: openai
+    name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+      max_tokens: 8192
+  verifiers:
+  - provider: openai_compatible
+    profile: openai
+    name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+      max_tokens: 8192
+
+verification:
+  max_attempts: 3
+
+concurrency: 10

@@ -1,0 +1,36 @@
+# Example for `lexverse run -b lecardv2`; lecardv2.local.yaml takes precedence.
+schema_version: '1.0'
+
+benchmark:
+  name: lecardv2
+  mode: bm25_retrieval
+  candidate_scope: full_corpus
+  split: all
+  top_k: 1000
+  cutoffs:
+  - 100
+  - 200
+  - 500
+  - 1000
+  tasks:
+  - id: case_retrieval
+    limit: 2
+
+agents:
+- name: native
+
+# Required by the Job schema; BM25 does not call this model or require its API credentials.
+models:
+  default:
+    provider: openai_compatible
+    profile: openai
+    name: gpt-4o-mini
+    generation_parameters:
+      temperature: 0
+      max_tokens: 1024
+  verifiers: []
+
+verification:
+  concurrency: 1
+
+concurrency: 2

@@ -1,17 +1,17 @@
-"""Run the upstream pipeline in one isolated process per Trial."""
 from __future__ import annotations
 
 from contextvars import ContextVar
 import json
 import os
 from pathlib import Path
+import shutil
 import sys
 import time
 
-from lexverse.environments.base import ExecutionEnvironment
-from lexverse.interaction.schema import EnvironmentResult
-from lexverse.runtime.executor import run_subprocess
-from lexverse.runtime.results import atomic_write_json
+from lexverse.agents.native import NativeRunner
+from lexverse.models.trial.result import EnvironmentResult
+from lexverse.trial.executor import run_subprocess
+from lexverse.utils.files import atomic_write_json
 from . import UPSTREAM
 from .tasks import ensure_dataset, stage_range
 from .resources import law_resources, case_resources, exclude_benchmark_cases
@@ -69,6 +69,9 @@ def install_connections(settings, mode):
                       max_retries=connection["max_retries"])
         if connection["timeout_sec"] is not None:
             kwargs["timeout"] = connection["timeout_sec"]
+        elif kwargs.get("timeout") is None:
+            # CAMEL defaults to an unbounded request; keep SDK retries bounded.
+            kwargs["timeout"] = 60
         backend = native_create(*args, **kwargs)
         native_run = backend.run
 
@@ -76,7 +79,13 @@ def install_connections(settings, mode):
             try:
                 return native_run(*run_args, **run_kwargs)
             except Exception as exc:
-                request_errors.append({"role": role, "error_type": type(exc).__name__})
+                causes = []
+                cause = exc
+                while cause is not None and type(cause).__name__ not in causes:
+                    causes.append(type(cause).__name__)
+                    cause = cause.__cause__
+                request_errors.append({"role": role, "error_type": type(exc).__name__,
+                                       "causes": causes})
                 atomic_write_json(Path("model_errors.json"), request_errors)
                 raise RuntimeError(f"Legal-world {role} request failed: {type(exc).__name__}") from None
 
@@ -117,7 +126,7 @@ async def run_native_process(mode, settings, connections, work_dir, timeout):
     )
 
 
-class LegalWorldEnvironment(ExecutionEnvironment):
+class LegalWorldEnvironment(NativeRunner):
     name = "legalworld_native"
 
     def __init__(self, config):
@@ -136,6 +145,21 @@ class LegalWorldEnvironment(ExecutionEnvironment):
         settings = {**task.metadata, "law_retrieval": self.law_settings, "case_retrieval": self.case_settings, "dataset": str(ensure_dataset(offline=True)),
                     "root": str(self.root.resolve()),
                     "connections": {key: connection_spec(value) for key, value in self.connections.items()}}
+        previous = sorted(work_dir.parent.glob("retry-*/native/pipeline_result.json"),
+                          key=lambda path: path.stat().st_mtime, reverse=True)
+        for path in previous:
+            saved = json.loads(path.read_text())
+            old_settings = json.loads(path.with_name("bridge_input.json").read_text())
+            if old_settings != settings:
+                continue
+            stages = saved.get("stages_completed", [])
+            expected = stage_range(settings["start_stage"], settings["end_stage"])
+            if not stages or len(stages) >= len(expected) or stages != expected[:len(stages)]:
+                continue
+            shutil.copytree(path.parent, native_dir,
+                            ignore=shutil.ignore_patterns("model_errors.json", "stdout.log", "stderr.log"))
+            atomic_write_json(native_dir / "resume.json", {"source": str(path), "stages": stages})
+            break
         await run_native_process("generate", settings, self.connections, native_dir,
                          self.config.generation.get("timeout_sec"))
         result = json.loads((native_dir / "pipeline_result.json").read_text())
@@ -213,6 +237,24 @@ def main():
             evaluated_lawyer_model_name=settings["connections"]["lawyer"]["model"],
             fixed_simulation_model_name=settings["connections"]["simulation"]["model"],
         )
+        checkpoint = Path("pipeline_result.json")
+        if checkpoint.exists():
+            saved = json.loads(checkpoint.read_text())
+            pipeline.stage_results = saved["stage_results"]
+            pipeline.stage_output = saved["stage_output"]
+            prompts = Path("agent_prompts.json")
+            if prompts.exists():
+                pipeline.agent_prompts = {stage: value["agents"]
+                                         for stage, value in json.loads(prompts.read_text())["stages"].items()}
+            should_run = pipeline._should_run_stage
+            pipeline._should_run_stage = lambda stage: should_run(stage) and stage not in pipeline.stage_results
+        mark_done = pipeline._mark_stage_done
+
+        def checkpoint_stage(stage):
+            mark_done(stage)
+            atomic_write_json(checkpoint, pipeline._build_final_result())
+
+        pipeline._mark_stage_done = checkpoint_stage
         try:
             pipeline.run()
             if request_errors:

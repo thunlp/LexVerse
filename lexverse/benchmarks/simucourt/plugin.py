@@ -1,4 +1,3 @@
-"""Single-candidate SimuCourt generation and independent native scoring."""
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -6,12 +5,9 @@ from pathlib import Path
 
 from lexverse.benchmarks.plugin import BenchmarkPlugin
 from lexverse.config import ConfigError
-from lexverse.environments import DirectResponseEnvironment
-from lexverse.interaction.participants import ModelParticipant
-from lexverse.interaction.policies import DirectResponsePolicy
-from lexverse.providers.runtime import scoring_identity
+from lexverse.llms.runtime import scoring_identity
 from . import UPSTREAM
-from .evaluation import SimuCourtAggregator, SimuCourtTaskVerifier
+from .verifier import SimuCourtAggregator, SimuCourtBenchmarkVerifier
 from .tasks import PATCHES, SimuCourtImporter, source_inputs
 
 
@@ -19,8 +15,6 @@ class SimuCourtPlugin(BenchmarkPlugin):
     name = "simucourt"
     upstream = UPSTREAM
     source_version = UPSTREAM.commit
-    default_policy = "direct_response"
-    default_environment = "direct_response"
     catalog_path = Path(__file__).with_name("catalog.yaml")
 
     def validate_model_config(self, bench, models, modern):
@@ -28,8 +22,8 @@ class SimuCourtPlugin(BenchmarkPlugin):
             raise ConfigError(
                 "roles model overrides are currently supported only by J1Bench, DLawBench, Legal-world and MASER"
             )
-        if len(models.evaluators) > 2:
-            raise ConfigError("SimuCourt accepts one or two models in models.evaluators")
+        if len(models.verifiers) > 2:
+            raise ConfigError("SimuCourt accepts one or two models in models.verifiers")
         if models.summary is not None:
             raise ConfigError("models.summary is supported only by J1Bench KQ/LC")
 
@@ -47,60 +41,58 @@ class SimuCourtPlugin(BenchmarkPlugin):
         })
         return paths
 
-    def evaluation_inputs(self, config):
+    def resolve_verification_inputs(self, config):
         root = UPSTREAM.ensure_patched(PATCHES, offline=True)
         names = ("judge_result_process", "evaluation_laws", "evaluation_crimial", "evaluation_other")
         return {name: root / "AgentsCourt" / f"{name}.py" for name in names}
 
-    def create_environment(self, config, provider):
-        return DirectResponseEnvironment(
-            policy=DirectResponsePolicy(),
-            participants={"assistant": ModelParticipant("assistant", provider)},
-        )
+    def create_native_runner(self, config):
+        from .runner import SimuCourtRunner
+        return SimuCourtRunner()
 
-    def evaluation_models(self, config):
-        if len(config.models.evaluators) not in (1, 2):
-            raise ConfigError("SimuCourt requires one or two models in models.evaluators")
-        self.evaluation_context(config)
-        models = {"judge": config.models.evaluators[0]}
-        if len(config.models.evaluators) == 2:
-            models["other_judge"] = config.models.evaluators[1]
+    def verification_models(self, config):
+        if len(config.models.verifiers) not in (1, 2):
+            raise ConfigError("SimuCourt requires one or two models in models.verifiers")
+        self.build_verification_context(config)
+        models = {"judge": config.models.verifiers[0]}
+        if len(config.models.verifiers) == 2:
+            models["other_judge"] = config.models.verifiers[1]
         return models
 
-    def configure_evaluation_context(self, config, providers):
+    def configure_verification_context(self, config, providers):
         judge = providers["judge"]
         other = providers.get("other_judge", judge)
-        other_model = config.models.evaluators[-1]
+        other_model = config.models.verifiers[-1]
         judge_config = {
-            **asdict(config.models.evaluators[0]),
+            **asdict(config.models.verifiers[0]),
             "endpoint_sha256": scoring_identity(judge)["endpoint_sha256"],
         }
-        if len(config.models.evaluators) == 2:
+        if len(config.models.verifiers) == 2:
             judge_config["other_judge"] = {
                 **asdict(other_model),
                 "endpoint_sha256": scoring_identity(other)["endpoint_sha256"],
             }
         judge_model = (
-            config.models.evaluators[0].name
-            if len(config.models.evaluators) == 1
-            else f"{config.models.evaluators[0].name},{other_model.name}"
+            config.models.verifiers[0].name
+            if len(config.models.verifiers) == 1
+            else f"{config.models.verifiers[0].name},{other_model.name}"
         )
         return {
-            **self.evaluation_context(config),
+            **self.build_verification_context(config),
             "judge_provider": judge,
             "other_judge_provider": other,
             "judge_model": judge_model,
             "judge_config": judge_config,
         }
 
-    def evaluation_context(self, config):
-        attempts = config.evaluation.get("max_attempts", 3)
+    def build_verification_context(self, config):
+        attempts = config.verification.get("max_attempts", 3)
         if isinstance(attempts, bool) or not isinstance(attempts, int) or attempts < 1:
-            raise ConfigError("evaluation.max_attempts must be a positive integer")
-        return {"max_attempts": attempts, "timeout_sec": config.evaluation.get("timeout_sec")}
+            raise ConfigError("verification.max_attempts must be a positive integer")
+        return {"max_attempts": attempts, "timeout_sec": config.verification.get("timeout_sec")}
 
     def create_verifier(self, config=None):
-        return SimuCourtTaskVerifier(offline=(config or {}).get("offline", False))
+        return SimuCourtBenchmarkVerifier(offline=(config or {}).get("offline", False))
 
     def summary_metadata(self, aggregate):
         return {"stages": aggregate.get("stages", {})}

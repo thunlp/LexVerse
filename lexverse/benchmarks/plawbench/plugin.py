@@ -3,39 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 
 from lexverse.benchmarks.plugin import BenchmarkPlugin
-from lexverse.environments import DirectResponseEnvironment
-from lexverse.interaction.participants import ModelParticipant
-from lexverse.interaction.policies import DirectResponsePolicy
 from . import UPSTREAM
-from .evaluation import PLawBenchAggregator, PLawBenchTaskVerifier
+from .verifier import PLawBenchAggregator, PLawBenchVerifier
 from .tasks import FILES, PLawBenchImporter
 
 
 class PLawBenchPlugin(BenchmarkPlugin):
     name = "plawbench"
+    supported_agents = frozenset({"static", "vanilla", "external"})
+    default_agent = "static"
     upstream = UPSTREAM
     source_version = UPSTREAM.commit
-    default_policy = "direct_response"
-    default_environment = "direct_response"
     catalog_path = Path(__file__).with_name("catalog.yaml")
-
-    def evaluation_models(self, config):
-        from lexverse.config import ConfigError
-        if not config.models.evaluators:
-            raise ConfigError("PLawBench requires one model in models.evaluators")
-        self.evaluation_context(config)
-        return {"judge": config.models.evaluators[0]}
-
-    def configure_evaluation_context(self, config, providers):
-        from dataclasses import asdict
-        from lexverse.providers.runtime import scoring_identity
-        judge = providers["judge"]
-        return {
-            **self.evaluation_context(config), "judge_provider": judge,
-            "judge_model": config.models.evaluators[0].name,
-            "judge_config": {**asdict(config.models.evaluators[0]),
-                             "endpoint_sha256": scoring_identity(judge)["endpoint_sha256"]},
-        }
 
     def create_importer(self, config=None):
         return PLawBenchImporter(offline=(config or {}).get("offline", False))
@@ -44,19 +23,18 @@ class PLawBenchPlugin(BenchmarkPlugin):
         importer = PLawBenchImporter(offline=True)
         return {filename: importer.files[filename] for kind in task_types for filename in FILES[kind].values()}
 
-    def create_environment(self, config, provider):
-        return DirectResponseEnvironment(policy=DirectResponsePolicy(),
-                                         participants={"assistant": ModelParticipant("assistant", provider)})
 
-    def evaluation_context(self, config):
+    def build_verification_context(self, config):
         from lexverse.config import ConfigError
-        attempts = config.evaluation.get("max_attempts", 3)
+        if len(config.models.verifiers) != 1:
+            raise ConfigError("PLawBench requires one model in models.verifiers")
+        attempts = config.verification.get("max_attempts", 3)
         if isinstance(attempts, bool) or not isinstance(attempts, int) or attempts < 1:
-            raise ConfigError("evaluation.max_attempts must be a positive integer")
-        return {"max_attempts": attempts, "timeout_sec": config.evaluation.get("timeout_sec")}
+            raise ConfigError("verification.max_attempts must be a positive integer")
+        return {"max_attempts": attempts, "timeout_sec": config.verification.get("timeout_sec")}
 
     def create_verifier(self, config=None):
-        return PLawBenchTaskVerifier(offline=(config or {}).get("offline", False))
+        return PLawBenchVerifier(offline=(config or {}).get("offline", False))
 
     def create_aggregator(self):
         return PLawBenchAggregator()

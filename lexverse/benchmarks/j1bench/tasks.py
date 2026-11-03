@@ -7,11 +7,9 @@ from typing import Any
 
 from lexverse.benchmarks.plugin import TaskImporter
 from lexverse.benchmarks.catalog import dataset_files, load_catalog
-from lexverse.runtime.errors import TrialError
+from lexverse.trial.errors import TrialError
 from lexverse.benchmarks.j1bench import UPSTREAM as J1BENCH
-from lexverse.tasks.schema import (
-    EvaluationSpec, InteractionSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput,
-)
+from lexverse.models.task.task import VerificationSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput
 from lexverse.tasks.bundle import TaskSelection
 
 from .scenarios import require_supported
@@ -49,7 +47,7 @@ class J1BenchLoader:
         self.scenario = scenario
         if case_database is None:
             raise TrialError(
-                "J1Bench requires benchmark.case_database to point to an explicitly "
+                "J1Bench requires benchmark.case_databases to map the scenario to an explicitly "
                 f"downloaded J1-Eval_{scenario}.jsonl; source: {J1_EVAL_DATASET_URL}"
             )
         self.case_database = Path(case_database)
@@ -93,17 +91,12 @@ class J1BenchImporter(TaskImporter):
     def __init__(
         self,
         *,
-        scenarios: list[str] | tuple[str, ...] | None = None,
-        case_databases: dict[str, object] | None = None,
+        scenarios: list[str] | tuple[str, ...],
+        case_databases: dict[str, object],
         catalog: dict,
-        # Backward-compatible single-scenario construction for Python callers.
-        scenario: str | None = None,
-        case_database=None,
     ):
-        self.scenarios = tuple(scenarios or ([scenario] if scenario else ["CI"]))
-        self.case_databases = dict(case_databases or {})
-        if scenario and case_database is not None:
-            self.case_databases[scenario] = case_database
+        self.scenarios = tuple(scenarios)
+        self.case_databases = dict(case_databases)
         self.catalog = catalog["tasks"]
 
     def import_tasks(self, selection: TaskSelection) -> list[LexVerseTask]:
@@ -128,11 +121,7 @@ class J1BenchImporter(TaskImporter):
                     participants=[
                         ParticipantSpec(id=role, role=role) for role in scenario.roles
                     ],
-                    interaction=InteractionSpec(
-                        policy=f"j1bench_{scenario_name.lower()}", max_steps=50,
-                        policy_config={"scenario": scenario_name},
-                    ),
-                    evaluation=EvaluationSpec(
+                    verification=VerificationSpec(
                         verifier="j1bench", execution="subprocess",
                         metrics=list(self.catalog[scenario_name]["metrics"]),
                         config={"scenario": scenario_name},

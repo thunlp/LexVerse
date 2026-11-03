@@ -7,12 +7,10 @@ from typing import Literal
 
 from lexverse.benchmarks.plugin import TaskImporter
 from lexverse.benchmarks.catalog import dataset_files, load_catalog
-from lexverse.runtime.errors import EvaluationError
-from lexverse.runtime.sources import UpstreamSource
+from lexverse.trial.errors import VerificationError
+from lexverse.benchmarks.sources import UpstreamSource
 from lexverse.benchmarks.lawbench import UPSTREAM as LAWBENCH
-from lexverse.tasks.schema import (
-    EvaluationSpec, InteractionSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput,
-)
+from lexverse.models.task.task import VerificationSpec, LexVerseTask, ParticipantSpec, SourceRef, TaskInput
 from lexverse.tasks.bundle import TaskSelection
 
 
@@ -59,13 +57,13 @@ class LawBenchLoader:
     def task_file(self, task_id: str, shot: Shot) -> Path:
         matches = [path for path in self._files.values() if path.name == f"{task_id}.json" and path.parent.name == shot]
         if len(matches) != 1:
-            raise EvaluationError(f"LawBench catalog must declare one {shot}/{task_id}.json")
+            raise VerificationError(f"LawBench catalog must declare one {shot}/{task_id}.json")
         return matches[0]
 
     def load(self, task_id: str, shot: Shot = "zero_shot") -> list[LawBenchSample]:
         raw = json.loads(self.task_file(task_id, shot).read_text(encoding="utf-8"))
         if not isinstance(raw, list):
-            raise EvaluationError(
+            raise VerificationError(
                 f"expected JSON array in {task_id}.json, got {type(raw).__name__}"
             )
         return [
@@ -100,8 +98,7 @@ class LawBenchImporter(TaskImporter):
                                      task_type=task_type, sample_id=str(sample.index)),
                     input=TaskInput(instruction=sample.instruction + "\n", content=sample.question),
                     participants=[ParticipantSpec(id="assistant", role="respondent")],
-                    interaction=InteractionSpec(policy="direct_response", max_steps=1),
-                    evaluation=EvaluationSpec(verifier="lawbench",
+                    verification=VerificationSpec(verifier="lawbench",
                                               metrics=list(self.catalog[task_type]["metrics"]),
                                               reference=sample.answer,
                                               config={"task_type": task_type, "shot": self.shot}),

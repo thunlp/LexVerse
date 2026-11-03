@@ -1,4 +1,3 @@
-"""Import MILE evaluation cases while keeping reference outputs isolated to the verifier."""
 from __future__ import annotations
 
 import ast
@@ -7,9 +6,8 @@ from pathlib import Path
 
 from lexverse.benchmarks.plugin import TaskImporter
 from lexverse.benchmarks.catalog import load_catalog
-from lexverse.tasks.schema import (
-    EvaluationSpec,
-    InteractionSpec,
+from lexverse.models.task.task import (
+    VerificationSpec,
     LexVerseTask,
     ParticipantSpec,
     SourceRef,
@@ -113,11 +111,7 @@ class MILEImporter(TaskImporter):
                     ),
                     input=TaskInput(instruction="您好，我想写一份起诉状。"),
                     participants=[ParticipantSpec(id=role, role=role) for role in roles],
-                    interaction=InteractionSpec(
-                        policy="mile_native",
-                        max_steps=self.turns,
-                    ),
-                    evaluation=EvaluationSpec(
+                    verification=VerificationSpec(
                         verifier="maser",
                         reference=gold,
                         metrics=list(self.catalog["tasks"][kind]["metrics"]),
