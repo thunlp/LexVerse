@@ -381,12 +381,18 @@ async def execute_agent(trial, config, plugin, runtime, resource_root, work, pro
 
     messages.append({'role': 'assistant', 'content': result['answer']})
 
+    trace_ref = result['trace_ref']
+    # Vanilla writes a LexVerse event trace; external agents may only have a trajectory.
+    # Do not declare a missing optional trace as an execution artifact.
+    artifacts = ({'agent_trace': trace_ref}
+                 if config.agent == 'vanilla' or Path(trace_ref).is_file() else {})
+    trace = {'agent': config.agent, 'resource_hash': result['resource_hash']}
+    if artifacts:
+        trace['trace_ref'] = trace_ref
     return EnvironmentResult(status='completed', answer=result['answer'], messages=messages,
         dialog_history=[{'actor': trial.task.participants[0].id, 'content': result['answer']}],
         final_state={'data': {'usage': result['usage']}},
-        artifacts={'agent_trace': result['trace_ref']},
-        trace=[{'agent': config.agent, 'trace_ref': result['trace_ref'],
-                'resource_hash': result['resource_hash']}])
+        artifacts=artifacts, trace=[trace])
 
 
 async def execute_trial(trial: Trial, config, plugin, runtime, resource_root, providers=None):

@@ -221,6 +221,9 @@ async def _collect_result(
         answer = None
         result["answer_error"] = type(exc).__name__
     result["answer"] = answer
+    answer_finish = getattr(agent, 'final_answer_finish_reason', None)
+    if answer_finish is not None:
+        result.update(answer_finish_reason=answer_finish, answer_truncated=answer_finish == 'length')
     if getattr(agent, "last_result", None) is None:
         result.update(status="completed", stop_reason="final_answer" if answer else "execution_completed")
     if (result.get("status") == "completed" and not answer and not spec.artifacts
