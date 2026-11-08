@@ -57,6 +57,7 @@ def execution_spec(trial) -> AgentExecutionSpec:
         selection=ResourceSelection(knowledge=list(dict.fromkeys([*task.capabilities.get("knowledge", []),
                                                                   *resources.get("knowledge", [])])),
                                    skills=resources.get("skills", []), mcp_servers=servers,
+                                   disabled_tools=resources.get("disabled_tools", []),
                                    **({"tools": resources["tools"]} if "tools" in resources else {})),
         retrieval=RetrievalConfig.model_validate(execution.settings.get("retrieval", {})),
         limits=AgentLimits.model_validate(execution.settings.get("limits", {})),
