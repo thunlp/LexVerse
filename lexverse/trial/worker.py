@@ -300,6 +300,8 @@ async def execute_general_agent(
 
     # Keep built-in task messages separate; external adapters accept one string.
     system_prompt = build_system_prompt(resources)
+    if spec.instructions:
+        system_prompt += "\n\n" + spec.instructions
     instruction = system_prompt if agent_name == "vanilla" else build_external_instruction(system_prompt, spec.messages)
 
     context = AgentContext()

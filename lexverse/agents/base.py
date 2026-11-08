@@ -174,13 +174,15 @@ class AgentExecutionSpec:
     artifacts: list[dict] = field(default_factory=list)
     verifier: dict | None = None
     task_skills: list[str] = field(default_factory=list)
+    # Benchmark instructions appended to the shared system prompt; static runs keep the native prompts.
+    instructions: str | None = None
 
     def to_dict(self):
         from dataclasses import asdict
         return {
             **{name: getattr(self, name) for name in ("thread_id", "messages", "interactive", "mode",
                 "environment", "context_window_tokens", "network_mode", "allowed_hosts",
-                "environment_config", "artifacts", "verifier", "task_skills")},
+                "environment_config", "artifacts", "verifier", "task_skills", "instructions")},
             "run_dir": str(self.run_dir), "skills_root": str(self.skills_root) if self.skills_root else None,
             "model": asdict(self.model),
             **{name: getattr(self, name).model_dump(mode="json") for name in
@@ -230,7 +232,8 @@ def execution_identity(spec, *, agent_name="vanilla"):
             "limits": spec.limits.model_dump(), "artifacts": spec.artifacts, "task_skills": spec.task_skills,
             "environment_config": spec.environment_config, "verifier": spec.verifier,
             "context_window_tokens": spec.context_window_tokens,
-            "network_mode": spec.network_mode, "allowed_hosts": spec.allowed_hosts}
+            "network_mode": spec.network_mode, "allowed_hosts": spec.allowed_hosts,
+            **({"instructions": spec.instructions} if spec.instructions else {})}
     return {"configuration_hash": identity(configuration), "messages_hash": identity(spec.messages),
             "code_commit": commit,
             "code": identity({p.relative_to(package).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(files))}),

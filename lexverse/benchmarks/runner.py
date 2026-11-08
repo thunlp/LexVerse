@@ -279,7 +279,18 @@ def generation_models(config, benchmark, tasks):
     return plugin.generation_models(config, TaskBundle(benchmark=benchmark, source_version=plugin.source_version, tasks=tasks))
 
 
-def agent_spec(config, run, *, messages=None, template=None):
+AGENT_INSTRUCTIONS = Path(__file__).parent / 'agent_instructions.md'
+
+
+def agent_instructions(plugin, task_type):
+    """Answer instructions for agents running a benchmark task: the shared file plus the
+    benchmark's `agent_instructions/<task_type>.md`, if any. Static runs keep the native prompts."""
+    task_file = Path(sys.modules[type(plugin).__module__].__file__).parent / 'agent_instructions' / f'{task_type}.md'
+    parts = [path.read_text(encoding='utf-8').strip() for path in (AGENT_INSTRUCTIONS, task_file) if path.is_file()]
+    return '\n\n'.join(part for part in parts if part) or None
+
+
+def agent_spec(config, run, *, messages=None, template=None, instructions=None):
     from lexverse.agents.base import AgentExecutionSpec
 
     environment = config.raw.get('environment', {})
@@ -296,7 +307,8 @@ def agent_spec(config, run, *, messages=None, template=None):
         network_mode="public", allowed_hosts=[],
         environment_config=environment_config,
         context_window_tokens=config.generation.get("context_window_tokens"),
-        skills_root=template / ".internal/agent_fs/skills" if template else None)
+        skills_root=template / ".internal/agent_fs/skills" if template else None,
+        instructions=instructions)
 
 
 async def prepare_capabilities(config, plugin, bundle, manifest, root, *, resume):
@@ -308,7 +320,7 @@ async def prepare_capabilities(config, plugin, bundle, manifest, root, *, resume
 
     for kind in dict.fromkeys(task.source.task_type for task in bundle.tasks):
         template = root / ".internal/capabilities" / kind
-        spec = agent_spec(config, template)
+        spec = agent_spec(config, template, instructions=agent_instructions(plugin, kind))
         protected = [path.resolve().parent for path in dataset.values()]
         if hasattr(plugin, "upstream"):
             protected.extend([plugin.upstream.pristine_dir, plugin.upstream.cache_dir])
@@ -360,7 +372,8 @@ async def execute_agent(trial, config, plugin, runtime, resource_root, work, pro
     run = work / 'agent'
     template = resource_root / '.internal/capabilities' / trial.task.source.task_type
     messages = list(trial.task.input.messages or [{'role': 'user', 'content': trial.task.input.prompt}])
-    spec = agent_spec(config, run, messages=messages, template=template)
+    spec = agent_spec(config, run, messages=messages, template=template,
+                      instructions=agent_instructions(plugin, trial.task.source.task_type))
 
     try:
         result = await run_worker(spec, config.agent, template=template, task_id=trial.task.id)
