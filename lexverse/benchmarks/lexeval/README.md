@@ -130,6 +130,9 @@ LexVerse executes the native `code/evaluation/evaluate.py` evaluator and `code/g
 2. **Blank-Line Tolerance in JSONL Task Files (`003-skip-blank-lines.patch`)**:
    - **Context**: Upstream `code/generation/model_gen.py` calls `json.loads(line)` on every line in `data/*.json`, which raises `JSONDecodeError` on trailing blank lines.
    - **Adaptation**: Skips empty lines (`if not line.strip(): continue`) when loading task records.
+3. **Iterative ROUGE-L Backtrace (`rouge_runtime.py`)**:
+   - **Context**: `rouge==1.0.1` reconstructs the longest common subsequence recursively. Long answers exceed Python's default recursion limit, and upstream `eval_rougel` turns the exception into a score of zero.
+   - **Adaptation**: Replaces `rouge_score._recon_lcs` with an iterative backtrace over the same DP table, preserving the native tie-breaking, tokenization, and n-gram counting.
 
 ---
 

@@ -132,6 +132,8 @@ class LexEvalEvaluator:
             conflict = _rouge_warning()
             if conflict:
                 raise VerificationError(conflict)
+            from lexverse.benchmarks.lexeval.rouge_runtime import install_iterative_backtrace
+            install_iterative_backtrace()
 
         try:
             evaluator = self._Evaluator(
@@ -261,7 +263,7 @@ class LexEvalVerifier(BenchmarkVerifier):
 
     def _provenance(self):
         from lexverse.benchmarks.lexeval import UPSTREAM as LEXEVAL
-        return VerifierProvenance(name=self.name, version="1.0", upstream_commit=LEXEVAL.commit)
+        return VerifierProvenance(name=self.name, version="1.1-iterative-rouge", upstream_commit=LEXEVAL.commit)
 
 
 class LexEvalAggregator(BenchmarkAggregator):
