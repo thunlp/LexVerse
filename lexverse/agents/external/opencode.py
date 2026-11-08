@@ -105,7 +105,7 @@ class OpenCode(BaseInstalledAgent):
 
     @override
     def get_version_command(self) -> str | None:
-        return ". ~/.nvm/nvm.sh; opencode --version"
+        return "if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; opencode --version"
 
     @override
     async def install(self, environment: ExecutionEnvironment) -> None:
@@ -569,7 +569,7 @@ class OpenCode(BaseInstalledAgent):
             environment,
             # Note that the --thinking flag just means thinking blocks will be included in the json formatted output
             command=(
-                ". ~/.nvm/nvm.sh; "
+                "if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; "
                 f"opencode --model={self.model_name} run --format=json "
                 f"{resume_flag}{cli_flags_arg}--thinking "
                 f"--dangerously-skip-permissions -- {escaped_instruction} "
