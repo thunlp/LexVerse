@@ -93,6 +93,25 @@ lexverse job verify runs/plawbench-experiment
 lexverse job report runs/plawbench-experiment
 ```
 
+### 2.4 Agent and Capability Runs
+
+Vanilla runs require `lexverse setup`, a working Docker daemon, and an OpenAI-compatible model service that supports tool calling. Set `agents: [{name: vanilla}]` and keep the Static configuration resource-free. Agent Jobs keep the same `models.verifiers` judge. For a capability-augmented run, download the knowledge indexes and add them to a separate Job file:
+
+```yaml
+resources:
+  knowledge:
+  - collection:legal_laws
+  # Optional: remove the built-in file tools; Skills then cannot be used.
+  disabled_tools: [ls, read_file, write_file, edit_file, glob, grep, execute]
+```
+
+```bash
+lexverse resources download indexes --collections legal_laws
+lexverse run -c configs/jobs/plawbench-cap.local.yaml --output-dir runs/plawbench-vanilla-cap
+```
+
+Select collections and Skills for the experiment and check them for overlap with the evaluation data. For paired comparisons on a random sample, list the sampled IDs under each task's `cases` (see [Job configuration](../../../configs/jobs/README.md)).
+
 ---
 
 ## 3. Upstream Adaptation & Rationale
@@ -124,3 +143,15 @@ The table below compares the scores obtained directly by running `python -m lexv
 
 - **Judge Model Selection (`gpt-5.2`)**: Because upstream `prompt_zh.py` leaves `call_llm_api()` unimplemented, the judge model must be configured via `models.verifiers[0]`. Using `gpt-5.2` as the rubric evaluator over all **280 public items** (`250` `case_analysis` + `18` `legal_consultation` + `12` `document_generation`) reproduces the paper's overall and sub-dimension scores closely (`52.34` vs. `50.53` overall for `Qwen3-4B-Instruct-2507`, and `45.10` vs. `44.80` overall for `Qwen3-4B-Thinking-2507`, preserving the exact relative ordering across all tasks and sub-dimensions).
 - **Public Consultation Split (`public_legal_consultation_18.json`)**: Upstream `prompt_generate.py` assigns `level = "mid"` to the first 50 items and `"hard"` thereafter; because the public repository releases 18 consultation items, all 18 items use the `legal_consultation_mid` prompt (10–25 questions).
+
+---
+
+## 5. Sampled Capability Comparison (`deepseek-v4.1-flash`)
+
+`deepseek-v4.1-flash` (`temperature: 0`, `max_tokens: 16384`, thinking disabled) is both the tested model and the judge. The sample has 100 case-analysis items (seed `20261107:plawbench:case_analysis:sample100`, excluding items examined during development) plus all 18 consultation and 12 drafting items. Vanilla runs allow 8 model calls, 16 tool calls, and 600 seconds per trial, without the built-in file tools. Vanilla + capability adds the LexVerse knowledge tools (`lexverse resources download indexes --revision d28d76ee1b7d7d05eaae7193ef57e931838d5ade`) on case analysis and drafting.
+
+| Scenario | Overall (item-weighted) | Case analysis | Consultation | Drafting |
+| :--- | ---: | ---: | ---: | ---: |
+| Static | 68.90 | 70.49 | 65.80 | 60.29 |
+| Vanilla w/o capability | 67.73 | 70.04 | 67.04 | 49.53 |
+| Vanilla + capability | 71.37 | 74.18 | 67.04 | 54.45 |

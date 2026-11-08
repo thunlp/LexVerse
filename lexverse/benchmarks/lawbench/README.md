@@ -116,6 +116,25 @@ lexverse job verify runs/lawbench-qwen7b-full
 lexverse job report runs/lawbench-qwen7b-full
 ```
 
+### 2.4 Agent and Capability Runs
+
+Vanilla runs require `lexverse setup`, a working Docker daemon, and an OpenAI-compatible model service that supports tool calling. Set `agents: [{name: vanilla}]` and keep the Static configuration resource-free. For a capability-augmented run, download the knowledge indexes and add them to a separate Job file:
+
+```yaml
+resources:
+  knowledge:
+  - collection:legal_laws
+  # Optional: remove the built-in file tools; Skills then cannot be used.
+  disabled_tools: [ls, read_file, write_file, edit_file, glob, grep, execute]
+```
+
+```bash
+lexverse resources download indexes --collections legal_laws
+lexverse run -c configs/jobs/lawbench-cap.local.yaml --output-dir runs/lawbench-vanilla-cap
+```
+
+Select collections and Skills for the experiment and check them for overlap with the evaluation data. For paired comparisons on a random sample, list the sampled IDs under each task's `cases` (see [Job configuration](../../../configs/jobs/README.md)).
+
 ---
 
 ## 3. Upstream Adaptation & Rationale
@@ -181,3 +200,15 @@ The tables below report the full **10,000-sample (20 tasks × 500 samples)** zer
   1. **System Message vs. Bare `user` Turn**: Inspecting `origin_prompt` in upstream's `predictions/zero_shot/qwen-7b-chat-hf/*.json` shows that OpenCompass constructed a bare single-turn template (`"\n<|im_start|>user\n...\n<|im_end|>\n<|im_start|>assistant\n"`) without the `<|im_start|>system\nYou are a helpful assistant.<|im_end|>` header used by `Qwen-7B-Chat`'s official `make_context()` (`modeling_qwen.py`) and by LexVerse (`lexverse/providers/local.py:encode`).
   2. **Interaction with `2-6` (`xxcq.py`) Delimiter Parsing**: With the standard system prompt, `Qwen-7B-Chat` formats extracted entities one per line (`\n`), whereas without the system prompt it frequently joins all 10 entity types on a single line with full-width semicolons (`；`). Because upstream `evaluation/utils/comprehension_scores.py:__extract_entities_pred` splits each entity value only on `\n` or ASCII space (`re.split("\n| ", ...)`), semicolon-joined lines cause the parser to swallow the remaining string into a single entity value, explaining why `2-6` rises from `51.83` to `66.69` under standard ChatML formatting.
   3. **HuggingFace `generation_config.json` Defaults**: In addition, the official `Qwen/Qwen-7B-Chat` checkpoint's `generation_config.json` sets `repetition_penalty: 1.1` by default; even when OpenCompass enabled greedy decoding (`do_sample=False`), `transformers.GenerationMixin.generate()` still applies `RepetitionPenaltyLogitsProcessor(1.1)` unless `repetition_penalty=1.0` is explicitly overridden, whereas `vllm` with `generation_config="vllm"` uses pure unpenalized greedy decoding (`repetition_penalty=1.0`).
+
+---
+
+## 5. Sampled Capability Comparison (`deepseek-v4.1-flash`)
+
+`deepseek-v4.1-flash` (`temperature: 0`, `max_tokens: 4096`, thinking disabled) answers a random sample of 50 items per task (1,000 items, seed `20261107:lawbench:<task>:sample50`, excluding items examined during development). Vanilla runs allow 8 model calls, 16 tool calls, and 300 seconds per trial, without the built-in file tools. Vanilla + capability adds the LexVerse knowledge tools (`lexverse resources download indexes --revision d28d76ee1b7d7d05eaae7193ef57e931838d5ade`) on `1-1`, `3-1`, and `3-2`.
+
+| Scenario | Overall (item-weighted) | Δ vs Static |
+| :--- | ---: | ---: |
+| Static | 60.16 | +0.00 |
+| Vanilla w/o capability | 62.98 | +2.82 |
+| Vanilla + capability | 66.33 | +6.17 |
