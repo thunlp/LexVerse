@@ -76,10 +76,19 @@ def create_knowledge_server(indexes_manifest: Path, cache_dir: Path | None = Non
 
     @mcp.tool(
         name="search_knowledge",
-        description="Search the task's allowed legal knowledge sources and return ranked evidence snippets with citation_ids. "
+        description="检索法律知识库：法条、法规、案例、法律概念、问答和文书模板。 "
+                    "Search the task's allowed legal knowledge sources and return ranked evidence snippets with citation_ids. "
                     "Omit source_ids to search every source, or restrict the search to some of: "
                     + ", ".join(retriever.source_names())
-                    + ". A category such as legal_laws or legal_cases selects all of its sources.",
+                    + ". A category such as legal_laws or legal_cases selects all of its sources. "
+                    "Use it to verify an uncertain legal rule, article, or exception before answering: legal_laws for "
+                    "provisions, legal_concepts for definitions, legal_cases for precedent or genuinely similar facts, "
+                    "legal_qa for explanatory questions, and legal_templates for document structure. "
+                    "Begin with a focused query and top_k=3. Check every disputed option and applicable exception, "
+                    "not only the first matching clause. Put only facts supplied by the task into queries; do not import "
+                    "facts from distractors or assume masked facts. When the task gives a relevant date, check the "
+                    "applicable law version. When the task is confined to a supplied passage, use that passage as the "
+                    "evidence. Retrieved cases and answers are evidence to assess, not replacements for the task's facts.",
     )
     def search_knowledge(
         query: Annotated[str, Field(min_length=1, max_length=3000)],
@@ -103,7 +112,9 @@ def create_knowledge_server(indexes_manifest: Path, cache_dir: Path | None = Non
 
     @mcp.tool(
         name="fetch_knowledge",
-        description="Fetch the full text of a legal knowledge chunk by its citation_id (`knowledge:<index_hash>:<chunk_id>`).",
+        description="获取检索命中的法律证据原文。 "
+                    "Fetch the full text of a legal knowledge chunk by its citation_id (`knowledge:<index_hash>:<chunk_id>`), "
+                    "for example the original text of a relevant search hit.",
     )
     def fetch_knowledge(
         citation_id: str,
