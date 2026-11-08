@@ -5,6 +5,7 @@ import math
 import sqlite3
 import struct
 import sys
+import threading
 
 try:
     from langchain_core.embeddings import Embeddings
@@ -52,6 +53,7 @@ class BGEEmbeddings(Embeddings):
         from sentence_transformers import SentenceTransformer, models
 
         config = config or EmbeddingConfig()
+        self._encode_lock = threading.RLock()
         self.max_tokens = config.max_tokens or 512
         if self.max_tokens > 512:
             raise ConfigError("BGE input capacity is 512 tokens")
@@ -130,6 +132,12 @@ class BGEEmbeddings(Embeddings):
                 db.close()
 
     def _encode(self, texts: list[str], kind: str) -> list[list[float]]:
+        # Fast tokenizers mutate truncation/padding state during encode. Protect
+        # capacity checks and inference together when a service shares this model.
+        with self._encode_lock:
+            return self._encode_locked(texts, kind)
+
+    def _encode_locked(self, texts: list[str], kind: str) -> list[list[float]]:
         if kind == "documents":
             prefix = getattr(self, "document_prefix", "")
             texts = [prefix + text for text in texts]
@@ -152,6 +160,7 @@ class BGEEmbeddings(Embeddings):
 
 class LocalEmbeddings(BGEEmbeddings):
     def __init__(self, cache: Path, *, config: EmbeddingConfig, recorder=None):
+        self._encode_lock = threading.RLock()
         from huggingface_hub import snapshot_download
         from huggingface_hub.errors import LocalEntryNotFoundError
         from sentence_transformers import SentenceTransformer

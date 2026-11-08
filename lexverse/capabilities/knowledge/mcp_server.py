@@ -14,6 +14,9 @@ from lexverse.capabilities.knowledge.retrieval import TaskRetriever
 from lexverse.utils.paths import CAPABILITIES_ROOT
 from lexverse.models.task.config import KnowledgeFilters, RetrievalConfig
 
+# Search hit fields shown to the model; citation_id is what fetch_knowledge accepts.
+MODEL_FIELDS = ("citation_id", "source_id", "kind", "title", "article", "snippet")
+
 
 def _load_retriever(indexes_manifest: Path, cache_dir: Path | None = None, *, recorder=None) -> TaskRetriever:
     data = json.loads(indexes_manifest.read_text(encoding="utf-8"))
@@ -73,7 +76,10 @@ def create_knowledge_server(indexes_manifest: Path, cache_dir: Path | None = Non
 
     @mcp.tool(
         name="search_knowledge",
-        description="Search the task's allowed legal knowledge sources and return ranked evidence snippets with citation_ids.",
+        description="Search the task's allowed legal knowledge sources and return ranked evidence snippets with citation_ids. "
+                    "Omit source_ids to search every source, or restrict the search to some of: "
+                    + ", ".join(retriever.source_names())
+                    + ". A category such as legal_laws or legal_cases selects all of its sources.",
     )
     def search_knowledge(
         query: Annotated[str, Field(min_length=1, max_length=3000)],
@@ -81,13 +87,19 @@ def create_knowledge_server(indexes_manifest: Path, cache_dir: Path | None = Non
         source_ids: list[str] | None = None,
         filters: KnowledgeFilters | None = None,
     ) -> str:
-        results = retriever.search(
-            query=query,
-            top_k=top_k,
-            source_ids=source_ids,
-            filters=filters.model_dump(exclude_none=True) if filters is not None else None,
-        )
-        return json.dumps(results, ensure_ascii=False)
+        try:
+            results = retriever.search(
+                query=query,
+                top_k=top_k,
+                source_ids=source_ids,
+                filters=filters.model_dump(exclude_none=True) if filters is not None else None,
+            )
+        except ValueError as exc:
+            # Tool exceptions reach the model only as a generic failure; return the reason so it can retry.
+            return json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False)
+        # Hashes and offsets are bookkeeping; they tripled the payload and pushed results into file offloading.
+        return json.dumps([{key: hit[key] for key in MODEL_FIELDS if hit.get(key) not in (None, "")}
+                           for hit in results], ensure_ascii=False)
 
     @mcp.tool(
         name="fetch_knowledge",

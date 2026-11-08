@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+from functools import cached_property
 import hashlib
 import importlib.metadata
 import json
@@ -14,6 +16,7 @@ from lexverse.capabilities.knowledge.loaders import (
     Document, KINDS, LOADER_VERSION, hash_file, load_documents, scan_source, source_kind,
 )
 from lexverse.capabilities.knowledge.keyword import create_tokenizer, tokenize
+from lexverse.capabilities.knowledge.sources import MANIFEST_NAME
 from lexverse.config import ConfigError
 from lexverse.utils.files import atomic_write_json
 from lexverse.utils.identity import identity as _hash
@@ -342,6 +345,27 @@ def verify_index(path: Path) -> dict:
         raise ConfigError("Invalid, unsupported or damaged knowledge index; expected format 1.0") from exc
 
 
+def index_kinds(manifest: dict, path: Path, *, db: sqlite3.Connection | None = None) -> frozenset[str]:
+    """Return chunk kinds, including for older indexes built with a source mapping.
+
+    Unmapped sources derive both identity and chunk kinds from their paths. A source
+    manifest can override that value; old index identities still contain path kinds.
+    """
+    identity = manifest["identity"]
+    if MANIFEST_NAME not in identity["files"]:
+        return frozenset(identity["kinds"].values())
+
+    def query(connection):
+        return frozenset(row[0] for row in connection.execute(
+            "SELECT DISTINCT json_extract(metadata, '$.kind') FROM chunks") if row[0] is not None)
+
+    if db is not None:
+        return query(db)
+    uri = (path / "documents.sqlite").resolve().as_uri() + "?mode=ro&immutable=1"
+    with closing(sqlite3.connect(uri, uri=True)) as connection:
+        return query(connection)
+
+
 def preparation_report(index, cache: Path, *, skipped=None) -> dict:
     root = cache / "cache" / "knowledge_preparation"
     root.mkdir(parents=True, exist_ok=True)
@@ -379,7 +403,11 @@ class KnowledgeIndex:
             if _build_recipe(identity["retrieval"]) != _index_retrieval(config, identity["embedding"]):
                 raise ConfigError("Retrieval configuration does not match the prebuilt knowledge index")
         self.config = config.model_copy(deep=True) if config is not None else RetrievalConfig.model_validate(recipe)
-        self.db = sqlite3.connect((path / "documents.sqlite").resolve().as_uri() + "?mode=ro&immutable=1", uri=True, check_same_thread=False)
+        # Python's statement cache can reuse a statement across concurrent readers,
+        # producing another request's row even with serialized SQLite builds.
+        # Each execute must own its statement when the MCP server shares this connection.
+        self.db = sqlite3.connect((path / "documents.sqlite").resolve().as_uri() + "?mode=ro&immutable=1",
+                                  uri=True, check_same_thread=False, cached_statements=0)
         self.faiss_index = None
         self.vector_ids: list[str] = []
         self.embedding = embedding
@@ -397,6 +425,20 @@ class KnowledgeIndex:
 
     def close(self):
         self.db.close()
+
+    @cached_property
+    def kinds(self) -> frozenset[str]:
+        return index_kinds(self.manifest, self.path, db=self.db)
+
+    @cached_property
+    def statute_titles(self) -> frozenset[str]:
+        """Titles of statute articles, for exact article lookup; only legal_laws sources qualify."""
+        if "legal_laws" not in self.kinds:
+            return frozenset()
+        return frozenset(row[0] for row in self.db.execute(
+            "SELECT DISTINCT json_extract(metadata, '$.title') FROM chunks "
+            "WHERE json_extract(metadata, '$.kind') = 'legal_laws' "
+            "AND json_extract(metadata, '$.article') GLOB '第*条*'") if row[0])
 
     def document(self, chunk_id: str) -> Document:
         row = self.db.execute("SELECT text, metadata FROM chunks WHERE id = ?", (chunk_id,)).fetchone()
@@ -416,7 +458,7 @@ class KnowledgeIndex:
         q_vec = np.asarray([query_vector], dtype="float32")
         _normalize_l2_inplace(q_vec)
         filters = dict(filters or {})
-        if filters.get("kind") and set(self.manifest["identity"]["kinds"].values()) == {filters["kind"]}:
+        if filters.get("kind") and self.kinds == {filters["kind"]}:
             filters.pop("kind")
         if self.faiss_index is not None:
             fetch_k = self.manifest["chunk_count"] if filters else min(limit, len(self.vector_ids))
