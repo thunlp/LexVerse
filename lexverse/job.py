@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections import Counter
+from collections import Counter, defaultdict
 import csv
 from dataclasses import dataclass
 import json
@@ -75,7 +75,8 @@ class Job:
             raise ConfigError('attempts/concurrency must be positive integers; retries must be nonnegative')
         if len({task.id for task in self.tasks}) != len(self.tasks):
             raise ConfigError('Duplicate task IDs')
-        if len({execution.id for execution in self.executions}) != len(self.executions):
+        execution_ids = {id(execution): execution.id for execution in self.executions}
+        if len(set(execution_ids.values())) != len(self.executions):
             raise ConfigError('Duplicate execution configurations')
         for task in self.tasks:
             for execution in self.executions:
@@ -86,10 +87,11 @@ class Job:
                 case = (f'{task.source.task_type or task.source.name}_case-{task.source.sample_id}'
                         if task.source.kind == 'benchmark' else task.id)
                 for execution in self.executions:
+                    config_id = execution_ids[id(execution)]
                     name = (f"{quote(case, safe='')}__{quote(execution.model['name'], safe='')}"
-                            f"__a{attempt}__{execution.id.removeprefix('config-')[:8]}")
+                            f"__a{attempt}__{config_id.removeprefix('config-')[:8]}")
                     trials.append(Trial(
-                        id=f'trial-{identity([self.id, task.id, execution.id, attempt])[:20]}', task=task,
+                        id=f'trial-{identity([self.id, task.id, config_id, attempt])[:20]}', task=task,
                         execution=execution, attempt=attempt,
                         directory=self.directory / 'trials' / quote(execution.agent, safe='') / name,
                         job_directory=self.directory,
@@ -98,7 +100,7 @@ class Job:
             raise ConfigError('Trial directory names collide; use distinct case IDs or execution configurations')
         return trials
 
-    def save_trial_result(self, trial: Trial, record: dict) -> None:
+    def save_trial_result(self, trial: Trial, record: dict, *, refresh_summary=True) -> None:
         """Persist Trial facts, update their scoring ledger, then refresh progress once."""
         if trial.job_directory != self.directory:
             raise ConfigError('Trial does not belong to this Job')
@@ -114,7 +116,8 @@ class Job:
                 record['verification_ref'] = self.build_verification_ref(f'/trials/{trial.id}')
             save_verification(self, data)
         trial.save_result(record)
-        write_summary(self)
+        if refresh_summary:
+            write_summary(self)
 
     def snapshot(self) -> dict:
         return {'schema_version': self.schema_version, 'job_id': self.id,
@@ -175,37 +178,55 @@ def compute_verification_status(job, data, *, trials=None):
             else 'pending' if all(state == 'pending' for state in states) else 'incomplete')
 
 
+def _update_summary_state(summary, invalid_artifacts=()):
+    counts, total = summary['statuses'], summary['planned_trials']
+    execution = ('completed' if counts.get('completed', 0) == total else
+                 'running' if counts.get('running') else 'needs_input' if counts.get('needs_input') else
+                 'pending' if counts.get('pending', 0) == total else 'incomplete')
+    scoring = summary['verification_status']
+    summary.update(execution_status=execution, status='incomplete' if execution == 'completed'
+                   and scoring not in {'completed', 'not_configured'} else execution)
+    if invalid_artifacts:
+        summary.update(status='incomplete', execution_status='incomplete',
+                       invalid_artifact_task_ids=list(invalid_artifacts))
+    else:
+        summary.pop('invalid_artifact_task_ids', None)
+
+
+def _artifacts_invalid(trial, record=None) -> bool:
+    """Whether a completed Trial's saved artifacts no longer match their recorded hashes."""
+    if record is None:
+        path = trial.directory / 'result.json'
+        record = json.loads(path.read_text()) if path.exists() else {'status': 'pending'}
+    return (record['status'] == 'completed' and 'execution_artifact_hashes' in record
+            and not trial._completed_artifacts_valid(record))
+
+
 def summarize(job: Job) -> JobResult:
     """Derive progress from saved Trial and evaluation records without writing."""
     trials, groups = [], {}
     invalid_artifacts = []
     verification_records = load_verification(job)
     planned = job.plan()
+    execution_ids = {id(execution): execution.id for execution in job.executions}
     for trial in planned:
+        config_id = execution_ids[id(trial.execution)]
         path = trial.directory / 'result.json'
         record = json.loads(path.read_text()) if path.exists() else {'status': 'pending'}
-        if (record['status'] == 'completed' and 'execution_artifact_hashes' in record
-                and not trial._completed_artifacts_valid(record)):
+        if _artifacts_invalid(trial, record):
             invalid_artifacts.append(trial.task.id)
-        trials.append({'trial_id': trial.id, 'task_id': trial.task.id, 'config_id': trial.execution.id,
+        trials.append({'trial_id': trial.id, 'task_id': trial.task.id, 'config_id': config_id,
                        'attempt': trial.attempt, 'status': record['status'],
                        'result': str(path.relative_to(job.directory))})
-        group = groups.setdefault(trial.execution.id, {'agent': trial.execution.agent,
+        group = groups.setdefault(config_id, {'agent': trial.execution.agent,
                                   'model': trial.execution.model['name'], 'statuses': Counter()})
         group['statuses'][record['status']] += 1
     counts = Counter(trial['status'] for trial in trials)
-    execution_status = ('completed' if counts['completed'] == len(trials) else
-                        'running' if counts['running'] else 'needs_input' if counts['needs_input'] else
-                        'pending' if counts['pending'] == len(trials) else 'incomplete')
     scoring_status = compute_verification_status(job, verification_records, trials=planned)
     summary: JobResult = {'schema_version': job.schema_version, 'job_id': job.id,
-               'status': 'incomplete' if execution_status == 'completed' and scoring_status not in
-                         {'completed', 'not_configured'} else execution_status,
                'planned_trials': len(trials), 'statuses': dict(counts), 'groups': groups,
-               'execution_status': execution_status, 'verification_status': scoring_status, 'trials': trials}
-    if invalid_artifacts:
-        summary.update(status='incomplete', execution_status='incomplete',
-                       invalid_artifact_task_ids=invalid_artifacts)
+               'verification_status': scoring_status, 'trials': trials}
+    _update_summary_state(summary, invalid_artifacts)
     return summary
 
 
@@ -286,21 +307,78 @@ async def run_job(job: Job, execute: TrialExecutor, *, resume: bool = False,
             raise ConfigError('Job directory is not empty; use resume or a new directory')
         atomic_write_json(path, snapshot)
 
-    write_summary(job)
+    initial_summary = write_summary(job)
     if prepare is not None:
         await prepare()
 
     logger.info("[run] executing total=%s concurrency=%s", len(trials), job.concurrency)
 
+    progress = initial_summary
+    rows = {row['trial_id']: row for row in progress['trials']}
+    counts = Counter(progress['statuses'])
+    invalid_artifacts = set(progress.get('invalid_artifact_task_ids', []))
+    siblings = defaultdict(list)
+    for planned_trial in planned:
+        siblings[planned_trial.task.id].append(planned_trial)
+    dirty = False
+
+    def flush_progress():
+        nonlocal dirty
+        if dirty:
+            progress['statuses'] = {status: count for status, count in counts.items() if count}
+            _update_summary_state(progress, sorted(invalid_artifacts))
+            atomic_write_json(job.directory / 'summary.json', convert_result_names(progress, legacy=job.legacy))
+            dirty = False
+
+    async def report_progress():
+        while True:
+            await asyncio.sleep(2)
+            flush_progress()
+
+    def save_result(trial, record):
+        nonlocal dirty
+        scoring_changed = 'verifier_result' in record or (record['status'] == 'running' and job.verification_path.is_file())
+        job.save_trial_result(trial, record, refresh_summary=False)
+        row = rows[trial.id]
+        previous, current = row['status'], record['status']
+        if previous != current:
+            counts[previous] -= 1
+            counts[current] += 1
+            group = progress['groups'][row['config_id']]['statuses']
+            group[previous] -= 1
+            group[current] += 1
+            if not group[previous]:
+                del group[previous]
+            row['status'] = current
+        # As in summarize(), a task stays invalid while any of its Trials has invalid artifacts.
+        if _artifacts_invalid(trial, record):
+            invalid_artifacts.add(trial.task.id)
+        elif trial.task.id in invalid_artifacts and not any(
+                _artifacts_invalid(other) for other in siblings[trial.task.id] if other.id != trial.id):
+            invalid_artifacts.discard(trial.task.id)
+        if scoring_changed:
+            progress['verification_status'] = load_verification(job).get('status', progress['verification_status'])
+        dirty = True
+
     async def worker(trial: Trial):
         return await trial.run(execute, job_id=job.id, resume=resume, max_retries=job.max_retries,
-                               on_result=job.save_trial_result)
+                               on_result=save_result)
 
-    outcomes = await Scheduler(job.concurrency).run(trials, worker)
+    reporter = asyncio.create_task(report_progress())
+    try:
+        outcomes = await Scheduler(job.concurrency).run(trials, worker)
+    finally:
+        reporter.cancel()
+        try:
+            await reporter
+        except asyncio.CancelledError:
+            pass
+        # Explicit/final reports still re-read authoritative records and verify all artifacts.
+        final_summary = write_summary(job)
     for outcome in outcomes:
         if isinstance(outcome, BaseException):
             raise outcome
-    return summarize(job)
+    return final_summary
 
 
 def export_excel(job: Job) -> Path:
