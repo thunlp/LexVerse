@@ -134,10 +134,15 @@ async def execute_agent(spec: AgentExecutionSpec, *, system_prompt: str, environ
                     spec.model, context_window_tokens=spec.context_window_tokens,
                 )
                 saver = await stack.enter_async_context(AsyncSqliteSaver.from_conn_string(str(paths.internal / "checkpoint.sqlite")))
+                domain = DomainMiddleware(
+                    ledger, skills=skills["skills"],
+                    finish_retrieval=spec.mode == "benchmark",
+                    task_messages=spec.messages, final_system_prompt=system_prompt,
+                )
                 graph = build_agent(chat_model, environment, tools=tools, skills=skills["paths"],
                                     timeout_sec=spec.limits.tool_timeout_sec,
                                     checkpointer=saver, system_prompt=system_prompt,
-                                    middleware=[DomainMiddleware(ledger, skills=skills["skills"])])
+                                    middleware=[domain])
 
                 # Start with task messages, or resume a pending human reply.
                 config = {"configurable": {"thread_id": spec.thread_id}, "callbacks": [ledger],
@@ -199,6 +204,8 @@ async def execute_agent(spec: AgentExecutionSpec, *, system_prompt: str, environ
                         answer = answer.split("</think>", 1)[1].lstrip()
                     if not answer.strip():
                         raise ValueError("Agent final answer is empty")
+                    if domain.finish_reason is not None and re.search(r"<tool_call(?:\s|>)", answer):
+                        raise ValueError("Agent final answer contains tool-call syntax")
 
                     # Require valid output files before marking completion.
                     _, artifacts, missing = await collect_outputs(environment, spec.artifacts, spec.run_dir / "artifacts")
