@@ -111,6 +111,7 @@ def build_run(config):
             "scope": "full" if set(counts) == (set(entry["id"] for entry in config.benchmark["tasks"])
                                               if plugin.name == "legalworld" else set(plugin.task_types()))
             and not config.benchmark.get("cases")
+            and not any(isinstance(entry, dict) and entry.get("cases") for entry in config.benchmark.get("tasks") or [])
             and all(count["selected"] == count["available"] for count in counts.values()) else "selected",
             "task_types": list(counts), "sample_count": len(bundle.tasks),
         },

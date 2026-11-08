@@ -23,6 +23,7 @@ Automatic lookup is relative to the current directory. Files are never merged; o
 | `models.roles` / `models.summary` | Supporting role and summary models, where required |
 | `models.verifiers` | Scoring models, separate from the tested model |
 | `generation` / `verification` | Execution and scoring options |
+| `resources` | Agent knowledge, Skills and MCP services; `disabled_tools` removes built-in Vanilla tools (Skills require `read_file`) |
 | `concurrency` / `attempts` / `max_retries` | Parallelism, attempts and retries; defaults: `1`, `1`, `0` |
 
 ## Examples
@@ -41,6 +42,22 @@ Automatic lookup is relative to the current directory. Files are never merged; o
 | [example.yaml](example.yaml) | Vanilla | User Task; also supports External Agents |
 
 Prepare the selected model connections, datasets and execution dependencies before running. See the [project README](../../README.md) for setup.
+
+### Reproducible task sampling
+
+`benchmark.default_limit` takes the first records. For paired random-sample comparisons, generate sample IDs once and save each task's selection explicitly:
+
+```yaml
+benchmark:
+  name: lawbench
+  tasks:
+  - id: 1-1
+    cases: ['122', '236', '457']
+  - id: 1-2
+    cases: ['16', '84', '311']
+```
+
+Each task's `cases` overrides the global `benchmark.cases`; a configured limit applies after filtering. Sample IDs refer to the loader's original record indices. Use the same IDs in every compared Job.
 
 ## Personal configuration
 

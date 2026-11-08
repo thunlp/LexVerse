@@ -11,6 +11,7 @@ from lexverse.utils.identity import identity
 class TaskSelection(BaseModel):
     task_types: list[str] | None = None
     sample_ids: list[str] | None = None
+    sample_ids_by_task: dict[str, list[str]] = Field(default_factory=dict)
     limit_per_task: StrictInt | None = Field(default=None, ge=1)
     limits: dict[str, StrictInt | None] = Field(default_factory=dict)
     counts: dict[str, dict[str, int | None]] = Field(default_factory=dict)
@@ -21,7 +22,7 @@ class TaskSelection(BaseModel):
             raise ValueError("Use benchmark.default_limit or benchmark.tasks[].limit")
         default = benchmark.get("default_limit")
         entries = benchmark.get("tasks")
-        types, limits = None, {}
+        types, limits, cases = None, {}, {}
         if entries is not None:
             if not isinstance(entries, list) or not entries:
                 raise ValueError("benchmark.tasks must be a non-empty list")
@@ -30,7 +31,7 @@ class TaskSelection(BaseModel):
                 if isinstance(entry, str):
                     task_type = entry
                 elif isinstance(entry, dict):
-                    allowed = {"id", "limit"}
+                    allowed = {"id", "limit", "cases"}
                     if benchmark.get("name") == "legalworld":
                         allowed |= {"party_role", "start_stage", "end_stage"}
                     if set(entry) - allowed:
@@ -44,11 +45,17 @@ class TaskSelection(BaseModel):
                     raise ValueError(f"duplicate task type: {task_type}")
                 if isinstance(entry, dict) and "limit" in entry:
                     limits[task_type] = entry["limit"]
+                if isinstance(entry, dict) and "cases" in entry:
+                    values = entry["cases"]
+                    if not isinstance(values, list) or not values or any(not isinstance(value, str) for value in values):
+                        raise ValueError("task cases must be a non-empty list of sample ID strings")
+                    cases[task_type] = values
                 types.append(task_type)
         for limit in [default, *limits.values()]:
             if limit is not None and (type(limit) is not int or limit < 1):
                 raise ValueError("limit must be a positive integer or null")
-        return cls(task_types=types, sample_ids=benchmark.get("cases"), limit_per_task=default, limits=limits)
+        return cls(task_types=types, sample_ids=benchmark.get("cases"), sample_ids_by_task=cases,
+                   limit_per_task=default, limits=limits)
 
     def select_types(self, available: list[str]) -> list[str]:
         if self.task_types is None:
@@ -59,8 +66,9 @@ class TaskSelection(BaseModel):
         return list(self.task_types)
 
     def apply(self, task_type: str, samples: list[Any], *, sample_id: Callable) -> list[Any]:
-        if self.sample_ids is not None:
-            wanted = set(self.sample_ids)
+        selected_ids = self.sample_ids_by_task.get(task_type, self.sample_ids)
+        if selected_ids is not None:
+            wanted = set(selected_ids)
             samples = [sample for sample in samples if str(sample_id(sample)) in wanted]
         available = len(samples)
         if not available:
