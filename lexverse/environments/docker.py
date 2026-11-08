@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import os
 import shlex
 import stat
 import sys
@@ -24,7 +25,8 @@ class DockerEnvironment(ExecutionEnvironment):
     Harbor-compatible Docker container sandbox environment.
 
     Supports prebuilt images (`task_env_config.docker_image`), custom
-    `environment/Dockerfile`, or a default `python:3.12-slim` image.
+    `environment/Dockerfile`, or a default `python:3.12-slim` image
+    (overridable with the LEXVERSE_DOCKER_IMAGE environment variable).
     Automatically bind-mounts `/skills` (ro), `/workspace` (rw),
     `/artifacts` (rw), `/logs/agent` (rw), and `/logs/verifier` (rw).
     """
@@ -134,7 +136,8 @@ class DockerEnvironment(ExecutionEnvironment):
             if res.return_code != 0:
                 raise RuntimeError(f"Docker image build failed (exit {res.return_code}): {res.stderr or res.stdout}")
         elif not self.task_env_config.docker_image:
-            self._image_name = self.DEFAULT_IMAGE
+            # LEXVERSE_DOCKER_IMAGE swaps the default base image (e.g. one with a reachable apt mirror).
+            self._image_name = os.environ.get("LEXVERSE_DOCKER_IMAGE") or self.DEFAULT_IMAGE
 
         # Remove any stale container with the same name
         await self._run_docker(["rm", "-f", self._container_name])
