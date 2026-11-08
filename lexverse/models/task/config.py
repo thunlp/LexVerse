@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -62,10 +62,20 @@ class RetrievalConfig(StrictModel):
     mode: Literal["hybrid", "keyword", "vector"] = "hybrid"
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     chunk_tokens: int = Field(default=400, gt=0, strict=True)
+    chunk_tokens_by_kind: dict[
+        Literal["legal_laws", "legal_cases", "legal_concepts", "legal_qa", "legal_templates", "user"],
+        Annotated[int, Field(gt=0, strict=True)],
+    ] = Field(default_factory=dict)
     overlap_tokens: int = Field(default=60, ge=0, strict=True)
     keyword_candidates: int = Field(default=100, gt=0, strict=True)
     vector_candidates: int = Field(default=100, gt=0, strict=True)
     top_k: int = Field(default=8, ge=1, le=20, strict=True)
+
+    @model_validator(mode="after")
+    def chunk_limits(self):
+        if self.overlap_tokens >= min([self.chunk_tokens, *self.chunk_tokens_by_kind.values()]):
+            raise ValueError("retrieval overlap must be smaller than every chunk size")
+        return self
 
 
 class KnowledgeFilters(StrictModel):
