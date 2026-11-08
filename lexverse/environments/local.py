@@ -49,6 +49,8 @@ class LocalEnvironment(ExecutionEnvironment):
             "/logs/verifier": self.trial_paths.verifier_dir,
             "/logs": self.trial_paths.runtime_dir / "logs",
             "/skills": self.skills_root,
+            # Agents list /inputs as a root; keep it present (empty unless a task supplies materials).
+            "/inputs": self.trial_paths.runtime_dir / "inputs",
             "/runtime": self.trial_paths.runtime_dir,
             "/tmp": self.trial_paths.runtime_dir / "tmp",
             "/var/tmp": self.trial_paths.runtime_dir / "tmp",
@@ -118,6 +120,8 @@ class LocalEnvironment(ExecutionEnvironment):
                 target = self.trial_paths.workspace_dir / item.name
                 if item.is_dir():
                     shutil.copytree(item, target, dirs_exist_ok=True)
+                    if item.name == "inputs":
+                        shutil.copytree(item, self.map_virtual_path("/inputs"), dirs_exist_ok=True)
                 elif item.is_file():
                     shutil.copy2(item, target)
 
