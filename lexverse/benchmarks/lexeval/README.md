@@ -10,12 +10,12 @@ To evaluate legal large language models systematically across the full spectrum 
 - **Upstream Repository**: [`CSHaitao/LexEval`](https://github.com/CSHaitao/LexEval) (commit `044c695f62894deef41ad9a30797e1da0404945c`)
 - **Dataset**: [`CSHaitao/LexEval`](https://huggingface.co/datasets/CSHaitao/LexEval) (**23 tasks, 14,150 samples in total**)
 - **Task Taxonomy & Metrics**:
-  - **1. Memorization (`1_1`–`1_3`, Accuracy)**: `1_1` (*Concept Recitation*, 500), `1_2` (*Law Article Recitation*, 1,000), `1_3` (*Legal Knowledge QA*, 300)
-  - **2. Understanding (`2_1`–`2_5`, Accuracy)**: `2_1` (*Document Proofreading*, 500), `2_2` (*Dispute Focus Identification*, 300), `2_3` (*Event Detection*, 100), `2_4` (*Trigger Extraction*, 500), `2_5` (*Reading Comprehension*, 500)
-  - **3. Logic Inference (`3_1`–`3_6`, Accuracy)**: `3_1` (*Fact-based Article Prediction*, 1,000), `3_2` (*Scene-based Article Prediction*, 1,000), `3_3` (*Charge Prediction*, 1,000), `3_4` (*Prison Term Prediction*, 500), `3_5` (*Damages Calculation*, 400), `3_6` (*Case Analysis*, 500)
-  - **4. Discrimination (`4_1`–`4_2`, Accuracy)**: `4_1` (*Case Element Matching*, 500), `4_2` (*Similar Case Matching*, 300)
-  - **5. Generation (`5_1`–`5_4`, ROUGE-L)**: `5_1` (*Opinion Summarization*, 1,000), `5_2` (*Court View Generation*, 1,000), `5_3` (*Consultation*, 250), `5_4` (*Contract Generation*, 500)
-  - **6. Ethics (`6_1`–`6_3`, Accuracy)**: `6_1` (*Legal Ethics*, 1,000), `6_2` (*Privacy Protection*, 1,000), `6_3` (*Fairness & Bias*, 500)
+  - **1. Memorization (`1_1`–`1_3`, Accuracy)**: `1_1` (*Legal Concept*, 500), `1_2` (*Legal Rule*, 1,000), `1_3` (*Legal Evolution*, 300)
+  - **2. Understanding (`2_1`–`2_5`, Accuracy)**: `2_1` (*Legal Element Recognition*, 500), `2_2` (*Legal Fact Verification*, 300), `2_3` (*Reading Comprehension*, 100), `2_4` (*Relation Extraction*, 500), `2_5` (*Named-entity Recognition*, 500)
+  - **3. Logic Inference (`3_1`–`3_6`, Accuracy)**: `3_1` (*Cause Prediction*, 1,000), `3_2` (*Article Prediction*, 1,000), `3_3` (*Penalty Prediction*, 1,000), `3_4` (*Multi-hop Reasoning*, 500), `3_5` (*Legal Calculation*, 400), `3_6` (*Argument Mining*, 500)
+  - **4. Discrimination (`4_1`–`4_2`, Accuracy)**: `4_1` (*Similar Case Identification*, 500), `4_2` (*Document Proofreading*, 300)
+  - **5. Generation (`5_1`–`5_4`, ROUGE-L)**: `5_1` (*Summary Generation*, 1,000), `5_2` (*Judicial Analysis Generation*, 1,000), `5_3` (*Legal Translation*, 250), `5_4` (*Open-ended Question Answering*, 500)
+  - **6. Ethics (`6_1`–`6_3`, Accuracy)**: `6_1` (*Bias and Discrimination*, 1,000), `6_2` (*Morality*, 1,000), `6_3` (*Privacy*, 500)
 
 ---
 
@@ -153,29 +153,29 @@ The tables below report the full **14,150-sample (23 tasks)** zero-shot evaluati
 
 | Task ID | Task Name | Samples | Metric | Upstream Reference (`Qwen_7B_chat`) | **`lexverse run lexeval` (Full 14,150)** | Diff |
 | :---: | :--- | ---: | :---: | ---: | ---: | ---: |
-| `1_1` | Concept Recitation | 500 | Accuracy | 21.80 | **22.40** | +0.60 |
-| `1_2` | Law Article Recitation | 1,000 | Accuracy | 40.30 | **38.80** | -1.50 |
-| `1_3` | Legal Knowledge QA | 300 | Accuracy | 8.00 | **8.33** | +0.33 |
-| `2_1` | Document Proofreading | 500 | Accuracy | 80.20 | **79.80** | -0.40 |
-| `2_2` | Dispute Focus Identification | 300 | Accuracy | 42.33 | **43.33** | +1.00 |
-| `2_3` | Event Detection | 100 | Accuracy | 87.00 | **88.00** | +1.00 |
-| `2_4` | Trigger Extraction | 500 | Accuracy | 67.60 | **67.20** | -0.40 |
-| `2_5` | Reading Comprehension | 500 | Accuracy | 92.20 | **92.60** | +0.40 |
-| `3_1` | Fact-based Article Prediction | 1,000 | Accuracy | 78.60 | **79.10** | +0.50 |
-| `3_2` | Scene-based Article Prediction | 1,000 | Accuracy | 84.30 | **84.10** | -0.20 |
-| `3_3` | Charge Prediction | 1,000 | Accuracy | 53.60 | **53.20** | -0.40 |
-| `3_4` | Prison Term Prediction | 500 | Accuracy | 23.80 | **24.60** | +0.80 |
-| `3_5` | Damages Calculation | 400 | Accuracy | 36.25 | **36.25** | 0.00 |
-| `3_6` | Case Analysis | 500 | Accuracy | 45.20 | **45.20** | 0.00 |
-| `4_1` | Case Element Matching | 500 | Accuracy | 19.60 | **20.00** | +0.40 |
-| `4_2` | Similar Case Matching | 300 | Accuracy | 30.00 | **29.00** | -1.00 |
-| `5_1` | Opinion Summarization | 1,000 | ROUGE-L | 32.02 | **34.09** | +2.07 |
-| `5_2` | Court View Generation | 1,000 | ROUGE-L | 17.64 | **18.66** | +1.02 |
-| `5_3` | Consultation | 250 | ROUGE-L | 31.69 | **35.48** | +3.79 |
-| `5_4` | Contract Generation | 500 | ROUGE-L | 21.46 | **22.74** | +1.28 |
-| `6_1` | Legal Ethics | 1,000 | Accuracy | 22.10 | **22.10** | 0.00 |
-| `6_2` | Privacy Protection | 1,000 | Accuracy | 39.70 | **39.20** | -0.50 |
-| `6_3` | Fairness & Bias | 500 | Accuracy | 56.00 | **56.80** | +0.80 |
+| `1_1` | Legal Concept | 500 | Accuracy | 21.80 | **22.40** | +0.60 |
+| `1_2` | Legal Rule | 1,000 | Accuracy | 40.30 | **38.80** | -1.50 |
+| `1_3` | Legal Evolution | 300 | Accuracy | 8.00 | **8.33** | +0.33 |
+| `2_1` | Legal Element Recognition | 500 | Accuracy | 80.20 | **79.80** | -0.40 |
+| `2_2` | Legal Fact Verification | 300 | Accuracy | 42.33 | **43.33** | +1.00 |
+| `2_3` | Reading Comprehension | 100 | Accuracy | 87.00 | **88.00** | +1.00 |
+| `2_4` | Relation Extraction | 500 | Accuracy | 67.60 | **67.20** | -0.40 |
+| `2_5` | Named-entity Recognition | 500 | Accuracy | 92.20 | **92.60** | +0.40 |
+| `3_1` | Cause Prediction | 1,000 | Accuracy | 78.60 | **79.10** | +0.50 |
+| `3_2` | Article Prediction | 1,000 | Accuracy | 84.30 | **84.10** | -0.20 |
+| `3_3` | Penalty Prediction | 1,000 | Accuracy | 53.60 | **53.20** | -0.40 |
+| `3_4` | Multi-hop Reasoning | 500 | Accuracy | 23.80 | **24.60** | +0.80 |
+| `3_5` | Legal Calculation | 400 | Accuracy | 36.25 | **36.25** | 0.00 |
+| `3_6` | Argument Mining | 500 | Accuracy | 45.20 | **45.20** | 0.00 |
+| `4_1` | Similar Case Identification | 500 | Accuracy | 19.60 | **20.00** | +0.40 |
+| `4_2` | Document Proofreading | 300 | Accuracy | 30.00 | **29.00** | -1.00 |
+| `5_1` | Summary Generation | 1,000 | ROUGE-L | 32.02 | **34.09** | +2.07 |
+| `5_2` | Judicial Analysis Generation | 1,000 | ROUGE-L | 17.64 | **18.66** | +1.02 |
+| `5_3` | Legal Translation | 250 | ROUGE-L | 31.69 | **35.48** | +3.79 |
+| `5_4` | Open-ended Question Answering | 500 | ROUGE-L | 21.46 | **22.74** | +1.28 |
+| `6_1` | Bias and Discrimination | 1,000 | Accuracy | 22.10 | **22.10** | 0.00 |
+| `6_2` | Morality | 1,000 | Accuracy | 39.70 | **39.20** | -0.50 |
+| `6_3` | Privacy | 500 | Accuracy | 56.00 | **56.80** | +0.80 |
 | **All** | **23-Task Macro Average (14,150 Samples)** | **14,150** | **Mean** | **45.17** | **45.26** | **+0.09** |
 
 ### Implementation & Protocol Notes
