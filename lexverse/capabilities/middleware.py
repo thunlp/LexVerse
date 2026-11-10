@@ -204,12 +204,13 @@ class DomainMiddleware(AgentMiddleware):
             if not path.is_relative_to(instructions.parent):
                 continue
             kind = "instructions" if path == instructions else "resource"
-            digest = hashlib.sha256(content.encode()).hexdigest()
-            self.skill_reads[(skill["id"], str(path), digest)] = {
-                "skill_id": skill["id"], "name": skill.get("name", skill["id"]),
-                "path": str(path), "kind": kind, "text": content,
-                "offset": call["args"].get("offset", 0), "sha256": digest,
-            }
+            if self.finish_retrieval:  # Retain skill text for benchmark final-answer context.
+                digest = hashlib.sha256(content.encode()).hexdigest()
+                self.skill_reads[(skill["id"], str(path), digest)] = {
+                    "skill_id": skill["id"], "name": skill.get("name", skill["id"]),
+                    "path": str(path), "kind": kind, "text": content,
+                    "offset": call["args"].get("offset", 0), "sha256": digest,
+                }
             self.ledger.event("skill_read", skill_id=skill["id"], path=str(path),
                               call_id=call["id"], kind=kind)
             break
@@ -423,6 +424,5 @@ class DomainMiddleware(AgentMiddleware):
                               error_category=error_category,
                               artifact=artifact, artifact_sha256=artifact_hash,
                               status=getattr(result, "status", "success"), result=content)
-            if self.finish_retrieval:  # Only the final answer uses the skill text read so far.
-                self.remember_skill(call, result)
+            self.remember_skill(call, result)
             return result

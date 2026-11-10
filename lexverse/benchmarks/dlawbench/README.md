@@ -122,7 +122,7 @@ LexVerse executes the native `dlawbench` package (`agent_environment.py`, `clien
 2. **Strict Judge Output Validation (`environment.py:validate_response`)**:
    - **Context**: Upstream `evaluate.py` issues two judge prompts per session: (1) Discovery, Accuracy, and Grounding (DAG) over annotated facts and memo claims, and (2) binary `0/1` scores for `memo_expectation_scores` and `expected_action_scores`. If an LLM judge omits a fact ID or miscounts `total_claims`, upstream `metrics.py` can silently miscompute denominators.
    - **Adaptation**: `validate_response` verifies that `covered` and `missed` partition the exact set of case fact IDs, that `correct` and `incorrect` partition `covered`, that `total_claims == len(grounded_claims) + len(ungrounded_claims)`, and that rubric score vectors match the exact rubric lengths, retrying up to `evaluation.max_attempts` on malformed judge JSON.
-3. **Single-Judge and 3-Judge Panel Modes (`plugin.py` & `evaluation.py`)**:
+3. **Single-Judge and 3-Judge Panel Modes (`plugin.py` & `verifier.py`)**:
    - **Context**: The paper leaderboard uses a 3-judge panel (`gpt-5.1-2025-11-13`, `claude-opus-4-6-20260205`, `gemini-3.1-pro-preview`) with same-vendor recusal, while upstream also provides `evaluate.evaluate_session` for single-judge evaluation.
    - **Adaptation**: LexVerse supports both `evaluation.mode: single` (1 evaluator model) and `evaluation.mode: panel` (3 evaluator models) and aggregates results via upstream `scripts/metrics.py:build_summary_rows` across personas and jurisdictions (`overall` and `by_jurisdiction`).
 

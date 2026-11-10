@@ -92,7 +92,7 @@ def create_chat_model(config: ModelConfig, *, context_window_tokens: int | None 
                                           profile=config.profile)
     model = ChatOpenAI(
         model=config.name, base_url=connection.base_url, api_key=connection.api_key,
-        use_responses_api=False, max_retries=0, **parameters,
+        use_responses_api=False, max_retries=2, **parameters,
     )
     capacity = context_window_tokens or (model.profile or {}).get("max_input_tokens")
     if not isinstance(capacity, int) or capacity <= 0:

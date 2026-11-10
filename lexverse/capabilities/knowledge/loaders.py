@@ -48,6 +48,37 @@ EXCLUDED = {"gold", "label", "labels", "split_labels", "rubric", "score", "refer
             "ground_truth", "reference_answer", "evaluation_criteria"}
 CASE_EXCLUDED = EXCLUDED | {"result", "charge", "article"}
 
+# Reviewed knowledge fields, scoped to collections rather than all legal records.
+COLLECTION_FIELDS = {
+    ("legal_cases", "disc-law-sft"): ["input", "output", "reference"],
+    ("legal_cases", "judge"): ["fd"],
+    ("legal_cases", "lexchain"): ["input", "instruction", "chosen"],
+    ("legal_cases", "lexrel"): ["query", "output"],
+    ("legal_cases", "lecardv2"): ["qw", "fact", "reason"],
+    ("legal_cases", "muser"): ["content"],
+    ("legal_qa", "disc-law-sft"): ["reference", "input", "output"],
+    ("legal_qa", "law-gpt"): ["reference", "question", "answer", "input", "output"],
+    ("legal_qa", "maser"): ["instruction", "history", "output"],
+    ("legal_qa", "fadawang"): ["question", "answer"],
+}
+
+
+def _collection(path: Path, kind: str) -> str:
+    for parent in path.parents:
+        if parent.name == kind:
+            return path.relative_to(parent).parts[0].lower()
+    return ""
+
+
+def _template_attachment(path: Path) -> bool:
+    if path.suffix.lower() != ".docx":
+        return False
+    for parent in path.parents:
+        if parent.name == "legal_templates":
+            collection = parent / path.relative_to(parent).parts[0]
+            return (collection / "templates.jsonl").is_file()
+    return False
+
 
 def scan_source(root: Path) -> tuple[dict[str, str], list[dict]]:
     files, skipped = {}, []
@@ -63,6 +94,8 @@ def scan_source(root: Path) -> tuple[dict[str, str], list[dict]]:
             skipped.append({"file": relative, "reason": "hidden_or_temporary"})
         elif _annotation_file(path):
             skipped.append({"file": relative, "reason": "benchmark_annotation"})
+        elif _template_attachment(path):
+            skipped.append({"file": relative, "reason": "template_jsonl_attachment"})
         elif path.suffix.lower() not in SUPPORTED:
             skipped.append({"file": relative, "reason": "unsupported_format"})
         else:
@@ -88,6 +121,8 @@ def _parsed_records(path: Path, kind: str, content_hash: str, cache: Path | None
         return
     identity = [LOADER_VERSION, kind, path.suffix.lower(), path.stem, content_hash,
                 mapping.model_dump() if mapping is not None else None]
+    if kind == "legal_cases" and "lecardv2" in [part.lower() for part in path.parts]:
+        identity.append("keyword-qw-v1")
     key = hashlib.sha256(json.dumps(identity, ensure_ascii=False).encode()).hexdigest()
     destination = cache / "cache" / "document_parse_cache" / (key + ".sqlite")
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -277,17 +312,29 @@ def _parse(path: Path, kind: str, mapping=None):
                     and isinstance(message.get("content"), str) for message in messages
                 ):
                     raise ValueError("Invalid case conversation schema")
-                inputs = [message["content"] for message in messages if message["role"] == "user"]
+                reviewed = _collection(path, kind) == "lexchain"
+                inputs = ([message for message in messages if message["role"] in {"user", "assistant"}]
+                          if reviewed else [message["content"] for message in messages if message["role"] == "user"])
                 if not inputs:
                     raise ValueError("Case conversation has no user facts")
-                text = _text({"input": inputs})
+                text = _text({"messages" if reviewed else "input": inputs})
             elif isinstance(row, dict) and kind != "user":
-                if not any(key in row for key in FIELDS[kind]):
+                fields = COLLECTION_FIELDS.get((kind, _collection(path, kind)), FIELDS[kind])
+                if not any(key in row for key in fields):
                     raise ValueError("Unknown legal record schema; provide a reviewed field mapping")
-                chosen = {key: row[key] for key in FIELDS[kind] if key in row}
+                chosen = {key: row[key] for key in fields if key in row}
                 title = str(row.get("law_name") or row.get("title") or row.get("term") or row.get("caseID") or row.get("CaseId") or row.get("案号") or path.stem)
                 extra = {key: row[key] for key in ("article", "effective_from", "effective_to", "source") if key in row}
-                text = _text(chosen, exclude=CASE_EXCLUDED if kind == "legal_cases" else EXCLUDED)
+                excluded = CASE_EXCLUDED if kind == "legal_cases" else EXCLUDED
+                if "reference" in fields:
+                    excluded = excluded - {"reference"}
+                text = _text(chosen, exclude=excluded)
+                if kind == "legal_cases" and _collection(path, kind) == "muser":
+                    extra["caseID"] = row.get("caseID")
+                if kind == "legal_cases" and "lecardv2" in [part.lower() for part in path.parts]:
+                    qw = _text(row.get("qw"), exclude=CASE_EXCLUDED)
+                    start = text.index("qw: ") + 4 if "qw" in chosen else 0
+                    extra["keyword_span"] = [start, start + len(qw)]
             else:
                 text = _text(row)
             yield f"row:{index}", text, title, extra

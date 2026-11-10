@@ -39,7 +39,7 @@ A J1Bench run binds four model scopes:
 1. **Candidate Model (`models.default`)**: Assigned to the scenario's evaluated role (`trainee` in `KQ`/`LC`, `lawyer` in `CD`/`DD`, and `judge` in `CI`/`CR`).
 2. **Environment Simulators (`models.roles.*`)**: Role-play the counterpart agents (`general_public`, `specific_character`, `plaintiff`, `defendant`, `procurator`; default `gpt-4o-2024-11-20` in upstream).
 3. **Topic State Tracker (`models.summary`)**: Tracks covered vs. remaining topics after each turn in `KQ` and `LC` (`gpt-4o-2024-08-06` in upstream `utils_func.py`).
-4. **Evaluator (`models.verifiers[0]`)**: Grades open-ended rubrics across all 6 scenarios (`gpt-4o-2024-11-20` in upstream `src/Eval/eval.py`).
+4. **Evaluator (`models.verifiers[0]`)**: Grades open-ended rubrics across all 6 scenarios (upstream `src/Eval/bench/*/*.py`).
 
 Copy `configs/jobs/j1bench.yaml` to `configs/jobs/j1bench.local.yaml`:
 

@@ -147,7 +147,7 @@ LexVerse executes the native `evaluation/evaluation_functions/*.py` modules from
 2. **Thread-Safe & Relocatable `wsjd.py` Execution (`002-wsjd-relocatable.patch`)**:
    - **Context**: Upstream `evaluation/evaluation_functions/wsjd.py` (`2-1` Document Proofreading) calls `os.chdir('utils')`, writes fixed filenames (`tmp_pred.para`, `tmp_gold.para`) in the current directory, and shells out to `python3 parallel_to_m2.py`.
    - **Adaptation**: Resolves `evaluation/utils` relative to `__file__`, writes ChERRANT intermediate files inside an isolated `tempfile.TemporaryDirectory`, and invokes `sys.executable` with `cwd=utils_dir` without mutating the process working directory.
-3. **Legacy `Qwen-7B-Chat` ChatML Stop Tokens & Middle Truncation (`lexverse/providers/local.py`)**:
+3. **Legacy `Qwen-7B-Chat` ChatML Stop Tokens & Middle Truncation (`lexverse/llms/local.py`)**:
    - **Context**: First-generation `Qwen-7B-Chat` uses a custom `tiktoken` vocabulary without a Jinja `chat_template`; its ChatML turn terminator `<|im_end|>` (`151645`) differs from `eos_token_id` (`<|endoftext|>` = `151643`), and a handful of long legal case documents exceed the 8,192-token context window.
    - **Adaptation**: `LocalBackend` passes `stop_token_ids=[im_end_id, im_start_id, eod_id]` to `vllm.SamplingParams` and applies head+tail middle truncation when a prompt plus `max_tokens` exceeds `context_limit`.
 
@@ -197,7 +197,7 @@ The tables below report the full **10,000-sample (20 tasks × 500 samples)** zer
 
 - **Exact Evaluator Parity (`0.00` Diff on Upstream Predictions)**: Scoring the 18 public `qwen-7b-chat-hf` prediction files included in `open-compass/LawBench` (`predictions/zero_shot/qwen-7b-chat-hf/`) through `LawBenchEvaluator` reproduces the paper's published numbers to two decimal places (`0.00` discrepancy across all 18 tasks).
 - **Why Standard ChatML Formatting (`You are a helpful assistant.`) Outperforms Upstream OpenCompass `origin_prompt` (`41.05` vs. `37.00`)**:
-  1. **System Message vs. Bare `user` Turn**: Inspecting `origin_prompt` in upstream's `predictions/zero_shot/qwen-7b-chat-hf/*.json` shows that OpenCompass constructed a bare single-turn template (`"\n<|im_start|>user\n...\n<|im_end|>\n<|im_start|>assistant\n"`) without the `<|im_start|>system\nYou are a helpful assistant.<|im_end|>` header used by `Qwen-7B-Chat`'s official `make_context()` (`modeling_qwen.py`) and by LexVerse (`lexverse/providers/local.py:encode`).
+  1. **System Message vs. Bare `user` Turn**: Inspecting `origin_prompt` in upstream's `predictions/zero_shot/qwen-7b-chat-hf/*.json` shows that OpenCompass constructed a bare single-turn template (`"\n<|im_start|>user\n...\n<|im_end|>\n<|im_start|>assistant\n"`) without the `<|im_start|>system\nYou are a helpful assistant.<|im_end|>` header used by `Qwen-7B-Chat`'s official `make_context()` (`modeling_qwen.py`) and by LexVerse (`lexverse/llms/local.py:encode`).
   2. **Interaction with `2-6` (`xxcq.py`) Delimiter Parsing**: With the standard system prompt, `Qwen-7B-Chat` formats extracted entities one per line (`\n`), whereas without the system prompt it frequently joins all 10 entity types on a single line with full-width semicolons (`；`). Because upstream `evaluation/utils/comprehension_scores.py:__extract_entities_pred` splits each entity value only on `\n` or ASCII space (`re.split("\n| ", ...)`), semicolon-joined lines cause the parser to swallow the remaining string into a single entity value, explaining why `2-6` rises from `51.83` to `66.69` under standard ChatML formatting.
   3. **HuggingFace `generation_config.json` Defaults**: In addition, the official `Qwen/Qwen-7B-Chat` checkpoint's `generation_config.json` sets `repetition_penalty: 1.1` by default; even when OpenCompass enabled greedy decoding (`do_sample=False`), `transformers.GenerationMixin.generate()` still applies `RepetitionPenaltyLogitsProcessor(1.1)` unless `repetition_penalty=1.0` is explicitly overridden, whereas `vllm` with `generation_config="vllm"` uses pure unpenalized greedy decoding (`repetition_penalty=1.0`).
 
@@ -205,7 +205,7 @@ The tables below report the full **10,000-sample (20 tasks × 500 samples)** zer
 
 ## 5. Sampled Capability Comparison (`deepseek-v4.1-flash`)
 
-`deepseek-v4.1-flash` (`temperature: 0`, `max_tokens: 4096`, thinking disabled) answers a random sample of 50 items per task (1,000 items, seed `20261107:lawbench:<task>:sample50`, excluding items examined during development). Vanilla runs allow 8 model calls, 16 tool calls, and 300 seconds per trial, without the built-in file tools. Vanilla + capability adds the LexVerse knowledge tools (`lexverse resources download indexes --revision d28d76ee1b7d7d05eaae7193ef57e931838d5ade`) on `1-1`, `3-1`, and `3-2`.
+`deepseek-v4.1-flash` (`temperature: 0`, `max_tokens: 4096`, thinking disabled) answers a random sample of 50 items per task (1,000 items, seed `20261107:lawbench:<task>:sample50`, excluding items examined during development). Vanilla runs allow 8 model calls, 16 tool calls, and 300 seconds per trial, without the built-in file tools. Vanilla + capability adds the LexVerse knowledge tools (`lexverse resources download indexes`) on `1-1`, `3-1`, and `3-2`.
 
 | Scenario | Overall (item-weighted) | Δ vs Static |
 | :--- | ---: | ---: |

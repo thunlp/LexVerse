@@ -228,13 +228,11 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
         token_length = lambda text: len(tokenize(tokenizer, text))
         embedding_identity = {"tokenizer": "jieba", "vector": False}
     else:
-        token_length = lambda text: len(embedding.tokenizer.encode(text))
         embedding_identity = embedding.identity
         prefix = getattr(embedding, "document_prefix", "")
-        overhead = len(embedding.tokenizer.encode(prefix)) if prefix else 2
-        if not config.chunk_tokens_by_kind and config.chunk_tokens > embedding.identity["max_tokens"] - overhead:
-            raise ConfigError("Chunk size exceeds embedding model capacity")
-        if config.chunk_tokens_by_kind and max([config.chunk_tokens, *config.chunk_tokens_by_kind.values()]) > embedding.identity["max_tokens"]:
+        # Count exactly the input that will be encoded, including special tokens.
+        token_length = lambda text: len(embedding.tokenizer.encode(prefix + text))
+        if max([config.chunk_tokens, *config.chunk_tokens_by_kind.values()]) > embedding.identity["max_tokens"]:
             raise ConfigError("Chunk size exceeds embedding model capacity")
     retrieval_identity = _index_retrieval(config, embedding_identity)
     try:
@@ -247,9 +245,10 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
         "retrieval": retrieval_identity, "embedding": embedding_identity,
         "jieba": importlib.metadata.version("jieba"), "dictionary": hash_file(Path(tokenizer.get_dict_file().name)),
         "splitter": splitter_version,
+        "chunk_policy": "whole-record-within-kind-limit-v1",
     }
-    if config.chunk_tokens_by_kind:
-        identity["chunk_policy"] = "whole-record-within-kind-limit-v1"
+    if "lecardv2" in logical_name.lower().split("/") and "legal_cases" in logical_name.split("/"):
+        identity["keyword_policy"] = "qw-v1"
     index_hash = _hash(identity)
     destination = cache / "indexes" / index_hash
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -265,11 +264,8 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
             db = sqlite3.connect(staged / "documents.sqlite")
             db.execute("CREATE TABLE chunks (id TEXT PRIMARY KEY, text TEXT NOT NULL, metadata TEXT NOT NULL)")
             db.execute("CREATE VIRTUAL TABLE keywords USING fts5(id UNINDEXED, tokens)")
-            splitter = _build_text_splitter(
-                config.chunk_tokens,
-                config.overlap_tokens,
-                token_length,
-            )
+            splitters = {size: _build_text_splitter(size, config.overlap_tokens, token_length)
+                         for size in {config.chunk_tokens, *config.chunk_tokens_by_kind.values()}}
             vector_index, ids = None, []
             completed_files = 0
 
@@ -284,13 +280,12 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
                 for document in load_documents(source, files, source_id, cache=cache, file_completed=file_completed):
                     previous_start = -1
                     previous_text = ""
-                    active_splitter = splitter
-                    if config.chunk_tokens_by_kind:
-                        limit = config.chunk_tokens_by_kind.get(document.metadata.get("kind"), config.chunk_tokens)
-                        safe_limit = min(limit, embedding.identity["max_tokens"] - overhead) if embedding else limit
-                        active_splitter = _build_text_splitter(safe_limit, config.overlap_tokens, token_length)
-                    chunks = active_splitter.split_documents([document])
+                    limit = config.chunk_tokens_by_kind.get(document.metadata["kind"], config.chunk_tokens)
+                    chunks = ([document] if token_length(document.page_content) <= limit
+                              else splitters[limit].split_documents([document]))
                     for ordinal, chunk in enumerate(chunks):
+                        if token_length(chunk.page_content) > limit:
+                            raise ConfigError("Chunk exceeds its token limit; refusing to truncate")
                         # Token overlap is not a reliable character offset in repeated text.
                         extends_previous = previous_text and len(chunk.page_content) > len(previous_text) and chunk.page_content.startswith(previous_text)
                         start = document.page_content.find(chunk.page_content, previous_start if extends_previous else previous_start + 1)
@@ -309,8 +304,15 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
                                                "text_hash": hashlib.sha256(chunk.page_content.encode()).hexdigest()})
                         db.execute("INSERT INTO chunks VALUES (?, ?, ?)",
                                    (chunk_id, chunk.page_content, json.dumps(chunk.metadata, ensure_ascii=False)))
-                        db.execute("INSERT INTO keywords VALUES (?, ?)",
-                                   (chunk_id, " ".join(tokenize(tokenizer, chunk.page_content))))
+                        keyword_text = chunk.page_content
+                        if "keyword_span" in document.metadata:
+                            left, right = document.metadata["keyword_span"]
+                            left = max(start, left)
+                            right = min(start + len(chunk.page_content), right)
+                            keyword_text = document.page_content[left:right] if left < right else ""
+                        if keyword_text.strip():
+                            db.execute("INSERT INTO keywords VALUES (?, ?)",
+                                       (chunk_id, " ".join(tokenize(tokenizer, keyword_text))))
                         ids.append(chunk_id)
                         if progress is not None and len(ids) % 64 == 0:
                             progress(completed_files, len(files), len(ids))
@@ -344,8 +346,8 @@ def verify_index(path: Path) -> dict:
     try:
         manifest = json.loads((path / "manifest.json").read_text())
         if (manifest["identity"].get("format_version") != "1.0"
-                or manifest["identity"].get("loader_version") not in {LOADER_VERSION, "2.0"}):
-            raise ValueError("Unsupported knowledge index version; expected format 1.0 with loader 1.0 or 2.0")
+                or manifest["identity"].get("loader_version") != LOADER_VERSION):
+            raise ValueError("Unsupported knowledge index version; expected format 1.0 with loader 1.0")
         if manifest["index_hash"] != path.name or _hash(manifest["identity"]) != path.name:
             raise ValueError("Index identity mismatch")
         for name, expected in manifest["files"].items():
