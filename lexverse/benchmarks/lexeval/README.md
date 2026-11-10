@@ -138,7 +138,7 @@ LexVerse executes the native `code/evaluation/evaluate.py` evaluator and `code/g
 
 ## 4. Reference Results (`lexverse run`) & Implementation Notes
 
-The tables below report the full **14,150-sample (23 tasks)** zero-shot evaluation of the open-source model **`Qwen/Qwen-7B-Chat`** (run locally via `vllm` on an NVIDIA A100 GPU), alongside the reference numbers from Table 3 of the LexEval paper ([arXiv:2409.20288](https://arxiv.org/abs/2409.20288), all scores in `%`):
+The tables below report the full **14,150-sample (23 tasks)** zero-shot evaluation of the open-source model **`Qwen/Qwen-7B-Chat`** (run locally via `vllm` on an NVIDIA A100 GPU), alongside the zero-shot scores in Tables 2–3 of the LexEval paper ([arXiv:2409.20288v3](https://arxiv.org/abs/2409.20288v3), all scores in `%`):
 
 ### 4.1 Category Summary (`Qwen/Qwen-7B-Chat`, Zero-Shot, 14,150 Samples)
 
@@ -180,5 +180,5 @@ The tables below report the full **14,150-sample (23 tasks)** zero-shot evaluati
 
 ### Implementation & Protocol Notes
 
-- **Full-Dataset Reproduction (`45.26` vs. `45.17`, `+0.09` Overall Difference)**: Across all 14,150 questions in the 23 LexEval tasks, `python -m lexverse run lexeval` with `Qwen/Qwen-7B-Chat` matches the upstream `Qwen_7B_chat` reference outputs within `0.09–0.33` points on all five multiple-choice categories (`Memorization: 23.18 vs. 23.37`, `Understanding: 74.19 vs. 73.86`, `Logic Inference: 53.74 vs. 53.63`, `Discrimination: 24.50 vs. 24.80`, `Ethics: 39.37 vs. 39.27`) and achieves `+0.09` overall macro-average parity (`45.26` vs. `45.17`).
+- **Full-Dataset Reproduction (`44.90` vs. `44.8`, `+0.10` Overall Difference)**: Across all 14,150 questions in the 23 LexEval tasks, `python -m lexverse run lexeval` with `Qwen/Qwen-7B-Chat` stays within `0.33` points of the paper in every category (`Memorization: 23.18 vs. 23.37`, `Understanding: 74.19 vs. 73.86`, `Logic Inference: 53.74 vs. 53.63`, `Discrimination: 24.50 vs. 24.80`, `Generation: 25.67 vs. 25.70`, `Ethics: 39.37 vs. 39.27`) and within `1.0` point on every task. Generation scores in the tables use `rouge_chinese`, which reproduces the paper's Rouge-L.
 - **Context Window Handling (`max_model_len: 8192`)**: In upstream `code/generation/Qwen_gen.py`, prompts exceeding `max_Length = 3500` characters are middle-truncated (`half = int(max_Length / 2)`). In LexVerse, `LocalBackend` applies token-level head+tail middle truncation only when a prompt plus `max_tokens` exceeds the 8,192-token model context window (`11` ultra-long case documents in `3_2`, `4_1`, and `5_4`), preserving full case context on `99.92%` of the benchmark.
