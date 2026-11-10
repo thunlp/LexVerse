@@ -122,7 +122,7 @@ lexverse job report runs/lexeval-qwen7b-full
 
 ## 3. Upstream Adaptation & Rationale
 
-LexVerse executes the native `code/evaluation/evaluate.py` evaluator and `code/generation/model_gen.py` loader from `CSHaitao/LexEval` via three targeted patches (`patches/001..003`):
+LexVerse executes the native `code/evaluation/evaluate.py` evaluator and `code/generation/model_gen.py` loader from `CSHaitao/LexEval` via four targeted patches (`patches/001..004`):
 
 1. **Lazy Heavy Imports in `evaluate.py` and `model_gen.py` (`001-defer-heavy-imports.patch` & `002-defer-vllm-import.patch`)**:
    - **Context**: Upstream `code/evaluation/evaluate.py` and `code/generation/model_gen.py` eagerly import `torch`, `transformers`, `bert_score`, `pandas`, `rouge`, and `vllm` at module import time even when only running multiple-choice accuracy or API-based generation.
@@ -130,9 +130,9 @@ LexVerse executes the native `code/evaluation/evaluate.py` evaluator and `code/g
 2. **Blank-Line Tolerance in JSONL Task Files (`003-skip-blank-lines.patch`)**:
    - **Context**: Upstream `code/generation/model_gen.py` calls `json.loads(line)` on every line in `data/*.json`, which raises `JSONDecodeError` on trailing blank lines.
    - **Adaptation**: Skips empty lines (`if not line.strip(): continue`) when loading task records.
-3. **Iterative ROUGE-L Backtrace (`rouge_runtime.py`)**:
+3. **Long Answers in ROUGE-L (`004-rouge-chinese.patch`)**:
    - **Context**: `rouge==1.0.1` reconstructs the longest common subsequence recursively. Long answers exceed Python's default recursion limit, and upstream `eval_rougel` turns the exception into a score of zero.
-   - **Adaptation**: Replaces `rouge_score._recon_lcs` with an iterative backtrace over the same DP table, preserving the native tie-breaking, tokenization, and n-gram counting.
+   - **Adaptation**: Imports `Rouge` from `rouge_chinese`, which computes the longest common subsequence without recursion.
 
 ---
 

@@ -1,0 +1,11 @@
+--- a/code/evaluation/evaluate.py
++++ b/code/evaluation/evaluate.py
+@@ -86,7 +86,7 @@
+         '''
+         Output the Rouge-L score for the given file
+         '''
+-        from rouge import Rouge
++        from rouge_chinese import Rouge
+ 
+         with jsonlines.open(self.file_path) as f:
+             score = []

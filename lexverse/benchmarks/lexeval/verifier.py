@@ -25,24 +25,6 @@ Metric = Literal["Accuracy", "F1", "Rouge_L", "Bertscore", "Bartscore"]
 TaskType = Literal["multiple_choice", "generation"]
 
 
-def _rouge_warning() -> str | None:
-    """Reject a Chinese scorer exposed through LexEval's plain rouge import."""
-    try:
-        from rouge import Rouge
-    except ImportError:
-        return None  # The native evaluator reports a missing scoring dependency.
-    provides = getattr(Rouge, "__module__", "")
-    if "rouge_chinese" in provides:
-        return (
-            "rouge_chinese shadows plain rouge: `from rouge import Rouge` "
-            f"resolves to {provides!r}. LexEval Rouge_L requires plain rouge. "
-            "Use separate virtualenvs, or restore plain rouge after installing rouge_chinese: "
-            "python -m pip install --force-reinstall --no-deps 'rouge==1.0.1'. "
-            "LawBench uses rouge_chinese directly."
-        )
-    return None
-
-
 @dataclass(frozen=True)
 class LexEvalScore:
     file: Path
@@ -127,13 +109,6 @@ class LexEvalEvaluator:
             raise VerificationError(
                 f"generation tasks accept Rouge_L/Bertscore/Bartscore, not {metric!r}"
             )
-
-        if metric == "Rouge_L":
-            conflict = _rouge_warning()
-            if conflict:
-                raise VerificationError(conflict)
-            from lexverse.benchmarks.lexeval.rouge_runtime import install_iterative_backtrace
-            install_iterative_backtrace()
 
         try:
             evaluator = self._Evaluator(
@@ -263,7 +238,7 @@ class LexEvalVerifier(BenchmarkVerifier):
 
     def _provenance(self):
         from lexverse.benchmarks.lexeval import UPSTREAM as LEXEVAL
-        return VerifierProvenance(name=self.name, version="1.1-iterative-rouge", upstream_commit=LEXEVAL.commit)
+        return VerifierProvenance(name=self.name, version="1.1-rouge-chinese", upstream_commit=LEXEVAL.commit)
 
 
 class LexEvalAggregator(BenchmarkAggregator):
