@@ -62,6 +62,9 @@ class ResourceSelection(BaseModel):
     knowledge: list[Path] = Field(default_factory=list)
     skills: list[SkillRef] = Field(default_factory=list)
     mcp_servers: list[MCPService] = Field(default_factory=list)
+    # Vanilla built-in tools to remove. Configured skills require read_file.
+    disabled_tools: list[Literal["ls", "read_file", "write_file", "edit_file", "glob", "grep", "execute",
+                                 "write_todos"]] = Field(default_factory=list)
     tools: list[Literal["search_knowledge", "fetch_knowledge", "ask_user"]] = Field(
         default_factory=lambda: ["search_knowledge", "fetch_knowledge", "ask_user"])
 

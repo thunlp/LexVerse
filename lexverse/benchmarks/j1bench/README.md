@@ -12,12 +12,12 @@ In realistic legal practice, an AI assistant rarely operates in a single-turn va
 - **Upstream Repository**: [`FudanDISC/J1Bench`](https://github.com/FudanDISC/J1Bench) (commit `61a6ea5515e11229c13353e73b0629e39dcc6076`)
 - **Dataset**: [`CimoInkPool/J1-Eval_Dataset`](https://huggingface.co/datasets/CimoInkPool/J1-Eval_Dataset) (revision `5fbc73ce3de1bbce474eed2dab27b4d01cedfd7f`, gated HuggingFace dataset; **508 cases** across 6 scenarios)
 - **Scenarios & Metrics**:
-  - `KQ` (*Legal Knowledge QA*, 98 cases): Multi-turn legal knowledge Q&A between `trainee` (evaluated) and `general_public`. Metrics: `BIN` (binary accuracy), `NBIN` (non-binary completeness), `AVE` (`(BIN + NBIN) / 2`).
+  - `KQ` (*Knowledge Questioning*, 98 cases): Multi-turn legal knowledge Q&A between `trainee` (evaluated) and `general_public`. Metrics: `BIN` (binary accuracy), `NBIN` (non-binary completeness), `AVE` (`(BIN + NBIN) / 2`).
   - `LC` (*Legal Consultation*, 62 cases): Multi-turn client consultation between `trainee` (evaluated) and `general_public`. Metrics: `BIN`, `NBIN`, `AVE`.
-  - `CD` (*Civil Complaint Drafting*, 93 cases): Client intake and complaint drafting by `lawyer` (evaluated) with `specific_character`. Metrics: `PLA` (plaintiff info), `DEF` (defendant info), `CLA` (claims), `FAC` (facts), `EVI` (evidence), `DOC` (`0.2 * (PLA + DEF + CLA + FAC + EVI)`), `FOR` (format compliance), `AVE` (`(DOC + FOR) / 2`).
-  - `DD` (*Defense Statement Drafting*, 93 cases): Client intake and defense drafting by `lawyer` (evaluated) with `specific_character`. Metrics: `RES` (respondent info), `DEF` (defense arguments), `EVI` (evidence), `DOC` (`(RES + DEF + EVI) / 3`), `FOR`, `AVE`.
-  - `CI` (*Civil Trial*, 93 cases): Multi-party civil courtroom simulation presided over by `judge` (evaluated) with `plaintiff` and `defendant`. Metrics: `REA` (reasoning), `LAW` (statute citation), `JUD` (judgment accuracy), `PFS` (procedural fidelity score).
-  - `CR` (*Criminal Trial*, 69 cases): Multi-party criminal courtroom simulation presided over by `judge` (evaluated) with `procurator`, `defendant`, and `lawyer`. Metrics: `CRI` (charge accuracy), `SEN` (sentence accuracy), `FINE` (fine accuracy), `REA` (reasoning), `LAW` (statute citation), `PFS` (procedural fidelity score).
+  - `CD` (*Complaint Drafting*, 93 cases): Client intake and complaint drafting by `lawyer` (evaluated) with `specific_character`. Metrics: `PLA` (plaintiff info), `DEF` (defendant info), `CLA` (claims), `FAC` (facts), `EVI` (evidence), `DOC` (`0.2 * (PLA + DEF + CLA + FAC + EVI)`), `FOR` (format compliance), `AVE` (`(DOC + FOR) / 2`).
+  - `DD` (*Defence Drafting*, 93 cases): Client intake and defense drafting by `lawyer` (evaluated) with `specific_character`. Metrics: `RES` (respondent info), `DEF` (defense arguments), `EVI` (evidence), `DOC` (`(RES + DEF + EVI) / 3`), `FOR`, `AVE`.
+  - `CI` (*Civil Court*, 93 cases): Multi-party civil courtroom simulation presided over by `judge` (evaluated) with `plaintiff` and `defendant`. Metrics: `REA` (reasoning), `LAW` (statute citation), `JUD` (judgment accuracy), `PFS` (procedural fidelity score).
+  - `CR` (*Criminal Court*, 69 cases): Multi-party criminal courtroom simulation presided over by `judge` (evaluated) with `procurator`, `defendant`, and `lawyer`. Metrics: `CRI` (charge accuracy), `SEN` (sentence accuracy), `FINE` (fine accuracy), `REA` (reasoning), `LAW` (statute citation), `PFS` (procedural fidelity score).
 
 ---
 
@@ -39,7 +39,7 @@ A J1Bench run binds four model scopes:
 1. **Candidate Model (`models.default`)**: Assigned to the scenario's evaluated role (`trainee` in `KQ`/`LC`, `lawyer` in `CD`/`DD`, and `judge` in `CI`/`CR`).
 2. **Environment Simulators (`models.roles.*`)**: Role-play the counterpart agents (`general_public`, `specific_character`, `plaintiff`, `defendant`, `procurator`; default `gpt-4o-2024-11-20` in upstream).
 3. **Topic State Tracker (`models.summary`)**: Tracks covered vs. remaining topics after each turn in `KQ` and `LC` (`gpt-4o-2024-08-06` in upstream `utils_func.py`).
-4. **Evaluator (`models.verifiers[0]`)**: Grades open-ended rubrics across all 6 scenarios (`gpt-4o-2024-11-20` in upstream `src/Eval/eval.py`).
+4. **Evaluator (`models.verifiers[0]`)**: Grades open-ended rubrics across all 6 scenarios (upstream `src/Eval/bench/*/*.py`).
 
 Copy `configs/jobs/j1bench.yaml` to `configs/jobs/j1bench.local.yaml`:
 

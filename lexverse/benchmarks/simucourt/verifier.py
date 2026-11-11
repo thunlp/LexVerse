@@ -9,7 +9,7 @@ from pathlib import Path
 
 from lexverse.utils.files import trial_relative_path
 from lexverse.benchmarks.aggregation import BenchmarkAggregator, mean_metrics
-from lexverse.verifiers.benchmark import BenchmarkVerifier
+from lexverse.verifiers.benchmark import BenchmarkVerifier, run_native_scorer
 from lexverse.models.verifier.result import RunVerificationResult, VerifierProvenance, VerifierResult
 import threading
 from . import UPSTREAM
@@ -153,7 +153,7 @@ class SimuCourtBenchmarkVerifier(BenchmarkVerifier):
                 try:
                     if prediction is None:
                         prediction = await asyncio.wait_for(
-                            asyncio.to_thread(
+                            run_native_scorer(
                                 formatter.format_prediction,
                                 case, record.get("response", ""),
                                 task.metadata["stage"], call_judge,
@@ -176,7 +176,7 @@ class SimuCourtBenchmarkVerifier(BenchmarkVerifier):
                         native_other.GPT_4 = call_judge
                         sid = task.source.sample_id
                         _, counts = await asyncio.wait_for(
-                            asyncio.to_thread(
+                            run_native_scorer(
                                 native_other.score,
                                 [case], {sid: gold}, {sid: prediction}, task.metadata["stage"],
                             ),

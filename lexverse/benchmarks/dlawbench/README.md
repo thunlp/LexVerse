@@ -2,7 +2,7 @@
 
 In real-world legal practice, a consultation rarely begins with a clean, chronological summary of facts. A client may arrive anxious, guarded, or convinced of a one-sided legal theory that omits unfavorable details. Before offering legal conclusions, a lawyer must conduct an interactive intake interview—probing for missing documents, testing the client's assumptions, separating subjective beliefs from verifiable facts, and synthesizing a grounded legal memorandum.
 
-**DLawBench** (*Evaluating LLMs Through Multi-Turn Legal Consultation*, [arXiv:2606.13931](https://arxiv.org/abs/2606.13931)) benchmarks this diagnostic workflow across **Chinese law (`CN`) and U.S. law (`US`)**. Each case pairs a **Client Belief View** (colloquial, incomplete, or doctrinally misframed statements used by the simulated client) with a hidden **Court Record View** (calibrated findings and legal reasoning from the actual court opinion, reserved for evaluation). Every case is replayed across four interpersonal client personas—**Cooperative (`P_CS`)**, **Dependent (`P_CD`)**, **Withdrawn (`P_WS`)**, and **Adversarial (`P_WD`)**—and scored across three capability dimensions: **Information Gathering**, **Legal Reasoning**, and **Claim Support**.
+**DLawBench** (*Evaluating LLMs Through Multi-Turn Legal Consultation*, [arXiv:2606.13931](https://arxiv.org/abs/2606.13931)) benchmarks this diagnostic workflow across **Chinese law (`CN`) and U.S. law (`US`)**. Each case pairs a **Client Belief View** (colloquial, incomplete, or doctrinally misframed statements used by the simulated client) with a hidden **Court Record View** (calibrated findings and legal reasoning from the actual court opinion, reserved for evaluation). Every case is replayed across four interpersonal client personas—**Cooperative (`P_WD`)**, **Dependent (`P_WS`)**, **Withdrawn (`P_CS`)**, and **Adversarial (`P_CD`)**—and scored across three capability dimensions: **Information Gathering**, **Legal Reasoning**, and **Claim Support**.
 
 ---
 
@@ -12,10 +12,10 @@ In real-world legal practice, a consultation rarely begins with a clean, chronol
 - **Upstream Repository**: [`SKYLENAGE-AI/DLawBench`](https://github.com/SKYLENAGE-AI/DLawBench) (commit `9f6325f29f07b296fac110a6e1880bdd5d9ca538`)
 - **Dataset**: `data/case_backgrounds/*.jsonl` (60 public release cases: 30 Chinese-law + 30 U.S.-law × 4 personas = **240 consultation tasks**)
 - **Tasks (Client Personas)**:
-  - `P_CS` (*Cooperative*): Calm, organized client who answers clearly and provides requested details.
-  - `P_CD` (*Dependent*): Anxious client who lacks legal knowledge and relies heavily on the lawyer's guidance.
-  - `P_WS` (*Withdrawn*): Guarded, reluctant client who gives minimal replies unless asked targeted questions.
-  - `P_WD` (*Adversarial*): Assertive client who pushes back on questioning and insists on their own framing.
+  - `P_WD` (*Assured-Cooperative*): Calm, organized client who answers clearly and provides requested details.
+  - `P_WS` (*Dependent-Yielding*): Anxious client who lacks legal knowledge and relies heavily on the lawyer's guidance.
+  - `P_CS` (*Avoidant-Withdrawn*): Guarded, reluctant client who gives minimal replies and only gradually opens up when made to feel safe.
+  - `P_CD` (*Controlling-Resister*): Assertive client who pushes back on questioning and insists on their own framing.
 - **Metrics**:
   - **Information Gathering**: `fact_coverage` (share of annotated facts surfaced in the memo), `inquiry` (share of expert-specified follow-up questions asked), and `elicitation` (`(fact_coverage + inquiry) / 2`).
   - **Legal Reasoning**: `fact_resolution` (share of all annotated facts both covered and calibrated against the court-record view), `issue_resolution` (share of expert issue rubrics addressed), and `resolution` (`(fact_resolution + issue_resolution) / 2`, the primary leaderboard metric).
@@ -122,7 +122,7 @@ LexVerse executes the native `dlawbench` package (`agent_environment.py`, `clien
 2. **Strict Judge Output Validation (`environment.py:validate_response`)**:
    - **Context**: Upstream `evaluate.py` issues two judge prompts per session: (1) Discovery, Accuracy, and Grounding (DAG) over annotated facts and memo claims, and (2) binary `0/1` scores for `memo_expectation_scores` and `expected_action_scores`. If an LLM judge omits a fact ID or miscounts `total_claims`, upstream `metrics.py` can silently miscompute denominators.
    - **Adaptation**: `validate_response` verifies that `covered` and `missed` partition the exact set of case fact IDs, that `correct` and `incorrect` partition `covered`, that `total_claims == len(grounded_claims) + len(ungrounded_claims)`, and that rubric score vectors match the exact rubric lengths, retrying up to `evaluation.max_attempts` on malformed judge JSON.
-3. **Single-Judge and 3-Judge Panel Modes (`plugin.py` & `evaluation.py`)**:
+3. **Single-Judge and 3-Judge Panel Modes (`plugin.py` & `verifier.py`)**:
    - **Context**: The paper leaderboard uses a 3-judge panel (`gpt-5.1-2025-11-13`, `claude-opus-4-6-20260205`, `gemini-3.1-pro-preview`) with same-vendor recusal, while upstream also provides `evaluate.evaluate_session` for single-judge evaluation.
    - **Adaptation**: LexVerse supports both `evaluation.mode: single` (1 evaluator model) and `evaluation.mode: panel` (3 evaluator models) and aggregates results via upstream `scripts/metrics.py:build_summary_rows` across personas and jurisdictions (`overall` and `by_jurisdiction`).
 
@@ -148,10 +148,10 @@ For the paper’s persona-level Elicitation, Resolution, and Fidelity results, s
 
 | Persona Task | Style Description | `fact_coverage` | `inquiry` | `elicitation` | `fact_resolution` | `issue_resolution` | `resolution` | `fidelity` |
 | :---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `P_CS` | Cooperative | 0.616 | 0.255 | 0.436 | 0.434 | 0.210 | 0.322 | 0.895 |
-| `P_CD` | Dependent | 0.639 | 0.268 | 0.453 | 0.437 | 0.256 | 0.347 | 0.895 |
-| `P_WS` | Withdrawn | 0.611 | 0.225 | 0.418 | 0.441 | 0.241 | 0.341 | 0.872 |
-| `P_WD` | Adversarial | 0.650 | 0.279 | 0.464 | 0.450 | 0.272 | 0.361 | 0.896 |
+| `P_CS` | Withdrawn | 0.616 | 0.255 | 0.436 | 0.434 | 0.210 | 0.322 | 0.895 |
+| `P_CD` | Adversarial | 0.639 | 0.268 | 0.453 | 0.437 | 0.256 | 0.347 | 0.895 |
+| `P_WS` | Dependent | 0.611 | 0.225 | 0.418 | 0.441 | 0.241 | 0.341 | 0.872 |
+| `P_WD` | Cooperative | 0.650 | 0.279 | 0.464 | 0.450 | 0.272 | 0.361 | 0.896 |
 
 ### Implementation & Protocol Notes
 

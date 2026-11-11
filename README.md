@@ -97,7 +97,7 @@ lexverse resources download skills
   lexverse resources build-index --knowledge .lexverse/capabilities/knowledge/legal_laws --mode hybrid
   ```
 
-Prebuilt indexes use **hybrid retrieval** (BM25 keyword search + FAISS vector search), with **`BAAI/bge-small-zh-v1.5`** as the embedding model. Queries also require this model. Use the same hybrid configuration in your task; select downloaded collections with IDs such as `collection:legal_laws`. For custom index settings, see [retrieval.example.yaml](configs/knowledge/retrieval.example.yaml).
+Prebuilt indexes use **hybrid retrieval** (BM25 keyword search + FAISS vector search), with **`BAAI/bge-m3`** as the embedding model. Vector queries also require this model; use the retrieval configuration shipped with the downloaded indexes. Select downloaded collections with IDs such as `collection:legal_laws`. For custom index settings, see [retrieval.example.yaml](configs/knowledge/retrieval.example.yaml), which also uses `BAAI/bge-m3` for locally built indexes.
 
 #### Step 3. Initialize a task
 

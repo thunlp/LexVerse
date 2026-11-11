@@ -4,6 +4,7 @@ import re
 
 from lexverse.capabilities.knowledge.index import KnowledgeIndex
 from lexverse.capabilities.knowledge.keyword import KeywordSearch
+from lexverse.capabilities.knowledge.loaders import KINDS
 from lexverse.config import ConfigError
 from lexverse.utils.paths import CAPABILITIES_ROOT
 from lexverse.models.task.config import KnowledgeFilters
@@ -49,11 +50,9 @@ def _exact_article_hits(query, indexes, filters):
     articles = set(re.findall(r"第[零〇一二三四五六七八九十百千万两0-9]+条(?:之[零〇一二三四五六七八九十百千万两0-9]+)?", query))
     if len(articles) != 1:
         return []
-    # Resolve only names present in the selected sources; do not guess law aliases.
-    titles = set()
-    for index in indexes:
-        titles.update(row[0] for row in index.db.execute(
-            "SELECT DISTINCT json_extract(metadata, '$.title') FROM chunks") if row[0])
+    # Resolve only statute names from the selected legal_laws sources; do not guess law aliases.
+    # Concept, QA and case titles (e.g. a concept entry titled 刑法) must not compete here.
+    titles = set().union(*(index.statute_titles for index in indexes))
     mentions = {title: title.removeprefix("中华人民共和国") for title in titles}
     matched = {title: name for title, name in mentions.items() if name and name in query}
     matched = {title for title, name in matched.items()
@@ -63,8 +62,11 @@ def _exact_article_hits(query, indexes, filters):
     conditions = "".join(f" AND json_extract(metadata, '$.{key}')=?" for key in filters)
     hits = []
     for index in indexes:
+        if "legal_laws" not in index.kinds:
+            continue
         rows = index.db.execute(
-            "SELECT id FROM chunks WHERE json_extract(metadata, '$.title')=? "
+            "SELECT id FROM chunks WHERE json_extract(metadata, '$.kind')='legal_laws' "
+            "AND json_extract(metadata, '$.title')=? "
             "AND json_extract(metadata, '$.article')=?" + conditions + " ORDER BY id",
             [next(iter(matched)), next(iter(articles)), *filters.values()],
         )
@@ -82,6 +84,29 @@ class TaskRetriever:
             if previous is not None and previous.index_hash != index.index_hash:
                 raise ConfigError("Knowledge sources share a logical name; use distinct source directory names")
             self.indexes[index.source_id] = index
+        # Models address sources by collection name (legal_laws, legal_cases/MUSER), not by hashed IDs.
+        self.aliases = {}
+        for source_id, index in self.indexes.items():
+            name = index.manifest["source_name"]
+            kinds = index.kinds
+            # A bare kind (legal_cases) selects every source of that kind.
+            # A source name equal to a different kind must not hijack that category alias.
+            names = (name,) if name not in KINDS | {"user"} or name in kinds else ()
+            for alias in (*names, *kinds, *(f"{kind}/{name}" for kind in kinds if kind != name)):
+                if source_id not in self.aliases.setdefault(alias, []):
+                    self.aliases[alias].append(source_id)
+
+    def source_names(self) -> list[str]:
+        """Collection names accepted as source_ids, most specific form only."""
+        names = set()
+        for index in self.indexes.values():
+            name = index.manifest["source_name"]
+            kinds = index.kinds - {name}
+            if kinds:
+                names.update(f"{kind}/{name}" for kind in kinds)
+            else:
+                names.add(name)
+        return sorted(names)
 
     def search(self, query: str, top_k: int = 8, source_ids: list[str] | None = None,
                filters: dict | None = None) -> list[dict]:
@@ -95,19 +120,22 @@ class TaskRetriever:
             for sid in dict.fromkeys(source_ids):
                 if sid in self.indexes:
                     resolved.append(sid)
+                elif sid in self.aliases:
+                    resolved.extend(self.aliases[sid])
                 else:
                     matched = next(
-                        (k for k, cand in self.indexes.items() if cand.index_hash == sid or cand.index_hash.startswith(sid)),
+                        (k for k, cand in self.indexes.items() if sid and cand.index_hash.startswith(sid)),
                         None,
                     )
-                    resolved.append(matched or sid)
+                    if matched is None:
+                        raise ValueError(f"Unknown knowledge source {sid!r}; use one of: "
+                                         + ", ".join(self.source_names()))
+                    resolved.append(matched)
             selected = list(dict.fromkeys(resolved))
-        if set(selected) - self.indexes.keys():
-            raise ValueError("Knowledge source is not allowed for this task")
         selected_indexes = [self.indexes[source] for source in selected]
         keyword_indexes = [index for index in selected_indexes if index.config.mode != "vector"]
         vector_indexes = [index for index in selected_indexes if index.config.mode != "keyword"
-                          and ("kind" not in filters or filters["kind"] in index.manifest["identity"]["kinds"].values())]
+                          and ("kind" not in filters or filters["kind"] in index.kinds)]
         if any(index.manifest["identity"]["embedding"] != vector_indexes[0].manifest["identity"]["embedding"]
                for index in vector_indexes[1:]):
             raise ConfigError("Cross-index vector ranking requires the same embedding identity")

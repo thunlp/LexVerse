@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -21,9 +21,9 @@ class AgentLimits(StrictModel):
     tool_timeout_sec: float = Field(default=60.0, gt=0, allow_inf_nan=False)
 
 
-DEFAULT_EMBEDDING_MODEL = "BAAI/bge-small-zh-v1.5"
-DEFAULT_EMBEDDING_REVISION = "7999e1d3359715c523056ef9478215996d62a620"
-DEFAULT_QUERY_PREFIX = "为这个句子生成表示以用于检索相关文章："
+DEFAULT_EMBEDDING_MODEL = "BAAI/bge-m3"
+DEFAULT_EMBEDDING_REVISION = "5617a9f61b028005a4858fdac845db406aefb181"
+DEFAULT_QUERY_PREFIX = ""
 
 
 class EmbeddingConfig(StrictModel):
@@ -52,20 +52,25 @@ class EmbeddingConfig(StrictModel):
             if not Path(self.model).is_dir():
                 raise ConfigError(f"Embedding model directory does not exist: {self.model}")
 
-    def uses_default_encoding(self):
-        return (self.model == DEFAULT_EMBEDDING_MODEL and self.revision == DEFAULT_EMBEDDING_REVISION
-                and self.query_prefix == DEFAULT_QUERY_PREFIX and not self.document_prefix
-                and self.max_tokens in (None, 512))
-
 
 class RetrievalConfig(StrictModel):
     mode: Literal["hybrid", "keyword", "vector"] = "hybrid"
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     chunk_tokens: int = Field(default=400, gt=0, strict=True)
+    chunk_tokens_by_kind: dict[
+        Literal["legal_laws", "legal_cases", "legal_concepts", "legal_qa", "legal_templates", "user"],
+        Annotated[int, Field(gt=0, strict=True)],
+    ] = Field(default_factory=dict)
     overlap_tokens: int = Field(default=60, ge=0, strict=True)
     keyword_candidates: int = Field(default=100, gt=0, strict=True)
     vector_candidates: int = Field(default=100, gt=0, strict=True)
     top_k: int = Field(default=8, ge=1, le=20, strict=True)
+
+    @model_validator(mode="after")
+    def chunk_limits(self):
+        if self.overlap_tokens >= min([self.chunk_tokens, *self.chunk_tokens_by_kind.values()]):
+            raise ValueError("retrieval overlap must be smaller than every chunk size")
+        return self
 
 
 class KnowledgeFilters(StrictModel):

@@ -16,14 +16,33 @@
 
 """Shared shell snippet for installing Node.js via nvm in agent environments."""
 
+import os
+import shlex
+
 NVM_VERSION = "v0.40.2"
 DEFAULT_NODE_MAJOR = 22
 
 
 def nvm_node_install_snippet(node_major: int = DEFAULT_NODE_MAJOR) -> str:
+    # Optional host-side mirrors for networks that cannot reach GitHub raw content or the npm registry.
+    # LEXVERSE_NVM_SOURCE is a base URL serving nvm.sh for NVM_VERSION (e.g. a Gitee mirror).
+    exports = "".join(
+        f"export {name}={shlex.quote(value)} && "
+        for name, value in (("NVM_NODEJS_ORG_MIRROR", os.environ.get("LEXVERSE_NODEJS_MIRROR")),
+                            ("npm_config_registry", os.environ.get("LEXVERSE_NPM_REGISTRY")))
+        if value
+    )
+    source = os.environ.get("LEXVERSE_NVM_SOURCE")
+    fetch = (f'curl -fsSL {shlex.quote(source.rstrip("/") + "/nvm.sh")} -o "$NVM_DIR/nvm.sh"' if source else
+             f"curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/{NVM_VERSION}/install.sh | PROFILE=/dev/null bash")
+    # Reuse a Node.js the image already ships; HOME is a fresh per-trial mount, so nvm would reinstall every time.
+    preinstalled = (f"command -v node >/dev/null 2>&1 && "
+                    f"[ \"$(node -p 'process.versions.node.split(\".\")[0]')\" -ge {node_major} ]")
     return (
-        'export NVM_DIR="$HOME/.nvm" && mkdir -p "$NVM_DIR" && '
-        f"curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/{NVM_VERSION}/install.sh | PROFILE=/dev/null bash && "
-        '. "$NVM_DIR/nvm.sh" && '
-        f"nvm install {node_major} && npm -v"
+        exports
+        + f"if {preinstalled}; then npm -v; else "
+        + 'export NVM_DIR="$HOME/.nvm" && mkdir -p "$NVM_DIR" && '
+        + fetch + " && "
+        + '. "$NVM_DIR/nvm.sh" && '
+        + f"nvm install {node_major} && npm -v; fi"
     )

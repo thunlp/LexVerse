@@ -16,9 +16,9 @@ To assist reliably in Chinese legal practice, a large language model must progre
     - `1-1` (*Article Recitation*, ROUGE-L)
     - `1-2` (*Knowledge Question Answering*, Accuracy)
   - **2. Legal Knowledge Understanding (`2-1` to `2-10`)**:
-    - `2-1` (*Document Proofreading*, F0.5), `2-2` (*Dispute Focus Identification*, F1), `2-3` (*Marital Disputes Identification*, F1), `2-4` (*Issue Topic Identification*, ROUGE-L), `2-5` (*Reading Comprehension*, rc-F1), `2-6` (*Named Entity Recognition*, soft-F1), `2-7` (*Opinion Summarization*, ROUGE-L), `2-8` (*Argument Mining*, Accuracy), `2-9` (*Event Detection*, F1), `2-10` (*Trigger Word Extraction*, soft-F1)
+    - `2-1` (*Document Proofread*, F0.5), `2-2` (*Dispute Focus Identification*, F1), `2-3` (*Marital Disputes Identification*, F1), `2-4` (*Issue Topic Identification*, ROUGE-L), `2-5` (*Reading Comprehension*, rc-F1), `2-6` (*Name Entity Recognition*, soft-F1), `2-7` (*Opinion Summarization*, ROUGE-L), `2-8` (*Argument Mining*, Accuracy), `2-9` (*Event Detection*, F1), `2-10` (*Trigger Word Extraction*, soft-F1)
   - **3. Legal Knowledge Application (`3-1` to `3-8`)**:
-    - `3-1` (*Fact-based Article Prediction*, F1), `3-2` (*Scene-based Article Prediction*, ROUGE-L), `3-3` (*Charge Prediction*, F1), `3-4` (*Prison Term Prediction w/o Article*, Normalized Log Distance), `3-5` (*Prison Term Prediction w/ Article*, Normalized Log Distance), `3-6` (*Case Analysis*, Accuracy), `3-7` (*Criminal Damages Calculation*, Accuracy), `3-8` (*Consultation*, ROUGE-L)
+    - `3-1` (*Fact-based Article Prediction*, F1), `3-2` (*Scene-based Article Prediction*, ROUGE-L), `3-3` (*Charge Prediction*, F1), `3-4` (*Prison Term Prediction w.o Article*, Normalized Log Distance), `3-5` (*Prison Term Prediction w. Article*, Normalized Log Distance), `3-6` (*Case Analysis*, Accuracy), `3-7` (*Crimal Damages Calculation*, Accuracy), `3-8` (*Consultation*, ROUGE-L)
 
 ---
 
@@ -116,6 +116,25 @@ lexverse job verify runs/lawbench-qwen7b-full
 lexverse job report runs/lawbench-qwen7b-full
 ```
 
+### 2.4 Agent and Capability Runs
+
+Vanilla runs require `lexverse setup`, a working Docker daemon, and an OpenAI-compatible model service that supports tool calling. Set `agents: [{name: vanilla}]` and keep the Static configuration resource-free. For a capability-augmented run, download the knowledge indexes and add them to a separate Job file:
+
+```yaml
+resources:
+  knowledge:
+  - collection:legal_laws
+  # Optional: remove the built-in file tools; Skills then cannot be used.
+  disabled_tools: [ls, read_file, write_file, edit_file, glob, grep, execute]
+```
+
+```bash
+lexverse resources download indexes --collections legal_laws
+lexverse run -c configs/jobs/lawbench-cap.local.yaml --output-dir runs/lawbench-vanilla-cap
+```
+
+Select collections and Skills for the experiment and check them for overlap with the evaluation data. For paired comparisons on a random sample, list the sampled IDs under each task's `cases` (see [Job configuration](../../../configs/jobs/README.md)).
+
 ---
 
 ## 3. Upstream Adaptation & Rationale
@@ -126,9 +145,9 @@ LexVerse executes the native `evaluation/evaluation_functions/*.py` modules from
    - **Context**: Upstream `evaluation/utils/function_utils.py` imports `from rouge_chinese import Rouge` at the top level even when running non-ROUGE tasks.
    - **Adaptation**: Moves the `rouge_chinese` import inside `compute_rouge(hyps, refs)` with an actionable `ImportError` message.
 2. **Thread-Safe & Relocatable `wsjd.py` Execution (`002-wsjd-relocatable.patch`)**:
-   - **Context**: Upstream `evaluation/evaluation_functions/wsjd.py` (`2-1` Document Proofreading) calls `os.chdir('utils')`, writes fixed filenames (`tmp_pred.para`, `tmp_gold.para`) in the current directory, and shells out to `python3 parallel_to_m2.py`.
+   - **Context**: Upstream `evaluation/evaluation_functions/wsjd.py` (`2-1` Document Proofread) calls `os.chdir('utils')`, writes fixed filenames (`tmp_pred.para`, `tmp_gold.para`) in the current directory, and shells out to `python3 parallel_to_m2.py`.
    - **Adaptation**: Resolves `evaluation/utils` relative to `__file__`, writes ChERRANT intermediate files inside an isolated `tempfile.TemporaryDirectory`, and invokes `sys.executable` with `cwd=utils_dir` without mutating the process working directory.
-3. **Legacy `Qwen-7B-Chat` ChatML Stop Tokens & Middle Truncation (`lexverse/providers/local.py`)**:
+3. **Legacy `Qwen-7B-Chat` ChatML Stop Tokens & Middle Truncation (`lexverse/llms/local.py`)**:
    - **Context**: First-generation `Qwen-7B-Chat` uses a custom `tiktoken` vocabulary without a Jinja `chat_template`; its ChatML turn terminator `<|im_end|>` (`151645`) differs from `eos_token_id` (`<|endoftext|>` = `151643`), and a handful of long legal case documents exceed the 8,192-token context window.
    - **Adaptation**: `LocalBackend` passes `stop_token_ids=[im_end_id, im_start_id, eod_id]` to `vllm.SamplingParams` and applies head+tail middle truncation when a prompt plus `max_tokens` exceeds `context_limit`.
 
@@ -154,12 +173,12 @@ The tables below report the full **10,000-sample (20 tasks × 500 samples)** zer
 | :---: | :--- | :---: | ---: | ---: | ---: |
 | `1-1` | Article Recitation | ROUGE-L | 18.54 | **19.93** | 0.00% |
 | `1-2` | Knowledge Question Answering | Accuracy | 34.00 | **39.40** | 0.20% |
-| `2-1` | Document Proofreading | F0.5 | 15.27 | **16.67** | 0.00% |
+| `2-1` | Document Proofread | F0.5 | 15.27 | **16.67** | 0.00% |
 | `2-2` | Dispute Focus Identification | F1 | 27.93 | **32.40** | 22.60% |
 | `2-3` | Marital Disputes Identification | F1 | 35.98 | **35.38** | 11.80% |
 | `2-4` | Issue Topic Identification | ROUGE-L | 28.48 | **32.00** | 14.00% |
 | `2-5` | Reading Comprehension | rc-F1 | 44.33 | **48.84** | 0.00% |
-| `2-6` | Named Entity Recognition | soft-F1 | 51.83 | **66.69** | 0.00% |
+| `2-6` | Name Entity Recognition | soft-F1 | 51.83 | **66.69** | 0.00% |
 | `2-7` | Opinion Summarization | ROUGE-L | 34.03 | **38.28** | 0.00% |
 | `2-8` | Argument Mining | Accuracy | 24.80 | **26.80** | 0.00% |
 | `2-9` | Event Detection | F1 | 44.88 | **44.93** | 10.20% |
@@ -167,10 +186,10 @@ The tables below report the full **10,000-sample (20 tasks × 500 samples)** zer
 | `3-1` | Fact-based Article Prediction | F1 | 40.91 | **59.63** | 3.00% |
 | `3-2` | Scene-based Article Prediction | ROUGE-L | 27.60 | **32.86** | 0.00% |
 | `3-3` | Charge Prediction | F1 | 40.66 | **45.09** | 21.20% |
-| `3-4` | Prison Term Prediction (w/o Article) | Norm. Log Dist. | 79.66 | **81.73** | 2.60% |
-| `3-5` | Prison Term Prediction (w/ Article) | Norm. Log Dist. | 77.31 | **78.92** | 4.40% |
+| `3-4` | Prison Term Prediction w.o Article | Norm. Log Dist. | 79.66 | **81.73** | 2.60% |
+| `3-5` | Prison Term Prediction w. Article | Norm. Log Dist. | 77.31 | **78.92** | 4.40% |
 | `3-6` | Case Analysis | Accuracy | 35.80 | **37.80** | 0.40% |
-| `3-7` | Criminal Damages Calculation | Accuracy | 39.20 | **44.00** | 0.00% |
+| `3-7` | Crimal Damages Calculation | Accuracy | 39.20 | **44.00** | 0.00% |
 | `3-8` | Consultation | ROUGE-L | 19.72 | **19.58** | 0.00% |
 | **All** | **20-Task Macro Average (10,000 Samples)** | **Mean** | **37.00** | **41.05** | **4.52%** |
 
@@ -178,6 +197,18 @@ The tables below report the full **10,000-sample (20 tasks × 500 samples)** zer
 
 - **Exact Evaluator Parity (`0.00` Diff on Upstream Predictions)**: Scoring the 18 public `qwen-7b-chat-hf` prediction files included in `open-compass/LawBench` (`predictions/zero_shot/qwen-7b-chat-hf/`) through `LawBenchEvaluator` reproduces the paper's published numbers to two decimal places (`0.00` discrepancy across all 18 tasks).
 - **Why Standard ChatML Formatting (`You are a helpful assistant.`) Outperforms Upstream OpenCompass `origin_prompt` (`41.05` vs. `37.00`)**:
-  1. **System Message vs. Bare `user` Turn**: Inspecting `origin_prompt` in upstream's `predictions/zero_shot/qwen-7b-chat-hf/*.json` shows that OpenCompass constructed a bare single-turn template (`"\n<|im_start|>user\n...\n<|im_end|>\n<|im_start|>assistant\n"`) without the `<|im_start|>system\nYou are a helpful assistant.<|im_end|>` header used by `Qwen-7B-Chat`'s official `make_context()` (`modeling_qwen.py`) and by LexVerse (`lexverse/providers/local.py:encode`).
+  1. **System Message vs. Bare `user` Turn**: Inspecting `origin_prompt` in upstream's `predictions/zero_shot/qwen-7b-chat-hf/*.json` shows that OpenCompass constructed a bare single-turn template (`"\n<|im_start|>user\n...\n<|im_end|>\n<|im_start|>assistant\n"`) without the `<|im_start|>system\nYou are a helpful assistant.<|im_end|>` header used by `Qwen-7B-Chat`'s official `make_context()` (`modeling_qwen.py`) and by LexVerse (`lexverse/llms/local.py:encode`).
   2. **Interaction with `2-6` (`xxcq.py`) Delimiter Parsing**: With the standard system prompt, `Qwen-7B-Chat` formats extracted entities one per line (`\n`), whereas without the system prompt it frequently joins all 10 entity types on a single line with full-width semicolons (`；`). Because upstream `evaluation/utils/comprehension_scores.py:__extract_entities_pred` splits each entity value only on `\n` or ASCII space (`re.split("\n| ", ...)`), semicolon-joined lines cause the parser to swallow the remaining string into a single entity value, explaining why `2-6` rises from `51.83` to `66.69` under standard ChatML formatting.
   3. **HuggingFace `generation_config.json` Defaults**: In addition, the official `Qwen/Qwen-7B-Chat` checkpoint's `generation_config.json` sets `repetition_penalty: 1.1` by default; even when OpenCompass enabled greedy decoding (`do_sample=False`), `transformers.GenerationMixin.generate()` still applies `RepetitionPenaltyLogitsProcessor(1.1)` unless `repetition_penalty=1.0` is explicitly overridden, whereas `vllm` with `generation_config="vllm"` uses pure unpenalized greedy decoding (`repetition_penalty=1.0`).
+
+---
+
+## 5. Sampled Capability Comparison (`deepseek-v4.1-flash`)
+
+`deepseek-v4.1-flash` (`temperature: 0`, `max_tokens: 4096`, thinking disabled) answers a random sample of 50 items per task (1,000 items, seed `20261107:lawbench:<task>:sample50`, excluding items examined during development). Vanilla runs allow 8 model calls, 16 tool calls, and 300 seconds per trial, without the built-in file tools. Vanilla + capability adds the LexVerse knowledge tools (`lexverse resources download indexes`) on `1-1`, `3-1`, and `3-2`.
+
+| Scenario | Overall (item-weighted) | Δ vs Static |
+| :--- | ---: | ---: |
+| Static | 60.16 | +0.00 |
+| Vanilla w/o capability | 62.98 | +2.82 |
+| Vanilla + capability | 66.33 | +6.17 |

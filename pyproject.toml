@@ -79,7 +79,6 @@ j1bench = [
     "tqdm>=4.0",
     "numpy>=1.20,<2",
 ]
-# rouge and rouge_chinese share an import path; combined installs may change Rouge scores.
 lawbench = [
     "rouge_chinese>=1.0",
     "cn2an>=0.5",
@@ -111,7 +110,7 @@ legalworld = [
 lexeval = [
     "jsonlines>=3.0",
     "jieba>=0.42",
-    "rouge>=1.0",
+    "rouge_chinese>=1.0",
     # Upstream evaluators require NumPy 1.x compatibility.
     "numpy>=1.20,<2",
 ]
@@ -176,7 +175,8 @@ exclude = ["reference_harness*", "tests*", "data*", "docs*"]
 "lexverse.environments" = ["egress/*", "egress/bin/*"]
 "lexverse.benchmarks.dlawbench" = ["catalog.yaml"]
 "lexverse.benchmarks.j1bench" = ["patches/*.patch", "catalog.yaml"]
-"lexverse.benchmarks.lawbench" = ["patches/*.patch", "catalog.yaml"]
+"lexverse.benchmarks" = ["agent_instructions.md"]
+"lexverse.benchmarks.lawbench" = ["patches/*.patch", "catalog.yaml", "agent_instructions/*.md"]
 "lexverse.benchmarks.legalworld" = ["catalog.yaml", "patches/*.patch"]
 "lexverse.benchmarks.lexeval" = ["patches/*.patch", "catalog.yaml"]
 "lexverse.benchmarks.plawbench" = ["patches/*.patch", "catalog.yaml"]

@@ -1,8 +1,10 @@
 diff --git a/src/evaluation/src_eval/utils.py b/src/evaluation/src_eval/utils.py
-index bc02be6..be177c9 100644
+index bc02be6..8a6633d 100644
 --- a/src/evaluation/src_eval/utils.py
 +++ b/src/evaluation/src_eval/utils.py
-@@ -10,10 +10,12 @@ from openai import OpenAI
+@@ -8,12 +8,15 @@ Created on Sun Sep 22 19:35:01 2024
+ import json
+ from openai import OpenAI
  from typing import List, Tuple
 -from requests.exceptions import ConnectionError, Timeout, RequestException
  import time
@@ -10,6 +12,7 @@ index bc02be6..be177c9 100644
 +import os
 +import re
 +import threading
++import random
 +import openai
  
 -api_key = openai_config["api"]
@@ -19,10 +22,15 @@ index bc02be6..be177c9 100644
  
  def load_jsonl(file_raw: str) -> List[dict]:
      filename = file_raw
-@@ -38,46 +40,101 @@ def save_file(output: dict, file: str):
+@@ -38,46 +41,116 @@ def save_file(output: dict, file: str):
      with open(file, 'w', encoding='utf-8') as f:
          json.dump(output, f, ensure_ascii=False, indent=4)
          
+-def get_completion(prompt: str, history: List[Tuple[str, str]]):
+-    client = OpenAI(api_key=api_key,
+-                    base_url=api_url)
+-    max_retries = 3
+-    for attempt in range(max_retries):
 +_metadata = {"requests": 0, "responses": [], "errors": []}
 +_metadata_lock = threading.Lock()
 +
@@ -57,16 +65,25 @@ index bc02be6..be177c9 100644
 +    return parsed[key]
 +
 +
- def get_completion(prompt: str, history: List[Tuple[str, str]]):
--    client = OpenAI(api_key=api_key,
--                    base_url=api_url)
--    max_retries = 3
--    for attempt in range(max_retries):
--        try:
++def _retry_delay(error, attempt):
++    """Wait out rate limits (honouring Retry-After) and transient API errors; retry bad JSON at once."""
++    if not isinstance(error, (openai.RateLimitError, openai.APIConnectionError,
++                              openai.APITimeoutError, openai.InternalServerError)):
++        return 0.0
++    headers = getattr(getattr(error, "response", None), "headers", None) or {}
++    for name, scale in (("retry-after-ms", 1000.0), ("retry-after", 1.0)):
+         try:
 -            SYSTEM_PROMPT = """You are a helpful assistant."""
 -            messages = []
 -            messages.append({'role': 'system', "content": SYSTEM_PROMPT})
 -            if history != []:
++            return float(headers.get(name)) / scale + random.uniform(0, 3)
++        except (TypeError, ValueError):
++            pass
++    return min(60.0, 2.0 ** (attempt + 1)) + random.uniform(0, 3)
++
++
++def get_completion(prompt: str, history: List[Tuple[str, str]]):
 +    parameters = json.loads(os.environ.get("MASER_SCORING_PARAMETERS", "{}"))
 +    parameters.setdefault("max_tokens", 1024)
 +    parameters.setdefault("temperature", 0)
@@ -160,11 +177,12 @@ index bc02be6..be177c9 100644
 +                    _save_metadata()
 +                if attempt == max_retries - 1:
 +                    raise RuntimeError(type(error).__name__) from None
++                time.sleep(_retry_delay(error, attempt))
 +        raise RuntimeError("scoring attempts exhausted")
 +    finally:
 +        client.close()
 diff --git a/src/evaluation/src_eval/eval.py b/src/evaluation/src_eval/eval.py
-index 7d4305c..22bd663 100644
+index 7d4305c..a747321 100644
 --- a/src/evaluation/src_eval/eval.py
 +++ b/src/evaluation/src_eval/eval.py
 @@ -51,15 +51,9 @@ class InteractionEvaluator(BaseEvaluator):
@@ -203,7 +221,18 @@ index 7d4305c..22bd663 100644
              
          return scores
      
-@@ -209,7 +205,7 @@ class GoalEvaluator(BaseEvaluator):
+@@ -202,6 +198,10 @@ class GoalEvaluator(BaseEvaluator):
+         
+     ## split info to personal info and others
+     def _split_info(self, indictment):
++        # 以首个行首章节标题切分：起诉状前的说明文字提到“诉讼请求”等字样时，不能截断当事人信息
++        for line in re.finditer(r'(?m)^.*$', indictment):
++            if any(self._match_heading(section, line.group().strip()) for section in self._HEADING_TITLES):
++                return indictment[:line.start()].strip(), indictment[line.start():]
+         keywords = ["诉讼请求", "事实和理由", "证据和证据来源，证人姓名和住所"]
+         
+         pattern = '|'.join(map(re.escape, keywords))
+@@ -209,7 +209,7 @@ class GoalEvaluator(BaseEvaluator):
          
          # 提取个人信息和其他信息
          p_info = parts[0].strip()  # 个人信息
@@ -212,26 +241,79 @@ index 7d4305c..22bd663 100644
          
          return p_info, others
          
-@@ -268,14 +264,16 @@ class GoalEvaluator(BaseEvaluator):
-         }
- 
-         current_section = None
-+        heading_prefix = r'^(?:#{1,6}\s*)?(?:(?:\*\*|__)\s*)?(?:[（(]?[一二三四五六七八九十百0-9]+[）).、．]\s*)?(?:(?:\*\*|__)\s*)?'
-+        heading_suffix = r'(?:\s*(?:\*\*|__)?\s*[:：]|\s*(?:\*\*|__)?\s*$)'
+@@ -259,6 +259,19 @@ class GoalEvaluator(BaseEvaluator):
+         
+         return plaintiff_score, defendant_score
+     
++    # 标题可带 Markdown/编号前缀；证据标题常被模型写成简写或顿号、“及”等变体
++    _HEADING_PREFIX = r'^(?:#{1,6}\s*)?(?:(?:\*\*|__)\s*)?(?:[（(]?[一二三四五六七八九十百0-9]+[）).、．]\s*)?(?:(?:\*\*|__)\s*)?'
++    _HEADING_SUFFIX = r'(?:\s*(?:\*\*|__)?\s*[:：]|\s*(?:\*\*|__)?\s*$)'
++    _HEADING_TITLES = {
++        "事实和理由": r'事实(?:和|与)理由',
++        "诉讼请求": r'诉讼请求',
++        "证据": r'证据(?:和证据来源)?(?:\s*[，、,；;]?\s*证人姓名(?:和|及|与)住所)?',
++    }
++
++    def _match_heading(self, section, text):
++        return re.match(self._HEADING_PREFIX + self._HEADING_TITLES[section] + self._HEADING_SUFFIX,
++                        text, re.M)
++
+     ## split string to three sections
+     def _split_string(self,input_str):
+         sections = {
+@@ -271,11 +284,11 @@ class GoalEvaluator(BaseEvaluator):
  
          for line in input_str.splitlines():
              line = line.strip()
 -            if "事实和理由" in line:
-+            if re.match(heading_prefix + re.escape("事实和理由") + heading_suffix, line):
++            if self._match_heading("事实和理由", line):
                  current_section = "事实和理由"
 -            elif "诉讼请求" in line:
-+            elif re.match(heading_prefix + re.escape("诉讼请求") + heading_suffix, line):
++            elif self._match_heading("诉讼请求", line):
                  current_section = "诉讼请求"
 -            elif "证据和证据来源，证人姓名和住所" in line:
-+            elif re.match(heading_prefix + re.escape("证据和证据来源，证人姓名和住所") + heading_suffix, line):
++            elif self._match_heading("证据", line):
                  current_section = "证据"
                  
                  
+@@ -288,20 +301,33 @@ class GoalEvaluator(BaseEvaluator):
+         
+         return sections
+     
++    def _section_body(self, section, text):
++        heading = self._match_heading(section, text)
++        return text[heading.end():] if heading else text
++
++    # 章节缺失或只有标题时不交给评委：评委对空输入会给高分（gpt-4o 实测给满分），直接记最低分
++    def _judge_section(self, prompt, body):
++        if not body.strip(' *_#:：\n'):
++            return json.dumps({"分数": 1, "解释": "未提取到该部分内容"}, ensure_ascii=False)
++        return utils.get_completion(prompt, [])[0]
++
+     ## eval F&R, claims, evidence
+     def _eval_fact_claim_evidence(self, d_ground_truth, rest):
+         sections = self._split_string(rest)
+         claim = sections['诉讼请求'].replace('诉讼请求：', '')
+         r_f = sections['事实和理由'].replace('事实和理由：', '')
+-        evidence = sections['证据'].replace('证据和证据来源，证人姓名和住所：', '').split('\n\n')[0]
++        # 去掉标题本身（保留同行内容），截到落款“此致”为止；标题后常有空行，不能按首个空行截断
++        heading = self._match_heading("证据", sections['证据'])
++        evidence = sections['证据'][heading.end():] if heading else ''
++        evidence = re.split(r'\n[\s#*_]*此致', evidence)[0].strip(' *_\n')
+         g_t_claim = d_ground_truth['claim']['非诉讼费用内容']+'。' + d_ground_truth['claim']['诉讼费用内容']
+         g_t_evi = ''.join(d_ground_truth['evidence']['原告'])
+         prompt_claim = prompts.local.format(generated=claim, ground_truth=g_t_claim)
+         prompt_r_f = prompts.local.format(generated=r_f, ground_truth=d_ground_truth['case_r_f'])
+         prompt_evi = prompts.local.format(generated=evidence, ground_truth=g_t_evi)
+-        score_claim = utils.get_completion(prompt_claim, [])[0]
+-        score_r_f = utils.get_completion(prompt_r_f, [])[0]
+-        score_evidence = utils.get_completion(prompt_evi, [])[0]
++        score_claim = self._judge_section(prompt_claim, self._section_body("诉讼请求", sections['诉讼请求']))
++        score_r_f = self._judge_section(prompt_r_f, self._section_body("事实和理由", sections['事实和理由']))
++        score_evidence = self._judge_section(prompt_evi, evidence)
+         
+         return score_claim, score_r_f, score_evidence
+     
 diff --git a/src/evaluation/src_eval/main.py b/src/evaluation/src_eval/main.py
 index 88b5375..d6963c1 100644
 --- a/src/evaluation/src_eval/main.py

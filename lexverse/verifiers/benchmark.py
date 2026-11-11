@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
+import contextvars
+import functools
 import hashlib
 import importlib
 from abc import ABC, abstractmethod
@@ -14,6 +17,18 @@ from lexverse.utils.identity import identity
 from lexverse.job import Scheduler
 from lexverse.models.task.task import LexVerseTask
 from lexverse.models.verifier.result import RunVerificationResult
+
+
+# Native scorers block a thread while their judge request runs on the event loop. They get their own
+# pool: once they fill the default executor, the loop cannot resolve hosts (getaddrinfo runs there),
+# so no judge request is sent and every scorer waits forever.
+_NATIVE_SCORERS = ThreadPoolExecutor(thread_name_prefix="native-scorer")
+
+
+async def run_native_scorer(function, /, *args):
+    """Run a blocking upstream scorer off the event loop without starving the default executor."""
+    call = functools.partial(contextvars.copy_context().run, function, *args)
+    return await asyncio.get_running_loop().run_in_executor(_NATIVE_SCORERS, call)
 
 
 class BenchmarkVerifier(ABC):

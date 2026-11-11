@@ -30,7 +30,23 @@ def build_system_prompt(resources: dict[str, Any]) -> str:
     """Build shared instructions without exposing backend index paths."""
     sources = [{"id": record["preparation"]["source_id"], "name": record["preparation"]["source_name"]}
                for record in resources.get("knowledge", [])]
-    return SYSTEM_PREAMBLE + json.dumps(sources, ensure_ascii=False)
+    discovery = {record["alias"]: record for record in resources.get("mcp") or []}
+    services = []
+    for server in resources.get("mcp_servers", []):
+        record = discovery.get(server["name"], {})
+        tools = server.get("allowed_tools")
+        if tools is None:
+            tools = [tool["remote_name"] for tool in record.get("tools", [])]
+        service = {"name": server["name"], "tools": tools, "status": record.get("status", "configured")}
+        services.append(service)
+        knowledge_tools = [tool for tool in tools if tool in {"search_knowledge", "fetch_knowledge"}]
+        if knowledge_tools and service["status"] != "unavailable":
+            sources.append({"id": server["name"], "name": server["name"], "access": "MCP", "tools": knowledge_tools})
+    prompt = SYSTEM_PREAMBLE + json.dumps(sources, ensure_ascii=False)
+    if services:
+        prompt += "\nExternal MCP services: " + json.dumps(services, ensure_ascii=False)
+        prompt += "\nUse the registered MCP tools to access these services; knowledge is not a workspace file."
+    return prompt
 
 
 def build_external_instruction(system_prompt: str, messages: list[dict]) -> str:
@@ -221,6 +237,9 @@ async def _collect_result(
         answer = None
         result["answer_error"] = type(exc).__name__
     result["answer"] = answer
+    answer_finish = getattr(agent, 'final_answer_finish_reason', None)
+    if answer_finish is not None:
+        result.update(answer_finish_reason=answer_finish, answer_truncated=answer_finish == 'length')
     if getattr(agent, "last_result", None) is None:
         result.update(status="completed", stop_reason="final_answer" if answer else "execution_completed")
     if (result.get("status") == "completed" and not answer and not spec.artifacts
@@ -281,6 +300,8 @@ async def execute_general_agent(
 
     # Keep built-in task messages separate; external adapters accept one string.
     system_prompt = build_system_prompt(resources)
+    if spec.instructions:
+        system_prompt += "\n\n" + spec.instructions
     instruction = system_prompt if agent_name == "vanilla" else build_external_instruction(system_prompt, spec.messages)
 
     context = AgentContext()

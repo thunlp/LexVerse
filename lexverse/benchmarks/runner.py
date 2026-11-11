@@ -111,6 +111,7 @@ def build_run(config):
             "scope": "full" if set(counts) == (set(entry["id"] for entry in config.benchmark["tasks"])
                                               if plugin.name == "legalworld" else set(plugin.task_types()))
             and not config.benchmark.get("cases")
+            and not any(isinstance(entry, dict) and entry.get("cases") for entry in config.benchmark.get("tasks") or [])
             and all(count["selected"] == count["available"] for count in counts.values()) else "selected",
             "task_types": list(counts), "sample_count": len(bundle.tasks),
         },
@@ -278,7 +279,18 @@ def generation_models(config, benchmark, tasks):
     return plugin.generation_models(config, TaskBundle(benchmark=benchmark, source_version=plugin.source_version, tasks=tasks))
 
 
-def agent_spec(config, run, *, messages=None, template=None):
+AGENT_INSTRUCTIONS = Path(__file__).parent / 'agent_instructions.md'
+
+
+def agent_instructions(plugin, task_type):
+    """Answer instructions for agents running a benchmark task: the shared file plus the
+    benchmark's `agent_instructions/<task_type>.md`, if any. Static runs keep the native prompts."""
+    task_file = Path(sys.modules[type(plugin).__module__].__file__).parent / 'agent_instructions' / f'{task_type}.md'
+    parts = [path.read_text(encoding='utf-8').strip() for path in (AGENT_INSTRUCTIONS, task_file) if path.is_file()]
+    return '\n\n'.join(part for part in parts if part) or None
+
+
+def agent_spec(config, run, *, messages=None, template=None, instructions=None):
     from lexverse.agents.base import AgentExecutionSpec
 
     environment = config.raw.get('environment', {})
@@ -295,7 +307,8 @@ def agent_spec(config, run, *, messages=None, template=None):
         network_mode="public", allowed_hosts=[],
         environment_config=environment_config,
         context_window_tokens=config.generation.get("context_window_tokens"),
-        skills_root=template / ".internal/agent_fs/skills" if template else None)
+        skills_root=template / ".internal/agent_fs/skills" if template else None,
+        instructions=instructions)
 
 
 async def prepare_capabilities(config, plugin, bundle, manifest, root, *, resume):
@@ -307,7 +320,7 @@ async def prepare_capabilities(config, plugin, bundle, manifest, root, *, resume
 
     for kind in dict.fromkeys(task.source.task_type for task in bundle.tasks):
         template = root / ".internal/capabilities" / kind
-        spec = agent_spec(config, template)
+        spec = agent_spec(config, template, instructions=agent_instructions(plugin, kind))
         protected = [path.resolve().parent for path in dataset.values()]
         if hasattr(plugin, "upstream"):
             protected.extend([plugin.upstream.pristine_dir, plugin.upstream.cache_dir])
@@ -359,7 +372,8 @@ async def execute_agent(trial, config, plugin, runtime, resource_root, work, pro
     run = work / 'agent'
     template = resource_root / '.internal/capabilities' / trial.task.source.task_type
     messages = list(trial.task.input.messages or [{'role': 'user', 'content': trial.task.input.prompt}])
-    spec = agent_spec(config, run, messages=messages, template=template)
+    spec = agent_spec(config, run, messages=messages, template=template,
+                      instructions=agent_instructions(plugin, trial.task.source.task_type))
 
     try:
         result = await run_worker(spec, config.agent, template=template, task_id=trial.task.id)
@@ -381,12 +395,18 @@ async def execute_agent(trial, config, plugin, runtime, resource_root, work, pro
 
     messages.append({'role': 'assistant', 'content': result['answer']})
 
+    trace_ref = result['trace_ref']
+    # Vanilla writes a LexVerse event trace; external agents may only have a trajectory.
+    # Do not declare a missing optional trace as an execution artifact.
+    artifacts = ({'agent_trace': trace_ref}
+                 if config.agent == 'vanilla' or Path(trace_ref).is_file() else {})
+    trace = {'agent': config.agent, 'resource_hash': result['resource_hash']}
+    if artifacts:
+        trace['trace_ref'] = trace_ref
     return EnvironmentResult(status='completed', answer=result['answer'], messages=messages,
         dialog_history=[{'actor': trial.task.participants[0].id, 'content': result['answer']}],
         final_state={'data': {'usage': result['usage']}},
-        artifacts={'agent_trace': result['trace_ref']},
-        trace=[{'agent': config.agent, 'trace_ref': result['trace_ref'],
-                'resource_hash': result['resource_hash']}])
+        artifacts=artifacts, trace=[trace])
 
 
 async def execute_trial(trial: Trial, config, plugin, runtime, resource_root, providers=None):

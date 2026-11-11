@@ -14,6 +14,9 @@ from lexverse.capabilities.knowledge.retrieval import TaskRetriever
 from lexverse.utils.paths import CAPABILITIES_ROOT
 from lexverse.models.task.config import KnowledgeFilters, RetrievalConfig
 
+# Search hit fields shown to the model; citation_id is what fetch_knowledge accepts.
+MODEL_FIELDS = ("citation_id", "source_id", "kind", "title", "article", "snippet")
+
 
 def _load_retriever(indexes_manifest: Path, cache_dir: Path | None = None, *, recorder=None) -> TaskRetriever:
     data = json.loads(indexes_manifest.read_text(encoding="utf-8"))
@@ -73,7 +76,19 @@ def create_knowledge_server(indexes_manifest: Path, cache_dir: Path | None = Non
 
     @mcp.tool(
         name="search_knowledge",
-        description="Search the task's allowed legal knowledge sources and return ranked evidence snippets with citation_ids.",
+        description="检索法律知识库：法条、法规、案例、法律概念、问答和文书模板。 "
+                    "Search the task's allowed legal knowledge sources and return ranked evidence snippets with citation_ids. "
+                    "Omit source_ids to search every source, or restrict the search to some of: "
+                    + ", ".join(retriever.source_names())
+                    + ". A category such as legal_laws or legal_cases selects all of its sources. "
+                    "Use it to verify an uncertain legal rule, article, or exception before answering: legal_laws for "
+                    "provisions, legal_concepts for definitions, legal_cases for precedent or genuinely similar facts, "
+                    "legal_qa for explanatory questions, and legal_templates for document structure. "
+                    "Begin with a focused query and top_k=3. Check every disputed option and applicable exception, "
+                    "not only the first matching clause. Put only facts supplied by the task into queries; do not import "
+                    "facts from distractors or assume masked facts. When the task gives a relevant date, check the "
+                    "applicable law version. When the task is confined to a supplied passage, use that passage as the "
+                    "evidence. Retrieved cases and answers are evidence to assess, not replacements for the task's facts.",
     )
     def search_knowledge(
         query: Annotated[str, Field(min_length=1, max_length=3000)],
@@ -81,17 +96,25 @@ def create_knowledge_server(indexes_manifest: Path, cache_dir: Path | None = Non
         source_ids: list[str] | None = None,
         filters: KnowledgeFilters | None = None,
     ) -> str:
-        results = retriever.search(
-            query=query,
-            top_k=top_k,
-            source_ids=source_ids,
-            filters=filters.model_dump(exclude_none=True) if filters is not None else None,
-        )
-        return json.dumps(results, ensure_ascii=False)
+        try:
+            results = retriever.search(
+                query=query,
+                top_k=top_k,
+                source_ids=source_ids,
+                filters=filters.model_dump(exclude_none=True) if filters is not None else None,
+            )
+        except ValueError as exc:
+            # Tool exceptions reach the model only as a generic failure; return the reason so it can retry.
+            return json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False)
+        # Hashes and offsets are bookkeeping; they tripled the payload and pushed results into file offloading.
+        return json.dumps([{key: hit[key] for key in MODEL_FIELDS if hit.get(key) not in (None, "")}
+                           for hit in results], ensure_ascii=False)
 
     @mcp.tool(
         name="fetch_knowledge",
-        description="Fetch the full text of a legal knowledge chunk by its citation_id (`knowledge:<index_hash>:<chunk_id>`).",
+        description="获取检索命中的法律证据原文。 "
+                    "Fetch the full text of a legal knowledge chunk by its citation_id (`knowledge:<index_hash>:<chunk_id>`), "
+                    "for example the original text of a relevant search hit.",
     )
     def fetch_knowledge(
         citation_id: str,

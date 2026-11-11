@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+from functools import cached_property
 import hashlib
 import importlib.metadata
 import json
@@ -14,6 +16,7 @@ from lexverse.capabilities.knowledge.loaders import (
     Document, KINDS, LOADER_VERSION, hash_file, load_documents, scan_source, source_kind,
 )
 from lexverse.capabilities.knowledge.keyword import create_tokenizer, tokenize
+from lexverse.capabilities.knowledge.sources import MANIFEST_NAME
 from lexverse.config import ConfigError
 from lexverse.utils.files import atomic_write_json
 from lexverse.utils.identity import identity as _hash
@@ -26,15 +29,13 @@ def is_index_directory(path: Path) -> bool:
 
 def _build_recipe(recipe: dict) -> dict:
     return {key: value for key, value in recipe.items()
-            if key not in {"top_k", "keyword_candidates", "vector_candidates"}}
+            if key not in {"top_k", "keyword_candidates", "vector_candidates"}
+            and not (key == "chunk_tokens_by_kind" and not value)}
 
 
 def _index_retrieval(config: RetrievalConfig, embedding_identity: dict) -> dict:
     recipe = _build_recipe(config.model_dump())
-    # Keep the default embedding label compatible with published indexes;
-    # query settings are excluded from the build recipe.
-    recipe["embedding"] = ("bge_small_zh" if config.mode == "keyword" or config.embedding.uses_default_encoding()
-                           else embedding_identity)
+    recipe["embedding"] = None if config.mode == "keyword" else embedding_identity
     return recipe
 
 
@@ -224,11 +225,11 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
         token_length = lambda text: len(tokenize(tokenizer, text))
         embedding_identity = {"tokenizer": "jieba", "vector": False}
     else:
-        token_length = lambda text: len(embedding.tokenizer.encode(text))
         embedding_identity = embedding.identity
         prefix = getattr(embedding, "document_prefix", "")
-        overhead = len(embedding.tokenizer.encode(prefix)) if prefix else 2
-        if config.chunk_tokens > embedding.identity["max_tokens"] - overhead:
+        # Count exactly the input that will be encoded, including special tokens.
+        token_length = lambda text: len(embedding.tokenizer.encode(prefix + text))
+        if max([config.chunk_tokens, *config.chunk_tokens_by_kind.values()]) > embedding.identity["max_tokens"]:
             raise ConfigError("Chunk size exceeds embedding model capacity")
     retrieval_identity = _index_retrieval(config, embedding_identity)
     try:
@@ -241,7 +242,10 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
         "retrieval": retrieval_identity, "embedding": embedding_identity,
         "jieba": importlib.metadata.version("jieba"), "dictionary": hash_file(Path(tokenizer.get_dict_file().name)),
         "splitter": splitter_version,
+        "chunk_policy": "whole-record-within-kind-limit-v1",
     }
+    if "lecardv2" in logical_name.lower().split("/") and "legal_cases" in logical_name.split("/"):
+        identity["keyword_policy"] = "qw-v1"
     index_hash = _hash(identity)
     destination = cache / "indexes" / index_hash
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -257,11 +261,8 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
             db = sqlite3.connect(staged / "documents.sqlite")
             db.execute("CREATE TABLE chunks (id TEXT PRIMARY KEY, text TEXT NOT NULL, metadata TEXT NOT NULL)")
             db.execute("CREATE VIRTUAL TABLE keywords USING fts5(id UNINDEXED, tokens)")
-            splitter = _build_text_splitter(
-                config.chunk_tokens,
-                config.overlap_tokens,
-                token_length,
-            )
+            splitters = {size: _build_text_splitter(size, config.overlap_tokens, token_length)
+                         for size in {config.chunk_tokens, *config.chunk_tokens_by_kind.values()}}
             vector_index, ids = None, []
             completed_files = 0
 
@@ -276,7 +277,12 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
                 for document in load_documents(source, files, source_id, cache=cache, file_completed=file_completed):
                     previous_start = -1
                     previous_text = ""
-                    for ordinal, chunk in enumerate(splitter.split_documents([document])):
+                    limit = config.chunk_tokens_by_kind.get(document.metadata["kind"], config.chunk_tokens)
+                    chunks = ([document] if token_length(document.page_content) <= limit
+                              else splitters[limit].split_documents([document]))
+                    for ordinal, chunk in enumerate(chunks):
+                        if token_length(chunk.page_content) > limit:
+                            raise ConfigError("Chunk exceeds its token limit; refusing to truncate")
                         # Token overlap is not a reliable character offset in repeated text.
                         extends_previous = previous_text and len(chunk.page_content) > len(previous_text) and chunk.page_content.startswith(previous_text)
                         start = document.page_content.find(chunk.page_content, previous_start if extends_previous else previous_start + 1)
@@ -295,8 +301,15 @@ def build_index(source: Path, cache: Path, config: RetrievalConfig, embedding=No
                                                "text_hash": hashlib.sha256(chunk.page_content.encode()).hexdigest()})
                         db.execute("INSERT INTO chunks VALUES (?, ?, ?)",
                                    (chunk_id, chunk.page_content, json.dumps(chunk.metadata, ensure_ascii=False)))
-                        db.execute("INSERT INTO keywords VALUES (?, ?)",
-                                   (chunk_id, " ".join(tokenize(tokenizer, chunk.page_content))))
+                        keyword_text = chunk.page_content
+                        if "keyword_span" in document.metadata:
+                            left, right = document.metadata["keyword_span"]
+                            left = max(start, left)
+                            right = min(start + len(chunk.page_content), right)
+                            keyword_text = document.page_content[left:right] if left < right else ""
+                        if keyword_text.strip():
+                            db.execute("INSERT INTO keywords VALUES (?, ?)",
+                                       (chunk_id, " ".join(tokenize(tokenizer, keyword_text))))
                         ids.append(chunk_id)
                         if progress is not None and len(ids) % 64 == 0:
                             progress(completed_files, len(files), len(ids))
@@ -331,7 +344,7 @@ def verify_index(path: Path) -> dict:
         manifest = json.loads((path / "manifest.json").read_text())
         if (manifest["identity"].get("format_version") != "1.0"
                 or manifest["identity"].get("loader_version") != LOADER_VERSION):
-            raise ValueError("Unsupported knowledge index version; rebuild or download a 1.0 index")
+            raise ValueError("Unsupported knowledge index version; expected format 1.0 with loader 1.0")
         if manifest["index_hash"] != path.name or _hash(manifest["identity"]) != path.name:
             raise ValueError("Index identity mismatch")
         for name, expected in manifest["files"].items():
@@ -340,6 +353,27 @@ def verify_index(path: Path) -> dict:
         return manifest
     except (OSError, ValueError, KeyError) as exc:
         raise ConfigError("Invalid, unsupported or damaged knowledge index; expected format 1.0") from exc
+
+
+def index_kinds(manifest: dict, path: Path, *, db: sqlite3.Connection | None = None) -> frozenset[str]:
+    """Return chunk kinds, including for older indexes built with a source mapping.
+
+    Unmapped sources derive both identity and chunk kinds from their paths. A source
+    manifest can override that value; old index identities still contain path kinds.
+    """
+    identity = manifest["identity"]
+    if MANIFEST_NAME not in identity["files"]:
+        return frozenset(identity["kinds"].values())
+
+    def query(connection):
+        return frozenset(row[0] for row in connection.execute(
+            "SELECT DISTINCT json_extract(metadata, '$.kind') FROM chunks") if row[0] is not None)
+
+    if db is not None:
+        return query(db)
+    uri = (path / "documents.sqlite").resolve().as_uri() + "?mode=ro&immutable=1"
+    with closing(sqlite3.connect(uri, uri=True)) as connection:
+        return query(connection)
 
 
 def preparation_report(index, cache: Path, *, skipped=None) -> dict:
@@ -379,7 +413,11 @@ class KnowledgeIndex:
             if _build_recipe(identity["retrieval"]) != _index_retrieval(config, identity["embedding"]):
                 raise ConfigError("Retrieval configuration does not match the prebuilt knowledge index")
         self.config = config.model_copy(deep=True) if config is not None else RetrievalConfig.model_validate(recipe)
-        self.db = sqlite3.connect((path / "documents.sqlite").resolve().as_uri() + "?mode=ro&immutable=1", uri=True, check_same_thread=False)
+        # Python's statement cache can reuse a statement across concurrent readers,
+        # producing another request's row even with serialized SQLite builds.
+        # Each execute must own its statement when the MCP server shares this connection.
+        self.db = sqlite3.connect((path / "documents.sqlite").resolve().as_uri() + "?mode=ro&immutable=1",
+                                  uri=True, check_same_thread=False, cached_statements=0)
         self.faiss_index = None
         self.vector_ids: list[str] = []
         self.embedding = embedding
@@ -397,6 +435,20 @@ class KnowledgeIndex:
 
     def close(self):
         self.db.close()
+
+    @cached_property
+    def kinds(self) -> frozenset[str]:
+        return index_kinds(self.manifest, self.path, db=self.db)
+
+    @cached_property
+    def statute_titles(self) -> frozenset[str]:
+        """Titles of statute articles, for exact article lookup; only legal_laws sources qualify."""
+        if "legal_laws" not in self.kinds:
+            return frozenset()
+        return frozenset(row[0] for row in self.db.execute(
+            "SELECT DISTINCT json_extract(metadata, '$.title') FROM chunks "
+            "WHERE json_extract(metadata, '$.kind') = 'legal_laws' "
+            "AND json_extract(metadata, '$.article') GLOB '第*条*'") if row[0])
 
     def document(self, chunk_id: str) -> Document:
         row = self.db.execute("SELECT text, metadata FROM chunks WHERE id = ?", (chunk_id,)).fetchone()
@@ -416,7 +468,7 @@ class KnowledgeIndex:
         q_vec = np.asarray([query_vector], dtype="float32")
         _normalize_l2_inplace(q_vec)
         filters = dict(filters or {})
-        if filters.get("kind") and set(self.manifest["identity"]["kinds"].values()) == {filters["kind"]}:
+        if filters.get("kind") and self.kinds == {filters["kind"]}:
             filters.pop("kind")
         if self.faiss_index is not None:
             fetch_k = self.manifest["chunk_count"] if filters else min(limit, len(self.vector_ids))

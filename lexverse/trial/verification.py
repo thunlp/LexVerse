@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 from lexverse.models.trial.paths import TrialPaths
 from lexverse.verifiers.task import TaskVerifier
@@ -37,6 +38,27 @@ async def verify_trial(spec, agent_environment, tests_dir: Path, records):
     upload_tests = True
     phase = "verification"
     try:
+        verifier_env = {}
+        if config.get("model"):
+            if not separate:
+                raise ValueError("Judge credentials require separate verification")
+            from lexverse.agents.model_connection import ModelConnectionSpec, resolve_model_connection
+
+            model = config["model"]
+            if model["provider"] not in {"openai", "openai_compatible"}:
+                raise ValueError("User Task Judge requires an OpenAI-compatible provider")
+            connection = resolve_model_connection(
+                model["name"], ModelConnectionSpec(provider="openai", prefixed_model=False),
+                profile=model.get("profile"))
+            if not connection.api_key or not connection.base_url:
+                raise ValueError("Judge connection requires an API key and base URL")
+            verifier_env = {
+                "LEXVERSE_JUDGE_MODEL": connection.model,
+                "LEXVERSE_JUDGE_BASE_URL": connection.base_url,
+                "LEXVERSE_JUDGE_API_KEY": connection.api_key,
+                "LEXVERSE_JUDGE_PARAMETERS": json.dumps(model.get("generation_parameters", {})),
+                "LEXVERSE_TASK_INSTRUCTION": "\n\n".join(message["content"] for message in spec.messages),
+            }
         if separate:
             if spec.environment != "docker":
                 raise ValueError("Separate verification requires Docker")
@@ -70,7 +92,8 @@ async def verify_trial(spec, agent_environment, tests_dir: Path, records):
             await restore(environment, records, spec.run_dir / "artifacts")
         phase = "verification"
         verifier = TaskVerifier(tests_dir, paths, environment,
-                                   timeout_sec=config["timeout_sec"], upload_tests=upload_tests)
+                                   timeout_sec=config["timeout_sec"], upload_tests=upload_tests,
+                                   env=verifier_env)
         return (await verifier.verify()).model_dump(mode="json")
     except Exception as exc:
         return {"rewards": None, "return_code": 1, "error_type": type(exc).__name__,

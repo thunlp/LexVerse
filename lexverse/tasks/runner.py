@@ -57,6 +57,7 @@ def execution_spec(trial) -> AgentExecutionSpec:
         selection=ResourceSelection(knowledge=list(dict.fromkeys([*task.capabilities.get("knowledge", []),
                                                                   *resources.get("knowledge", [])])),
                                    skills=resources.get("skills", []), mcp_servers=servers,
+                                   disabled_tools=resources.get("disabled_tools", []),
                                    **({"tools": resources["tools"]} if "tools" in resources else {})),
         retrieval=RetrievalConfig.model_validate(execution.settings.get("retrieval", {})),
         limits=AgentLimits.model_validate(execution.settings.get("limits", {})),
@@ -150,6 +151,13 @@ async def _execute_job(config, task, *, verify=True, dry_run=False):
               [MCPService.model_validate(item) for item in config.resources.get('mcp_servers', [])])
 
     # Apply environment and verifier overrides without changing Task scoring rules.
+    judge_models = config.models.get('verifiers', [])
+    if judge_models:
+        if len(judge_models) != 1:
+            raise ConfigError('User Tasks accept one model in models.verifiers')
+        if public.verification is None or public.verification.config['environment_mode'] != 'separate':
+            raise ConfigError('User Task Judge models require separate verification')
+        public.verification.config['model'] = dict(judge_models[0])
     if config.verifier.override_timeout_sec is not None and public.verification is None:
         raise ConfigError('Verifier timeout override requires enabled Task verification')
 

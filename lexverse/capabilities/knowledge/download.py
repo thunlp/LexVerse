@@ -323,7 +323,7 @@ def _verify_collection(path, record):
 
 
 def register_collection(source: Path, index: Path, config, *, cache: Path) -> dict:
-    from lexverse.capabilities.knowledge.index import is_index_directory, verify_index
+    from lexverse.capabilities.knowledge.index import index_kinds, is_index_directory, verify_index
     from lexverse.capabilities.knowledge.loaders import KINDS
     from lexverse.utils.files import atomic_write_json
 
@@ -331,7 +331,7 @@ def register_collection(source: Path, index: Path, config, *, cache: Path) -> di
     manifest = verify_index(index)
     name = manifest["source_name"]
     if is_index_directory(source):
-        kinds = set(manifest["identity"]["kinds"].values())
+        kinds = index_kinds(manifest, index)
         if len(kinds) == 1:
             kind = next(iter(kinds))
             if kind in KINDS and name != kind:

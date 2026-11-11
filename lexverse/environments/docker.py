@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import os
 import shlex
 import stat
 import sys
@@ -24,7 +25,8 @@ class DockerEnvironment(ExecutionEnvironment):
     Harbor-compatible Docker container sandbox environment.
 
     Supports prebuilt images (`task_env_config.docker_image`), custom
-    `environment/Dockerfile`, or a default `python:3.12-slim` image.
+    `environment/Dockerfile`, or a default `python:3.12-slim` image
+    (overridable with the LEXVERSE_DOCKER_IMAGE environment variable).
     Automatically bind-mounts `/skills` (ro), `/workspace` (rw),
     `/artifacts` (rw), `/logs/agent` (rw), and `/logs/verifier` (rw).
     """
@@ -118,6 +120,8 @@ class DockerEnvironment(ExecutionEnvironment):
         self.trial_paths.chmod_dir()
         for name in ("home", "tmp", "cache", "installed-agent", "shm"):
             (self.trial_paths.runtime_dir / name).mkdir(parents=True, exist_ok=True)
+        # Mounted as /tmp and /var/tmp: keep real tmp semantics so dropped-privilege users (apt's _apt) can write.
+        (self.trial_paths.runtime_dir / "tmp").chmod(0o1777)
 
         dockerfile = self.environment_dir / "Dockerfile"
         if dockerfile.exists() and (force_build or not self.task_env_config.docker_image):
@@ -132,7 +136,8 @@ class DockerEnvironment(ExecutionEnvironment):
             if res.return_code != 0:
                 raise RuntimeError(f"Docker image build failed (exit {res.return_code}): {res.stderr or res.stdout}")
         elif not self.task_env_config.docker_image:
-            self._image_name = self.DEFAULT_IMAGE
+            # LEXVERSE_DOCKER_IMAGE swaps the default base image (e.g. one with a reachable apt mirror).
+            self._image_name = os.environ.get("LEXVERSE_DOCKER_IMAGE") or self.DEFAULT_IMAGE
 
         # Remove any stale container with the same name
         await self._run_docker(["rm", "-f", self._container_name])
@@ -227,6 +232,11 @@ class DockerEnvironment(ExecutionEnvironment):
             raise RuntimeError(
                 f"Failed to start Docker container {self._container_name}: {res.stderr or res.stdout}"
             )
+        # Provide an empty input directory when the image does not supply task materials.
+        # mkdir -p preserves files already supplied by a custom task image.
+        inputs = await self._run_docker(["exec", "-u", "root", self._container_name, "mkdir", "-p", "/inputs"])
+        if inputs.return_code != 0:
+            raise RuntimeError(f"Failed to prepare /inputs: {inputs.stderr or inputs.stdout}")
         self._container_args = run_args[:-4]
 
     async def _begin_agent_execution(self):

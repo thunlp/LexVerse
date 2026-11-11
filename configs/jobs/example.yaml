@@ -1,19 +1,21 @@
-# Example for Task id=example; configs/jobs/example.local.yaml takes precedence.
 schema_version: '1.0'
-
 path: ../../user_workspace/tasks/example
-
 agents:
 - name: vanilla
-
 models:
   default:
     provider: openai_compatible
-    profile: yeysai
-    name: gpt-4o
+    profile: openai
+    name: gpt-5.6-terra
     generation_parameters:
       temperature: 0
-
+  verifiers:
+  - provider: openai_compatible
+    profile: openai
+    name: gpt-5.6-terra
+    generation_parameters:
+      temperature: 0
+      max_completion_tokens: 6000
 generation:
   limits:
     model_calls: 20

@@ -115,6 +115,8 @@ async def execute_agent(spec: AgentExecutionSpec, *, system_prompt: str, environ
                 atomic_write_json(paths.internal / "manifest.json", manifest)
 
             skills = saved["skills"]
+            if "read_file" in spec.selection.disabled_tools and skills["skills"]:
+                raise ConfigError("Configured skills require read_file")
             async with AsyncExitStack() as stack:
                 if spec.network_mode == "allowlist" and (
                     environment.type().value != "docker" or environment.task_env_config.network_mode != "allowlist"
@@ -134,10 +136,16 @@ async def execute_agent(spec: AgentExecutionSpec, *, system_prompt: str, environ
                     spec.model, context_window_tokens=spec.context_window_tokens,
                 )
                 saver = await stack.enter_async_context(AsyncSqliteSaver.from_conn_string(str(paths.internal / "checkpoint.sqlite")))
+                domain = DomainMiddleware(
+                    ledger, skills=skills["skills"],
+                    finish_retrieval=spec.mode == "benchmark",
+                    task_messages=spec.messages, final_system_prompt=system_prompt,
+                )
                 graph = build_agent(chat_model, environment, tools=tools, skills=skills["paths"],
                                     timeout_sec=spec.limits.tool_timeout_sec,
                                     checkpointer=saver, system_prompt=system_prompt,
-                                    middleware=[DomainMiddleware(ledger, skills=skills["skills"])])
+                                    disabled_tools=spec.selection.disabled_tools,
+                                    middleware=[domain])
 
                 # Start with task messages, or resume a pending human reply.
                 config = {"configurable": {"thread_id": spec.thread_id}, "callbacks": [ledger],
@@ -199,6 +207,8 @@ async def execute_agent(spec: AgentExecutionSpec, *, system_prompt: str, environ
                         answer = answer.split("</think>", 1)[1].lstrip()
                     if not answer.strip():
                         raise ValueError("Agent final answer is empty")
+                    if domain.finish_reason is not None and re.search(r"<tool_call(?:\s|>)", answer):
+                        raise ValueError("Agent final answer contains tool-call syntax")
 
                     # Require valid output files before marking completion.
                     _, artifacts, missing = await collect_outputs(environment, spec.artifacts, spec.run_dir / "artifacts")
@@ -328,7 +338,8 @@ class VanillaAgent(BaseAgent):
 
 
 def build_agent(model, environment, *, tools=(), skills=None, checkpointer=None,
-                middleware=(), interactive=False, system_prompt="", timeout_sec: float = 60):
+                middleware=(), interactive=False, system_prompt="", timeout_sec: float = 60,
+                disabled_tools=()):
     from deepagents import create_deep_agent
     from lexverse.agents.environment_backend import EnvironmentBackend
     from deepagents.profiles import (
@@ -343,7 +354,7 @@ def build_agent(model, environment, *, tools=(), skills=None, checkpointer=None,
     key = f"{provider}:{identifier}" if identifier else provider
     register_harness_profile(key, HarnessProfile(
         general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False),
-        excluded_tools=frozenset({"task", "delete"}),
+        excluded_tools=frozenset({"task", "delete", *disabled_tools}),
     ))
     backend = EnvironmentBackend(environment, timeout_sec=timeout_sec)
     user_tool = next((tool for tool in tools if getattr(tool, "name", None) == "ask_user"), None)
@@ -355,6 +366,8 @@ def build_agent(model, environment, *, tools=(), skills=None, checkpointer=None,
         except ValidationError:
             return False
 
+    if "read_file" in disabled_tools:
+        skills = None  # Skills are read with read_file; omit the skills prompt section.
     return create_deep_agent(
         model=model, backend=backend,
         tools=list(tools), skills=skills, middleware=list(middleware),

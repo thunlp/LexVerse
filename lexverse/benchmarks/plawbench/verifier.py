@@ -7,7 +7,7 @@ import threading
 import math
 from pathlib import Path
 
-from lexverse.verifiers.benchmark import BenchmarkVerifier
+from lexverse.verifiers.benchmark import BenchmarkVerifier, run_native_scorer
 from lexverse.benchmarks.aggregation import BenchmarkAggregator, mean_metrics
 from lexverse.models.verifier.result import RunVerificationResult, VerifierProvenance, VerifierResult
 from . import UPSTREAM
@@ -86,7 +86,7 @@ class PLawBenchVerifier(BenchmarkVerifier):
 
             try:
                 result = await asyncio.wait_for(
-                    asyncio.to_thread(native.LegalEvaluator(call_judge).evaluate, item, scorer),
+                    run_native_scorer(native.LegalEvaluator(call_judge).evaluate, item, scorer),
                     timeout=context.get("timeout_sec"),
                 )
                 if result["metrics"].get("failed") or not all(math.isfinite(v) for v in result["metrics"].values()):

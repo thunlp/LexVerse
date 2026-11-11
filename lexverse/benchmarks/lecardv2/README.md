@@ -55,7 +55,7 @@ These options do not establish full reproduction of those papers. In particular,
 
 ### Retrieval scope
 
-`full_corpus` searches the entire corpus and reports recall. `labeled_pool` and `keller_pool` are optional restricted-pool ranking settings, with MAP, MRR, precision and NDCG metrics. They are not interchangeable with the original full-corpus experiment. LexVerse's `keller_pool` augments all-positive labeled pools with BM25 negatives; record the scope and split when comparing results.
+`full_corpus` searches the entire corpus and reports recall. `labeled_pool` and `keller_pool` are optional restricted-pool ranking settings, with MAP, MRR, precision and NDCG metrics. They are not interchangeable with the original full-corpus experiment. LexVerse's `keller_pool` reads a prebuilt candidate-pool file, which can be specified with `candidate_pool_path`; record the scope and split when comparing results.
 
 ---
 

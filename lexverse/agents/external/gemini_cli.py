@@ -153,7 +153,7 @@ class GeminiCli(BaseInstalledAgent):
         )
         await self.exec_as_agent(
             environment,
-            command=". ~/.nvm/nvm.sh && gemini --version",
+            command=self.get_version_command(),
         )
 
     async def configure(self, environment: ExecutionEnvironment) -> None:
