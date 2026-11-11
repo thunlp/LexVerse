@@ -1,0 +1,7 @@
+{
+  "url": "https://www.sdcourt.gov.cn/dyzy/resource/cms/article/372898/41416935/2025063009320588032.pdf",
+  "retrieved_at": "2026-11-10",
+  "case_id": "2024-07-2-084-001",
+  "sha256": "01374d87a8756e5df9b6677941d48d0065b5aa40cd1ddf2ac7aace8f2ec2eacb",
+  "extraction": "MarkItDown first; watermark interference required pdfplumber extraction retaining black text. Original PDF preserved."
+}

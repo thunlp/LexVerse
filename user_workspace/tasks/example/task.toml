@@ -1,0 +1,13 @@
+schema_version = "1.0"
+id = "example"
+
+[environment]
+workdir = "/work"
+
+[[artifacts]]
+source = "/work/complaint_preparation.docx"
+destination = "complaint_preparation.docx"
+
+[verifier]
+environment_mode = "separate"
+timeout_sec = 900
