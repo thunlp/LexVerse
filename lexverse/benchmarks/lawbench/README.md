@@ -16,9 +16,9 @@ To assist reliably in Chinese legal practice, a large language model must progre
     - `1-1` (*Article Recitation*, ROUGE-L)
     - `1-2` (*Knowledge Question Answering*, Accuracy)
   - **2. Legal Knowledge Understanding (`2-1` to `2-10`)**:
-    - `2-1` (*Document Proofreading*, F0.5), `2-2` (*Dispute Focus Identification*, F1), `2-3` (*Marital Disputes Identification*, F1), `2-4` (*Issue Topic Identification*, ROUGE-L), `2-5` (*Reading Comprehension*, rc-F1), `2-6` (*Named Entity Recognition*, soft-F1), `2-7` (*Opinion Summarization*, ROUGE-L), `2-8` (*Argument Mining*, Accuracy), `2-9` (*Event Detection*, F1), `2-10` (*Trigger Word Extraction*, soft-F1)
+    - `2-1` (*Document Proofread*, F0.5), `2-2` (*Dispute Focus Identification*, F1), `2-3` (*Marital Disputes Identification*, F1), `2-4` (*Issue Topic Identification*, ROUGE-L), `2-5` (*Reading Comprehension*, rc-F1), `2-6` (*Name Entity Recognition*, soft-F1), `2-7` (*Opinion Summarization*, ROUGE-L), `2-8` (*Argument Mining*, Accuracy), `2-9` (*Event Detection*, F1), `2-10` (*Trigger Word Extraction*, soft-F1)
   - **3. Legal Knowledge Application (`3-1` to `3-8`)**:
-    - `3-1` (*Fact-based Article Prediction*, F1), `3-2` (*Scene-based Article Prediction*, ROUGE-L), `3-3` (*Charge Prediction*, F1), `3-4` (*Prison Term Prediction w/o Article*, Normalized Log Distance), `3-5` (*Prison Term Prediction w/ Article*, Normalized Log Distance), `3-6` (*Case Analysis*, Accuracy), `3-7` (*Criminal Damages Calculation*, Accuracy), `3-8` (*Consultation*, ROUGE-L)
+    - `3-1` (*Fact-based Article Prediction*, F1), `3-2` (*Scene-based Article Prediction*, ROUGE-L), `3-3` (*Charge Prediction*, F1), `3-4` (*Prison Term Prediction w.o Article*, Normalized Log Distance), `3-5` (*Prison Term Prediction w. Article*, Normalized Log Distance), `3-6` (*Case Analysis*, Accuracy), `3-7` (*Crimal Damages Calculation*, Accuracy), `3-8` (*Consultation*, ROUGE-L)
 
 ---
 
@@ -145,7 +145,7 @@ LexVerse executes the native `evaluation/evaluation_functions/*.py` modules from
    - **Context**: Upstream `evaluation/utils/function_utils.py` imports `from rouge_chinese import Rouge` at the top level even when running non-ROUGE tasks.
    - **Adaptation**: Moves the `rouge_chinese` import inside `compute_rouge(hyps, refs)` with an actionable `ImportError` message.
 2. **Thread-Safe & Relocatable `wsjd.py` Execution (`002-wsjd-relocatable.patch`)**:
-   - **Context**: Upstream `evaluation/evaluation_functions/wsjd.py` (`2-1` Document Proofreading) calls `os.chdir('utils')`, writes fixed filenames (`tmp_pred.para`, `tmp_gold.para`) in the current directory, and shells out to `python3 parallel_to_m2.py`.
+   - **Context**: Upstream `evaluation/evaluation_functions/wsjd.py` (`2-1` Document Proofread) calls `os.chdir('utils')`, writes fixed filenames (`tmp_pred.para`, `tmp_gold.para`) in the current directory, and shells out to `python3 parallel_to_m2.py`.
    - **Adaptation**: Resolves `evaluation/utils` relative to `__file__`, writes ChERRANT intermediate files inside an isolated `tempfile.TemporaryDirectory`, and invokes `sys.executable` with `cwd=utils_dir` without mutating the process working directory.
 3. **Legacy `Qwen-7B-Chat` ChatML Stop Tokens & Middle Truncation (`lexverse/llms/local.py`)**:
    - **Context**: First-generation `Qwen-7B-Chat` uses a custom `tiktoken` vocabulary without a Jinja `chat_template`; its ChatML turn terminator `<|im_end|>` (`151645`) differs from `eos_token_id` (`<|endoftext|>` = `151643`), and a handful of long legal case documents exceed the 8,192-token context window.
@@ -173,12 +173,12 @@ The tables below report the full **10,000-sample (20 tasks × 500 samples)** zer
 | :---: | :--- | :---: | ---: | ---: | ---: |
 | `1-1` | Article Recitation | ROUGE-L | 18.54 | **19.93** | 0.00% |
 | `1-2` | Knowledge Question Answering | Accuracy | 34.00 | **39.40** | 0.20% |
-| `2-1` | Document Proofreading | F0.5 | 15.27 | **16.67** | 0.00% |
+| `2-1` | Document Proofread | F0.5 | 15.27 | **16.67** | 0.00% |
 | `2-2` | Dispute Focus Identification | F1 | 27.93 | **32.40** | 22.60% |
 | `2-3` | Marital Disputes Identification | F1 | 35.98 | **35.38** | 11.80% |
 | `2-4` | Issue Topic Identification | ROUGE-L | 28.48 | **32.00** | 14.00% |
 | `2-5` | Reading Comprehension | rc-F1 | 44.33 | **48.84** | 0.00% |
-| `2-6` | Named Entity Recognition | soft-F1 | 51.83 | **66.69** | 0.00% |
+| `2-6` | Name Entity Recognition | soft-F1 | 51.83 | **66.69** | 0.00% |
 | `2-7` | Opinion Summarization | ROUGE-L | 34.03 | **38.28** | 0.00% |
 | `2-8` | Argument Mining | Accuracy | 24.80 | **26.80** | 0.00% |
 | `2-9` | Event Detection | F1 | 44.88 | **44.93** | 10.20% |
@@ -186,10 +186,10 @@ The tables below report the full **10,000-sample (20 tasks × 500 samples)** zer
 | `3-1` | Fact-based Article Prediction | F1 | 40.91 | **59.63** | 3.00% |
 | `3-2` | Scene-based Article Prediction | ROUGE-L | 27.60 | **32.86** | 0.00% |
 | `3-3` | Charge Prediction | F1 | 40.66 | **45.09** | 21.20% |
-| `3-4` | Prison Term Prediction (w/o Article) | Norm. Log Dist. | 79.66 | **81.73** | 2.60% |
-| `3-5` | Prison Term Prediction (w/ Article) | Norm. Log Dist. | 77.31 | **78.92** | 4.40% |
+| `3-4` | Prison Term Prediction w.o Article | Norm. Log Dist. | 79.66 | **81.73** | 2.60% |
+| `3-5` | Prison Term Prediction w. Article | Norm. Log Dist. | 77.31 | **78.92** | 4.40% |
 | `3-6` | Case Analysis | Accuracy | 35.80 | **37.80** | 0.40% |
-| `3-7` | Criminal Damages Calculation | Accuracy | 39.20 | **44.00** | 0.00% |
+| `3-7` | Crimal Damages Calculation | Accuracy | 39.20 | **44.00** | 0.00% |
 | `3-8` | Consultation | ROUGE-L | 19.72 | **19.58** | 0.00% |
 | **All** | **20-Task Macro Average (10,000 Samples)** | **Mean** | **37.00** | **41.05** | **4.52%** |
 

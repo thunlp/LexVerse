@@ -12,12 +12,12 @@ In realistic legal practice, an AI assistant rarely operates in a single-turn va
 - **Upstream Repository**: [`FudanDISC/J1Bench`](https://github.com/FudanDISC/J1Bench) (commit `61a6ea5515e11229c13353e73b0629e39dcc6076`)
 - **Dataset**: [`CimoInkPool/J1-Eval_Dataset`](https://huggingface.co/datasets/CimoInkPool/J1-Eval_Dataset) (revision `5fbc73ce3de1bbce474eed2dab27b4d01cedfd7f`, gated HuggingFace dataset; **508 cases** across 6 scenarios)
 - **Scenarios & Metrics**:
-  - `KQ` (*Legal Knowledge QA*, 98 cases): Multi-turn legal knowledge Q&A between `trainee` (evaluated) and `general_public`. Metrics: `BIN` (binary accuracy), `NBIN` (non-binary completeness), `AVE` (`(BIN + NBIN) / 2`).
+  - `KQ` (*Knowledge Questioning*, 98 cases): Multi-turn legal knowledge Q&A between `trainee` (evaluated) and `general_public`. Metrics: `BIN` (binary accuracy), `NBIN` (non-binary completeness), `AVE` (`(BIN + NBIN) / 2`).
   - `LC` (*Legal Consultation*, 62 cases): Multi-turn client consultation between `trainee` (evaluated) and `general_public`. Metrics: `BIN`, `NBIN`, `AVE`.
-  - `CD` (*Civil Complaint Drafting*, 93 cases): Client intake and complaint drafting by `lawyer` (evaluated) with `specific_character`. Metrics: `PLA` (plaintiff info), `DEF` (defendant info), `CLA` (claims), `FAC` (facts), `EVI` (evidence), `DOC` (`0.2 * (PLA + DEF + CLA + FAC + EVI)`), `FOR` (format compliance), `AVE` (`(DOC + FOR) / 2`).
-  - `DD` (*Defense Statement Drafting*, 93 cases): Client intake and defense drafting by `lawyer` (evaluated) with `specific_character`. Metrics: `RES` (respondent info), `DEF` (defense arguments), `EVI` (evidence), `DOC` (`(RES + DEF + EVI) / 3`), `FOR`, `AVE`.
-  - `CI` (*Civil Trial*, 93 cases): Multi-party civil courtroom simulation presided over by `judge` (evaluated) with `plaintiff` and `defendant`. Metrics: `REA` (reasoning), `LAW` (statute citation), `JUD` (judgment accuracy), `PFS` (procedural fidelity score).
-  - `CR` (*Criminal Trial*, 69 cases): Multi-party criminal courtroom simulation presided over by `judge` (evaluated) with `procurator`, `defendant`, and `lawyer`. Metrics: `CRI` (charge accuracy), `SEN` (sentence accuracy), `FINE` (fine accuracy), `REA` (reasoning), `LAW` (statute citation), `PFS` (procedural fidelity score).
+  - `CD` (*Complaint Drafting*, 93 cases): Client intake and complaint drafting by `lawyer` (evaluated) with `specific_character`. Metrics: `PLA` (plaintiff info), `DEF` (defendant info), `CLA` (claims), `FAC` (facts), `EVI` (evidence), `DOC` (`0.2 * (PLA + DEF + CLA + FAC + EVI)`), `FOR` (format compliance), `AVE` (`(DOC + FOR) / 2`).
+  - `DD` (*Defence Drafting*, 93 cases): Client intake and defense drafting by `lawyer` (evaluated) with `specific_character`. Metrics: `RES` (respondent info), `DEF` (defense arguments), `EVI` (evidence), `DOC` (`(RES + DEF + EVI) / 3`), `FOR`, `AVE`.
+  - `CI` (*Civil Court*, 93 cases): Multi-party civil courtroom simulation presided over by `judge` (evaluated) with `plaintiff` and `defendant`. Metrics: `REA` (reasoning), `LAW` (statute citation), `JUD` (judgment accuracy), `PFS` (procedural fidelity score).
+  - `CR` (*Criminal Court*, 69 cases): Multi-party criminal courtroom simulation presided over by `judge` (evaluated) with `procurator`, `defendant`, and `lawyer`. Metrics: `CRI` (charge accuracy), `SEN` (sentence accuracy), `FINE` (fine accuracy), `REA` (reasoning), `LAW` (statute citation), `PFS` (procedural fidelity score).
 
 ---
 

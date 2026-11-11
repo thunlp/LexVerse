@@ -15,8 +15,8 @@ In real-world civil litigation, a lawyer's decisions at one stage constrain and 
   - `LC` (*Legal Consultation*): Multi-turn client intake interview; scored on `LC.stage_score` (fact discovery and legal consultation rubrics).
   - `DRAFT` (*First-Instance Pleading Drafting*): Drafts a civil complaint (`plaintiff`) or statement of defense (`defendant`); scored on `DRAFT.stage_score`.
   - `CI` (*First-Instance Court Hearing*): Multi-turn trial simulation (statement, evidence cross-examination, debate, mediation); scored on `CI.stage_score`.
-  - `SD` (*Sentence Delivery*): First-instance judicial decision rendered by the simulated court (`not_implemented` as an evaluated lawyer score).
-  - `APPEAL_DRAFT` (*Appeal / 答辩状 Drafting*): Drafts the appellate brief or response; scored on `APPEAL_DRAFT.stage_score`.
+  - `SD` (*Second Decision*): Determines the appellant and the current party's role in the second instance from case data (`not_implemented` as an evaluated lawyer score).
+  - `APPEAL_DRAFT` (*Appeal Drafting*): Drafts the appellate brief or response; scored on `APPEAL_DRAFT.stage_score`.
   - `CIA` (*Second-Instance Appellate Hearing*): Multi-turn appellate court simulation; scored on `CIA.stage_score`.
   - **Aggregate Metrics**: `overall_score` (`0–100`), `overall_possible_score` (`100.0`), and `overall_score_normalized` (`0–1`).
 

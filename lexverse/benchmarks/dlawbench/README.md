@@ -12,10 +12,10 @@ In real-world legal practice, a consultation rarely begins with a clean, chronol
 - **Upstream Repository**: [`SKYLENAGE-AI/DLawBench`](https://github.com/SKYLENAGE-AI/DLawBench) (commit `9f6325f29f07b296fac110a6e1880bdd5d9ca538`)
 - **Dataset**: `data/case_backgrounds/*.jsonl` (60 public release cases: 30 Chinese-law + 30 U.S.-law × 4 personas = **240 consultation tasks**)
 - **Tasks (Client Personas)**:
-  - `P_WD` (*Cooperative*): Calm, organized client who answers clearly and provides requested details.
-  - `P_WS` (*Dependent*): Anxious client who lacks legal knowledge and relies heavily on the lawyer's guidance.
-  - `P_CS` (*Withdrawn*): Guarded, reluctant client who gives minimal replies unless asked targeted questions.
-  - `P_CD` (*Adversarial*): Assertive client who pushes back on questioning and insists on their own framing.
+  - `P_WD` (*Assured-Cooperative*): Calm, organized client who answers clearly and provides requested details.
+  - `P_WS` (*Dependent-Yielding*): Anxious client who lacks legal knowledge and relies heavily on the lawyer's guidance.
+  - `P_CS` (*Avoidant-Withdrawn*): Guarded, reluctant client who gives minimal replies and only gradually opens up when made to feel safe.
+  - `P_CD` (*Controlling-Resister*): Assertive client who pushes back on questioning and insists on their own framing.
 - **Metrics**:
   - **Information Gathering**: `fact_coverage` (share of annotated facts surfaced in the memo), `inquiry` (share of expert-specified follow-up questions asked), and `elicitation` (`(fact_coverage + inquiry) / 2`).
   - **Legal Reasoning**: `fact_resolution` (share of all annotated facts both covered and calibrated against the court-record view), `issue_resolution` (share of expert issue rubrics addressed), and `resolution` (`(fact_resolution + issue_resolution) / 2`, the primary leaderboard metric).
