@@ -35,10 +35,7 @@ def _build_recipe(recipe: dict) -> dict:
 
 def _index_retrieval(config: RetrievalConfig, embedding_identity: dict) -> dict:
     recipe = _build_recipe(config.model_dump())
-    # Keep the default embedding label compatible with published indexes;
-    # query settings are excluded from the build recipe.
-    recipe["embedding"] = ("bge_small_zh" if config.mode == "keyword" or config.embedding.uses_default_encoding()
-                           else embedding_identity)
+    recipe["embedding"] = None if config.mode == "keyword" else embedding_identity
     return recipe
 
 

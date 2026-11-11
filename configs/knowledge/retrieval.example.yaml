@@ -8,13 +8,13 @@ overlap_tokens: 60
 keyword_candidates: 100
 vector_candidates: 100
 embedding:
-  model: BAAI/bge-small-zh-v1.5
-  revision: 7999e1d3359715c523056ef9478215996d62a620
+  model: BAAI/bge-m3
+  revision: 5617a9f61b028005a4858fdac845db406aefb181
   device: cpu
   batch_size: 32
-  query_prefix: "为这个句子生成表示以用于检索相关文章："
+  query_prefix: ""
   document_prefix: ""
   # Custom model: replace model with a HF repository ID or ./local-model.
   # For another model, set revision to its version (or null) and set the
   # prefixes required by that model. Relative paths resolve beside this YAML.
-  # max_tokens: 512  # Optional limit; cannot exceed the model's capacity.
+  # max_tokens: 8192  # Optional limit; cannot exceed the model's capacity.

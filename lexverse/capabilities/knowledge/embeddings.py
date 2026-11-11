@@ -13,12 +13,8 @@ except ImportError:
     class Embeddings:  # type: ignore[no-redef]
         pass
 from lexverse.config import ConfigError
-from lexverse.models.task.config import EmbeddingConfig, DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_REVISION, DEFAULT_QUERY_PREFIX
+from lexverse.models.task.config import EmbeddingConfig
 
-
-MODEL = DEFAULT_EMBEDDING_MODEL
-REVISION = DEFAULT_EMBEDDING_REVISION
-QUERY_PREFIX = DEFAULT_QUERY_PREFIX
 
 def _download_embedding_model(model: str, revision: str | None, cache: Path, files: list[str]) -> str:
     from huggingface_hub import constants, snapshot_download
@@ -46,45 +42,59 @@ def _download_embedding_model(model: str, revision: str | None, cache: Path, fil
     return snapshot
 
 
-class BGEEmbeddings(Embeddings):
+class LocalEmbeddings(Embeddings):
     def __init__(self, cache: Path, *, config: EmbeddingConfig | None = None, recorder=None):
-        from huggingface_hub import snapshot_download
-        from huggingface_hub.errors import LocalEntryNotFoundError
-        from sentence_transformers import SentenceTransformer, models
-
         config = config or EmbeddingConfig()
         self._encode_lock = threading.RLock()
-        self.max_tokens = config.max_tokens or 512
-        if self.max_tokens > 512:
-            raise ConfigError("BGE input capacity is 512 tokens")
+        from huggingface_hub import snapshot_download
+        from huggingface_hub.errors import LocalEntryNotFoundError
+        from sentence_transformers import SentenceTransformer
+        from lexverse.capabilities.knowledge.loaders import hash_file
+
+        snapshot = Path(config.model).expanduser()
+        revision = None
+        if not snapshot.is_dir():
+            try:
+                snapshot = Path(snapshot_download(config.model, revision=config.revision,
+                                cache_dir=str(cache / "cache" / "models"), local_files_only=True))
+            except LocalEntryNotFoundError:
+                snapshot = Path(_download_embedding_model(config.model, config.revision, cache / "cache" / "models",
+                                ["*.json", "*.safetensors", "*.bin", "*.txt", "*.model"]))
+            if not (snapshot / "modules.json").is_file():
+                snapshot = Path(_download_embedding_model(config.model, config.revision, cache / "cache" / "models",
+                                ["*.json", "*.safetensors", "*.bin", "*.txt", "*.model"]))
+            revision = snapshot.name
+        if not (snapshot / "modules.json").is_file():
+            raise ConfigError("Custom embedding model must be a Sentence Transformers model (modules.json required)")
+        self.model = SentenceTransformer(str(snapshot), device=config.device,
+                                        local_files_only=True, trust_remote_code=False)
+        capacity = self.model.max_seq_length
+        if config.max_tokens is not None and config.max_tokens > capacity:
+            raise ConfigError(f"Embedding max_tokens exceeds model capacity {capacity}")
+        self.max_tokens = config.max_tokens or capacity
+        self.model.max_seq_length = self.max_tokens
+        self.tokenizer = self.model.tokenizer
+        dim_fn = getattr(self.model, "get_embedding_dimension", None) or getattr(
+            self.model, "get_sentence_embedding_dimension"
+        )
+        self.embedding_dimension = dim_fn()
+        if not self.embedding_dimension:
+            raise ConfigError("Embedding model must have a fixed output dimension")
         self.batch_size = config.batch_size
         self.query_prefix = config.query_prefix
         self.document_prefix = config.document_prefix
-        files = ["config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json",
-                 "special_tokens_map.json", "vocab.txt"]
-        try:
-            snapshot = snapshot_download(MODEL, revision=REVISION, cache_dir=str(cache / "cache" / "models"), local_files_only=True)
-            if not all((Path(snapshot) / name).is_file() and (Path(snapshot) / name).stat().st_size for name in files):
-                raise LocalEntryNotFoundError("Incomplete embedding model cache")
-        except LocalEntryNotFoundError:
-            snapshot = _download_embedding_model(MODEL, REVISION, cache / "cache" / "models", files)
-        if not all((Path(snapshot) / name).is_file() and (Path(snapshot) / name).stat().st_size for name in files):
-            raise ConfigError("Embedding model download is incomplete; rerun the command to resume downloading")
-        transformer = models.Transformer(snapshot, max_seq_length=self.max_tokens,
-                                         model_args={"local_files_only": True}, tokenizer_args={"local_files_only": True})
-        pooling = models.Pooling(transformer.get_word_embedding_dimension(), pooling_mode="cls")
-        self.model = SentenceTransformer(modules=[transformer, pooling, models.Normalize()], device=config.device)
-        self.tokenizer = transformer.tokenizer
         self.recorder = recorder
-        self.identity = {"model": MODEL, "revision": REVISION, "pooling": "cls", "normalize": True,
-                         "query_prefix": self.query_prefix, "max_tokens": self.max_tokens}
-        if self.document_prefix:
-            self.identity["document_prefix"] = self.document_prefix
-        from lexverse.capabilities.knowledge.loaders import hash_file
-        self.identity["files"] = {name: hash_file(Path(snapshot) / name) for name in files}
+        files = {path.relative_to(snapshot).as_posix(): hash_file(path)
+                 for path in sorted(snapshot.rglob("*"))
+                 if path.is_file() and not any(part.startswith(".") for part in path.relative_to(snapshot).parts)
+                 and path.suffix in {".json", ".safetensors", ".bin", ".txt", ".model"}}
+        self.identity = {"model": "sentence_transformers", "revision": revision, "files": files,
+                         "dimension": self.embedding_dimension, "normalize": True,
+                         "query_prefix": self.query_prefix, "document_prefix": self.document_prefix,
+                         "max_tokens": self.max_tokens}
         identity_hash = hashlib.sha256(json.dumps(self.identity, sort_keys=True).encode()).hexdigest()
         self.vector_cache = cache / "cache" / "embedding_cache" / (identity_hash + ".sqlite")
-        self.embedding_dimension = transformer.get_word_embedding_dimension()
+
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if getattr(self, "vector_cache", None) is not None:
@@ -142,7 +152,7 @@ class BGEEmbeddings(Embeddings):
             prefix = getattr(self, "document_prefix", "")
             texts = [prefix + text for text in texts]
         lengths = [len(self.tokenizer.encode(text)) for text in texts]
-        if any(length > getattr(self, "max_tokens", 512) for length in lengths):
+        if any(length > self.max_tokens for length in lengths):
             raise ValueError("Embedding text exceeds tokenizer capacity")
         status = "failed"
         try:
@@ -155,62 +165,8 @@ class BGEEmbeddings(Embeddings):
                 self.recorder(kind, len(texts), sum(lengths), status)
 
     def embed_query(self, text: str) -> list[float]:
-        return self._encode([getattr(self, "query_prefix", QUERY_PREFIX) + text], "query")[0]
-
-
-class LocalEmbeddings(BGEEmbeddings):
-    def __init__(self, cache: Path, *, config: EmbeddingConfig, recorder=None):
-        self._encode_lock = threading.RLock()
-        from huggingface_hub import snapshot_download
-        from huggingface_hub.errors import LocalEntryNotFoundError
-        from sentence_transformers import SentenceTransformer
-        from lexverse.capabilities.knowledge.loaders import hash_file
-
-        snapshot = Path(config.model).expanduser()
-        revision = None
-        if not snapshot.is_dir():
-            try:
-                snapshot = Path(snapshot_download(config.model, revision=config.revision,
-                                cache_dir=str(cache / "cache" / "models"), local_files_only=True))
-            except LocalEntryNotFoundError:
-                snapshot = Path(_download_embedding_model(config.model, config.revision, cache / "cache" / "models",
-                                ["*.json", "*.safetensors", "*.bin", "*.txt", "*.model"]))
-            if not (snapshot / "modules.json").is_file():
-                snapshot = Path(_download_embedding_model(config.model, config.revision, cache / "cache" / "models",
-                                ["*.json", "*.safetensors", "*.bin", "*.txt", "*.model"]))
-            revision = snapshot.name
-        if not (snapshot / "modules.json").is_file():
-            raise ConfigError("Custom embedding model must be a Sentence Transformers model (modules.json required)")
-        self.model = SentenceTransformer(str(snapshot), device=config.device,
-                                        local_files_only=True, trust_remote_code=False)
-        capacity = self.model.max_seq_length
-        if config.max_tokens is not None and config.max_tokens > capacity:
-            raise ConfigError(f"Embedding max_tokens exceeds model capacity {capacity}")
-        self.max_tokens = config.max_tokens or capacity
-        self.model.max_seq_length = self.max_tokens
-        self.tokenizer = self.model.tokenizer
-        dim_fn = getattr(self.model, "get_embedding_dimension", None) or getattr(
-            self.model, "get_sentence_embedding_dimension"
-        )
-        self.embedding_dimension = dim_fn()
-        if not self.embedding_dimension:
-            raise ConfigError("Embedding model must have a fixed output dimension")
-        self.batch_size = config.batch_size
-        self.query_prefix = config.query_prefix
-        self.document_prefix = config.document_prefix
-        self.recorder = recorder
-        files = {path.relative_to(snapshot).as_posix(): hash_file(path)
-                 for path in sorted(snapshot.rglob("*"))
-                 if path.is_file() and not any(part.startswith(".") for part in path.relative_to(snapshot).parts)
-                 and path.suffix in {".json", ".safetensors", ".bin", ".txt", ".model"}}
-        self.identity = {"model": "sentence_transformers", "revision": revision, "files": files,
-                         "dimension": self.embedding_dimension, "normalize": True,
-                         "query_prefix": self.query_prefix, "document_prefix": self.document_prefix,
-                         "max_tokens": self.max_tokens}
-        identity_hash = hashlib.sha256(json.dumps(self.identity, sort_keys=True).encode()).hexdigest()
-        self.vector_cache = cache / "cache" / "embedding_cache" / (identity_hash + ".sqlite")
+        return self._encode([getattr(self, "query_prefix", "") + text], "query")[0]
 
 
 def create_embeddings(config: EmbeddingConfig, cache: Path, *, recorder=None):
-    implementation = BGEEmbeddings if config.model == MODEL and config.revision == REVISION else LocalEmbeddings
-    return implementation(cache, config=config, recorder=recorder)
+    return LocalEmbeddings(cache, config=config, recorder=recorder)

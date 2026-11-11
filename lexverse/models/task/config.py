@@ -21,9 +21,9 @@ class AgentLimits(StrictModel):
     tool_timeout_sec: float = Field(default=60.0, gt=0, allow_inf_nan=False)
 
 
-DEFAULT_EMBEDDING_MODEL = "BAAI/bge-small-zh-v1.5"
-DEFAULT_EMBEDDING_REVISION = "7999e1d3359715c523056ef9478215996d62a620"
-DEFAULT_QUERY_PREFIX = "为这个句子生成表示以用于检索相关文章："
+DEFAULT_EMBEDDING_MODEL = "BAAI/bge-m3"
+DEFAULT_EMBEDDING_REVISION = "5617a9f61b028005a4858fdac845db406aefb181"
+DEFAULT_QUERY_PREFIX = ""
 
 
 class EmbeddingConfig(StrictModel):
@@ -51,11 +51,6 @@ class EmbeddingConfig(StrictModel):
             self.model = str(_resolve(candidate, base))
             if not Path(self.model).is_dir():
                 raise ConfigError(f"Embedding model directory does not exist: {self.model}")
-
-    def uses_default_encoding(self):
-        return (self.model == DEFAULT_EMBEDDING_MODEL and self.revision == DEFAULT_EMBEDDING_REVISION
-                and self.query_prefix == DEFAULT_QUERY_PREFIX and not self.document_prefix
-                and self.max_tokens in (None, 512))
 
 
 class RetrievalConfig(StrictModel):
