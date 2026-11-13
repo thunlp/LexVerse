@@ -10,6 +10,18 @@ from lexverse.utils.paths import AGENT_RUNTIME_ROOT, CAPABILITIES_ROOT, PROJECT_
 from lexverse.agents.dependencies import is_macos_arm64
 
 
+def check_runtime_imports(runtime):
+    checked = subprocess.run([
+        sys.executable, "-c",
+        "import sys; sys.path.insert(0, sys.argv[1]); "
+        "from cryptography.exceptions import InvalidTag; "
+        "from langchain.mcp import MCPAdapter",
+        str(runtime / "site-packages"),
+    ], capture_output=True, text=True)
+    if checked.returncode:
+        raise RuntimeError("Agent dependency import check failed:\n" + checked.stderr)
+
+
 def setup(root=None):
     if sys.version_info < (3, 12):
         raise SystemExit("Agent dependencies require Python 3.12 or newer")
@@ -28,15 +40,20 @@ def setup(root=None):
                   or ".".join(map(str, sys.version_info[:2])) != config["tool"]["lexverse"]["macos-arm64"]["python-version"]):
         raise RuntimeError("Activate the macOS arm64 Conda environment described in README.md before setup")
 
-    if macos:
+    if (Path(sys.prefix) / "conda-meta").is_dir():
         conda = os.environ.get("CONDA_EXE") or shutil.which("conda")
         if not conda:
-            raise RuntimeError("Activate the macOS arm64 Conda environment described in README.md before setup")
+            raise RuntimeError("Cannot find Conda for the active environment")
+        packages = config["tool"]["lexverse"]["conda"]["packages"]
+        if macos:
+            packages = [*packages, *config["tool"]["lexverse"]["macos-arm64"]["conda-packages"]]
+        elif sys.platform == "darwin":
+            packages = [*packages, *config["tool"]["lexverse"]["macos-x86_64"]["conda-packages"]]
         subprocess.run([
             conda, "install", "--yes", "--prefix", sys.prefix,
             "--override-channels", "--channel", "conda-forge", "--strict-channel-priority",
-            *config["tool"]["lexverse"]["macos-arm64"]["conda-packages"],
-        ], env={**os.environ, "CONDA_SUBDIR": "osx-arm64"}, check=True)
+            *packages,
+        ], env={**os.environ, **({"CONDA_SUBDIR": "osx-arm64"} if macos else {})}, check=True)
 
     if root == PROJECT_ROOT:
         checked = subprocess.run([sys.executable, "-c",
@@ -48,6 +65,7 @@ def setup(root=None):
             json.dumps(requirements)],
             capture_output=True, text=True)
         if checked.returncode == 0:
+            check_runtime_imports(runtime)
             print(f"Agent dependencies reused: {runtime}")
             return 0
 
@@ -87,6 +105,8 @@ def setup(root=None):
             **({"environment": "conda"} if macos else {}),
             "packages": {item["metadata"]["name"]: item["metadata"]["version"] for item in plan},
         }, indent=2))
+
+        check_runtime_imports(staged)
 
         previous = Path(temporary) / "previous"
         if runtime.exists():

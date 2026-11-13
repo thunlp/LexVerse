@@ -33,6 +33,7 @@ capability-task = [
     "langchain-community==0.4.2",
     "langchain-text-splitters==1.1.3",
     "sentence-transformers==3.4.1",
+    "torch>=2.6,<3; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     # macOS arm64 receives FAISS from the shared-OpenMP Conda runtime during setup.
     "faiss-cpu==1.15.1; sys_platform != 'darwin' or platform_machine != 'arm64'",
     "jieba==0.42.1",
@@ -119,7 +120,6 @@ plawbench = [
     "json-repair>=0.30",
 ]
 
-# SimuCourt, MASER and LeCaRDv2 benchmark dependencies.
 simucourt = [
     "openai>=1.0",
 ]
@@ -144,6 +144,12 @@ test = [
 
 [project.scripts]
 lexverse = "lexverse.cli.main:main"
+
+[tool.lexverse.conda]
+packages = ["openssl>=3.3,<4", "cryptography>=45.0.1"]
+
+[tool.lexverse.macos-x86_64]
+conda-packages = ["pytorch>=2.6,<3", "numpy>=1.26,<2"]
 
 [tool.lexverse.macos-arm64]
 python-version = "3.12"

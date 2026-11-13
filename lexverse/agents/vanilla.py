@@ -4,6 +4,7 @@ import asyncio
 from contextlib import AsyncExitStack
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import re
 import time
@@ -29,7 +30,7 @@ from lexverse.capabilities.base import execution_conditions
 from lexverse.capabilities.preparation import load_agent_resources
 from lexverse.capabilities.middleware import BudgetExceeded, DomainMiddleware, RunLedger
 from lexverse.capabilities.tools import ask_user
-from lexverse.config import ConfigError
+from lexverse.config import ConfigError, SecretsMissing, load_profile
 from lexverse.llms.api import create_chat_model
 from lexverse.utils.files import atomic_write_json
 from lexverse.utils.identity import identity as _identity
@@ -55,6 +56,29 @@ def _pending(snapshot):
             actions.append({"interrupt_id": interrupt.id, "index": index, "question": arguments["question"],
                             "facts_summary": summary, "summary_hash": _identity(summary) if summary else None})
     return actions
+
+
+def _error_message(error, spec):
+    """Keep chained diagnostics without persisting connection credentials."""
+    messages, seen = [], set()
+    current = error
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        messages.append(f"{type(current).__name__}: {current}")
+        current = current.__cause__ or (None if current.__suppress_context__ else current.__context__)
+    message = "\nCaused by: ".join(messages)
+    profiles = [spec.model.profile, *(server.credential_ref for server in spec.selection.mcp_servers)]
+    secrets = [value for key, value in os.environ.items()
+               if any(word in key.upper() for word in ("KEY", "TOKEN", "SECRET", "PASSWORD")) and value]
+    try:
+        secrets.extend(load_profile(profile).api_key for profile in profiles if profile)
+    except (ConfigError, SecretsMissing, OSError):
+        return f"{type(error).__name__}: details omitted because credentials could not be loaded"
+    for secret in sorted(filter(None, secrets), key=len, reverse=True):
+        message = message.replace(secret, "[redacted]")
+    message = re.sub(r"(?i)(bearer\s+)\S+", r"\1[redacted]", message)
+    message = re.sub(r"https?://[^\s\"'<>]+", "[redacted URL]", message)
+    return message
 
 
 async def execute_agent(spec: AgentExecutionSpec, *, system_prompt: str, environment: ExecutionEnvironment,
@@ -241,7 +265,8 @@ async def execute_agent(spec: AgentExecutionSpec, *, system_prompt: str, environ
                 result.update(error_type=type(exc).__name__, error_message=str(exc))
             ledger.event("run_failed", error_type=type(exc).__name__)
         except Exception as exc:
-            result.update(stop_reason="execution_failed" if ledger.started is not None else "preparation_failed", error_type=type(exc).__name__)
+            result.update(stop_reason="execution_failed" if ledger.started is not None else "preparation_failed",
+                          error_type=type(exc).__name__, error_message=_error_message(exc, spec))
             ledger.event("run_failed", error_type=type(exc).__name__)
         finally:
             # Persist usage and retain partial artifacts for unfinished runs.
