@@ -242,6 +242,10 @@ class SweAgent(BaseInstalledAgent):
     def name() -> str:
         return AgentName.SWE_AGENT.value
 
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
+
     @override
     def get_version_command(self) -> str | None:
         return "/opt/sweagent-venv/bin/pip show swe-agent | grep ^Version:"
@@ -423,6 +427,15 @@ class SweAgent(BaseInstalledAgent):
         is_hosted_vllm = self.model_name.startswith("hosted_vllm/") or "OPENAI_BASE_URL" in env
 
         instruction_path = "/logs/agent/problem_statement.md"
+        if self.skills_dir:
+            instruction += f"\n\nSkills:\nDomain and tool skills are mounted read-only at {self.skills_dir} (each subdirectory contains a SKILL.md).\n"
+        if self.mcp_servers:
+            instruction += "\nMCP Servers:\n"
+            for s in self.mcp_servers:
+                if s.transport == "stdio":
+                    instruction += f"- {s.name}: stdio command `{s.command} {' '.join(s.args)}`\n"
+                else:
+                    instruction += f"- {s.name}: {s.transport} url `{s.url}`\n"
 
         heredoc = f"HARBOR_INSTRUCTION_{uuid.uuid4().hex}"
 

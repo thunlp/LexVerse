@@ -487,6 +487,9 @@ class MiniSweAgent(BaseInstalledAgent):
 
     MODEL_CONNECTION = ModelConnectionSpec(api_key_envs=('MSWEA_API_KEY',))
 
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
     SUPPORTS_ATIF: bool = True
 
     CLI_FLAGS = [
@@ -654,6 +657,11 @@ class MiniSweAgent(BaseInstalledAgent):
         self, instruction: str, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
         augmented_instruction = instruction
+        if self.skills_dir:
+            augmented_instruction += (
+                f"\n\nSkills:\nDomain and tool skills are mounted at {self.skills_dir} "
+                f"(each subdirectory contains a SKILL.md). You can inspect them via bash if helpful.\n"
+            )
         if self.mcp_servers:
             mcp_info = "\n\nMCP Servers:\nThe following MCP servers are available for this task.\n"
             for s in self.mcp_servers:

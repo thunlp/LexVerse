@@ -60,6 +60,8 @@ class Hermes(BaseInstalledAgent):
     """The Hermes agent installs NousResearch's hermes-agent and runs it via CLI to solve tasks."""
     MODEL_CONNECTION = ModelConnectionSpec()
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF: bool = True
 
@@ -147,7 +149,7 @@ class Hermes(BaseInstalledAgent):
             if server.transport == "stdio":
                 entry["command"] = server.command
                 entry["args"] = server.args
-                entry["env"] = {"PYTHONPATH": "/lexverse-repo"}
+                entry["env"] = dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"}
             else:
                 entry["url"] = server.url
             mcp_config[server.name] = entry

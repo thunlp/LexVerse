@@ -54,11 +54,28 @@ def load_skill_from_file(skill_path: Path) -> Skill | None:
     content = skill_path.read_text()
     name = skill_path.parent.name
 
+    # Parse YAML frontmatter description for concise progressive disclosure
+    # instead of injecting tens of thousands of tokens for every installed skill
+    description = ""
+    if content.startswith("---"):
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            for line in parts[1].splitlines():
+                if line.strip().startswith("description:"):
+                    description = line.split(":", 1)[1].strip().strip('"').strip("'")
+                    break
+
+    summary_content = (
+        f"Skill `{name}` (located at `{skill_path}`). "
+        f"Description: {description or 'Domain skill'}. "
+        f"Read `{skill_path}` on demand when relevant to the task."
+    )
+
     return Skill(
         name=name,
-        content=content,
+        content=summary_content,
         source=str(skill_path),
-        trigger=None,  # Always active
+        trigger=None,
     )
 
 
@@ -266,7 +283,7 @@ def main():
                     server_cfg["command"] = mcp["command"]
                 if mcp.get("args"):
                     server_cfg["args"] = mcp["args"]
-                server_cfg["env"] = {"PYTHONPATH": "/lexverse-repo"}
+                server_cfg["env"] = dict(mcp.get("env") or {"PYTHONPATH": "/lexverse-repo"})
             else:
                 if mcp.get("url"):
                     server_cfg["url"] = mcp["url"]

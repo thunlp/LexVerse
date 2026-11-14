@@ -207,6 +207,14 @@ class DockerEnvironment(ExecutionEnvironment):
         if bge_dir.is_dir():
             run_args.extend(["-v", f"{bge_dir.resolve()}:{bge_dir.resolve()}:ro"])
 
+        # Mount host Python prefix read-only when running on Linux so the stdio
+        # knowledge MCP server inside the container can run with the exact Python
+        # interpreter and libraries that built `.lexverse/runtime/agent`.
+        if sys.platform == "linux":
+            py_prefix = Path(sys.prefix).resolve()
+            if py_prefix.is_dir() and not str(py_prefix).startswith("/usr"):
+                run_args.extend(["-v", f"{py_prefix}:{py_prefix}:ro"])
+
         # Mount host toolchains (.nvm, .local, .codex) at their host paths read-only
         # so host symlinks work, without shadowing container /root/.local or /root/.nvm.
         host_home = Path.home()

@@ -96,6 +96,9 @@ class Vibe(BaseInstalledAgent):
     """
     MODEL_CONNECTION = ModelConnectionSpec(base_url_envs=('VIBE_API_BASE',))
 
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
     SUPPORTS_ATIF: bool = True
 
     _OUTPUT_FILENAME = "vibe.txt"
@@ -419,7 +422,7 @@ class Vibe(BaseInstalledAgent):
                     "transport": "stdio",
                     "command": server.command,
                     "args": server.args,
-                    "env": {"PYTHONPATH": "/lexverse-repo"},
+                    "env": dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"},
                 }
             else:
                 entry = {
@@ -998,4 +1001,6 @@ def _toml_value(value: Any) -> str:
         return str(value)
     if isinstance(value, list):
         return "[" + ", ".join(_toml_value(item) for item in value) + "]"
+    if isinstance(value, dict):
+        return "{" + ", ".join(f'"{_toml_escape(str(k))}" = {_toml_value(v)}' for k, v in value.items()) + "}"
     return f'"{_toml_escape(str(value))}"'

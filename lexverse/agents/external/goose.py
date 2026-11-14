@@ -49,6 +49,8 @@ class Goose(BaseInstalledAgent):
     """
     MODEL_CONNECTION = ModelConnectionSpec()
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF: bool = True
     SUPPORTS_RESUME: bool = True
@@ -153,7 +155,7 @@ class Goose(BaseInstalledAgent):
                         "name": server.name,
                         "cmd": server.command,
                         "args": server.args,
-                        "envs": {"PYTHONPATH": "/lexverse-repo"},
+                        "envs": dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"},
                     }
                 )
             elif server.transport == "sse":

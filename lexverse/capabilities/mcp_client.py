@@ -128,10 +128,21 @@ def build_knowledge_mcp_config(spec, manifest_path, resources, *, cache_dir=None
     args = ["-m", "lexverse.capabilities.knowledge.mcp_server", "--manifest", str(public_manifest.resolve())]
     if cache_dir is not None:
         args.extend(["--cache", str(cache_dir.resolve())])
-    pythonpath = ("/lexverse-repo" if env_type == "docker" else
-                  os.pathsep.join([str(AGENT_RUNTIME_ROOT / "site-packages"), str(PROJECT_ROOT)]))
+    if env_type == "docker":
+        import site
+        user_site = site.getusersitepackages()
+        py_parts = ["/lexverse-repo/.lexverse/runtime/agent/site-packages"]
+        if user_site and Path(user_site).is_dir():
+            py_parts.append(str(Path(user_site).resolve()))
+        py_parts.append("/lexverse-repo")
+        pythonpath = os.pathsep.join(py_parts)
+        host_py = Path(sys.executable).resolve()
+        command = str(host_py) if sys.platform == "linux" and not str(host_py).startswith("/usr") else "python3"
+    else:
+        pythonpath = os.pathsep.join([str(AGENT_RUNTIME_ROOT / "site-packages"), str(PROJECT_ROOT)])
+        command = sys.executable
     return MCPServerConfig(name="lexverse_knowledge", transport="stdio",
-                           command="python3" if env_type == "docker" else sys.executable, args=args,
+                           command=command, args=args,
                            env={"PYTHONPATH": pythonpath})
 
 

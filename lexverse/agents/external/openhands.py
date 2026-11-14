@@ -48,7 +48,9 @@ class OpenHands(BaseInstalledAgent):
     """
     MODEL_CONNECTION = ModelConnectionSpec(api_key_envs=('LLM_API_KEY',), base_url_envs=('LLM_BASE_URL',))
 
+    SUPPORTS_SKILLS = True
     MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF: bool = True
 
@@ -879,8 +881,10 @@ class OpenHands(BaseInstalledAgent):
                 shttp_entries.append(f'{{url = "{server.url}"}}')
             elif server.transport == "stdio":
                 args_str = ", ".join(f'"{a}"' for a in server.args)
+                env_items = dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"}
+                env_str = ", ".join(f'{k} = "{v}"' for k, v in env_items.items())
                 stdio_entries.append(
-                    f'{{name = "{server.name}", command = "{server.command}", args = [{args_str}], env = {{PYTHONPATH = "/lexverse-repo"}}}}'
+                    f'{{name = "{server.name}", command = "{server.command}", args = [{args_str}], env = {{{env_str}}}}}'
                 )
 
         lines = ["[mcp]"]

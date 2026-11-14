@@ -61,6 +61,8 @@ class MiMo(BaseInstalledAgent):
     """
     MODEL_CONNECTION = ModelConnectionSpec()
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF: bool = True
     SUPPORTS_RESUME: bool = True
@@ -397,7 +399,7 @@ class MiMo(BaseInstalledAgent):
                     mcp[server.name] = {
                         "type": "local",
                         "command": cmd_list,
-                        "environment": {"PYTHONPATH": "/lexverse-repo"},
+                        "environment": dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"},
                     }
                 else:  # sse or streamable-http
                     mcp[server.name] = {"type": "remote", "url": server.url}

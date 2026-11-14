@@ -97,6 +97,9 @@ class DeerFlow(BaseInstalledAgent):
     SWE-bench, ...) edit files where the verifier looks for them.
     """
     MODEL_CONNECTION = ModelConnectionSpec()
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
     SUPPORTS_ATIF: bool = True
 
     _REMOTE_REPO_DIR = PurePosixPath("/installed-agent/deer-flow")
@@ -472,13 +475,25 @@ class DeerFlow(BaseInstalledAgent):
         ``/mnt/user-data`` workspace, which the task verifier never inspects.
         """
         workdir = self._effective_workdir()
+        extra = ""
+        if self.skills_dir:
+            extra += f"\nDomain and tool skills are mounted read-only at {self.skills_dir} (each subdirectory contains a SKILL.md).\n"
+        if self.mcp_servers:
+            extra += "\nMCP Servers available:\n"
+            for s in self.mcp_servers:
+                if s.transport == "stdio":
+                    args_str = " ".join(s.args)
+                    extra += f"- {s.name}: stdio command `{s.command} {args_str}`\n"
+                else:
+                    extra += f"- {s.name}: {s.transport} url `{s.url}`\n"
         return (
             "You are operating directly on a real Linux machine through the bash "
             "and file tools. Act on the actual filesystem at real absolute paths.\n"
             f"Your working directory is {workdir}. Create and modify the "
             f"task's files under {workdir} (e.g. {workdir}/<file>). Do "
             "NOT write deliverables into /mnt/user-data; the task is graded on the "
-            f"real files under {workdir}.\n\n"
+            f"real files under {workdir}."
+            f"{extra}\n\n"
             f"Task:\n{instruction}"
         )
 

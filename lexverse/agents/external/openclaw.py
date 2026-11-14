@@ -355,6 +355,8 @@ class OpenClaw(BaseInstalledAgent):
     """
     MODEL_CONNECTION = ModelConnectionSpec()
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF: bool = True
 
@@ -613,7 +615,9 @@ class OpenClaw(BaseInstalledAgent):
             servers: dict[str, dict[str, Any]] = {}
             for server in self.mcp_servers:
                 if server.transport == "stdio":
-                    entry: dict[str, Any] = {"env": {"PYTHONPATH": "/lexverse-repo"}}
+                    entry: dict[str, Any] = {
+                        "env": dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"}
+                    }
                     if server.command:
                         entry["command"] = server.command
                     if server.args:

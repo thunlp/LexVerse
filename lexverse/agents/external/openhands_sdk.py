@@ -42,6 +42,9 @@ class OpenHandsSDK(BaseInstalledAgent):
     """
     MODEL_CONNECTION = ModelConnectionSpec(api_key_envs=('LLM_API_KEY',), base_url_envs=('LLM_BASE_URL',))
 
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
     SUPPORTS_ATIF: bool = True
     _OUTPUT_FILENAME = "openhands_sdk.txt"
     _TRAJECTORY_FILENAME = "trajectory.json"
@@ -226,6 +229,8 @@ class OpenHandsSDK(BaseInstalledAgent):
                         entry["command"] = server.command
                     if server.args:
                         entry["args"] = server.args
+                    if server.env:
+                        entry["env"] = dict(server.env)
                 else:
                     if server.url:
                         entry["url"] = server.url
