@@ -142,7 +142,7 @@ class Vibe(BaseInstalledAgent):
     def __init__(
         self,
         logs_dir: Path,
-        thinking: str = "high",
+        thinking: str = "off",
         temperature: float = 0.2,
         backend: str | None = None,
         *args,
@@ -221,7 +221,7 @@ class Vibe(BaseInstalledAgent):
                 "  curl -LsSf https://astral.sh/uv/install.sh | sh;"
                 " fi && "
                 'export PATH="$HOME/.local/bin:$PATH" && '
-                f"uv tool install mistral-vibe{version_spec} && "
+                f"uv tool install --python 3.13 mistral-vibe{version_spec} && "
                 "vibe --version"
             ),
         )
@@ -517,6 +517,13 @@ class Vibe(BaseInstalledAgent):
                 for d in sessions_root.iterdir()
                 if d.is_dir() and (d / "messages.jsonl").is_file()
             ]
+            unified_root = sessions_root / "unified"
+            if not session_dirs and unified_root.is_dir():
+                session_dirs = [
+                    d
+                    for d in unified_root.iterdir()
+                    if d.is_dir() and (d / "CURRENT").is_file()
+                ]
         except OSError as exc:
             self.logger.debug(
                 f"Failed to list Vibe sessions under {sessions_root}: {exc}"
@@ -592,6 +599,42 @@ class Vibe(BaseInstalledAgent):
         return meta if isinstance(meta, dict) else {}
 
     def _read_messages(self, session_dir: Path) -> list[dict[str, Any]]:
+        current_path = session_dir / "CURRENT"
+        if current_path.is_file() and not (session_dir / "messages.jsonl").is_file():
+            try:
+                cur = json.loads(current_path.read_text(encoding="utf-8"))
+                gen = cur.get("generation")
+                man = json.loads((session_dir / "generations" / gen / "manifest.json").read_text(encoding="utf-8"))
+                out: list[dict[str, Any]] = []
+                for chunk_id in man.get("checkpoint", {}).get("chunks", []):
+                    rows = json.loads((session_dir / "chunks" / f"{chunk_id}.json").read_text(encoding="utf-8"))
+                    for row in rows:
+                        msg = row.get("message") if isinstance(row, dict) else None
+                        if not isinstance(msg, dict):
+                            continue
+                        role = msg.get("role")
+                        parts = msg.get("content") if isinstance(msg.get("content"), list) else []
+                        texts = [p.get("text", "") for p in parts if isinstance(p, dict) and p.get("type") == "text"]
+                        tcs = []
+                        for p in parts:
+                            if isinstance(p, dict) and p.get("type") == "tool_call":
+                                arg_obj = p.get("arguments") or {}
+                                raw_arg = arg_obj.get("value") if isinstance(arg_obj, dict) and "value" in arg_obj else (arg_obj.get("raw") if isinstance(arg_obj, dict) else arg_obj)
+                                tcs.append({
+                                    "id": p.get("id", ""),
+                                    "function": {"name": p.get("name", ""), "arguments": raw_arg},
+                                })
+                        norm: dict[str, Any] = {"role": role, "content": "\n".join(t for t in texts if t)}
+                        if tcs:
+                            norm["tool_calls"] = tcs
+                        if role == "tool":
+                            norm["tool_call_id"] = msg.get("tool_call_id", "")
+                        out.append(norm)
+                return out
+            except Exception as exc:
+                self.logger.debug(f"Failed to read unified Vibe store in {session_dir}: {exc}")
+                return []
+
         messages_path = session_dir / "messages.jsonl"
         try:
             content = messages_path.read_text(encoding="utf-8")

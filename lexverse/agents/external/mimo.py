@@ -411,7 +411,8 @@ class MiMo(BaseInstalledAgent):
                 # mimo reads baseURL from provider.options, not the provider root.
                 # See: https://github.com/anomalyco/opencode config.ts ProviderConfig schema.
                 provider_config.setdefault("options", {})["baseURL"] = base_url
-                provider_config.setdefault("npm", "@ai-sdk/openai-compatible")
+                if provider != "openai":
+                    provider_config.setdefault("npm", "@ai-sdk/openai-compatible")
             if (
                 provider != "mimo"
             ):  # mimo provider config is only needed for non-mimo providers

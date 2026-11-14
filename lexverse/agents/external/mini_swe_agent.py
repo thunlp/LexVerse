@@ -587,7 +587,7 @@ class MiniSweAgent(BaseInstalledAgent):
                 " fi && "
                 'if [ -f "$HOME/.local/bin/env" ]; then source "$HOME/.local/bin/env"; fi && '
                 'export PATH="$HOME/.local/bin:$PATH" && '
-                f"uv tool install mini-swe-agent{version_spec} --with 'litellm[proxy]' && "
+                f"uv tool install --python 3.13 mini-swe-agent{version_spec} --with 'litellm[proxy]' && "
                 "mini-swe-agent --help"
             ),
         )
@@ -742,6 +742,8 @@ class MiniSweAgent(BaseInstalledAgent):
                 # thinking_level, etc.). Nesting under extra_body forwards a
                 # literal field that providers like Gemini reject.
                 config_flags += f"-c model.model_kwargs.reasoning_effort={eff} "
+        elif self.model_name.startswith("openai/"):
+            config_flags += "-c model.model_kwargs.reasoning_effort=none "
 
         if self._max_tokens is not None:
             token_key = (
@@ -785,5 +787,5 @@ class MiniSweAgent(BaseInstalledAgent):
             answer = info.get('submission')
             if not answer:
                 final = next((m for m in reversed(data.get('messages', [])) if m.get('role') == 'assistant'), {})
-                answer = re.sub(r'```(?:bash|sh)\n.*?```', '', final.get('content', ''), flags=re.S)
+                answer = re.sub(r'```(?:bash|sh)\n.*?```', '', final.get('content') or '', flags=re.S)
         return answer.strip() if isinstance(answer, str) and answer.strip() else None

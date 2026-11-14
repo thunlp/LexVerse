@@ -132,12 +132,14 @@ class Pi(BaseInstalledAgent):
             "providers": {
                 provider: {
                     "baseUrl": base_url,
-                    "api": "openai-completions",
-                    # Pi resolves model configuration values as environment variable names.
-                    "apiKey": self._CUSTOM_MODEL_KEY_ENV,
+                    "api": "openai-responses",
+                    # Pi interpolates $VAR in models.json; bare identifiers are sent as literal keys.
+                    "apiKey": f"${self._CUSTOM_MODEL_KEY_ENV}",
+                    "authHeader": True,
                     "models": [
                         {
                             "id": model_id,
+                            "api": "openai-responses",
                             "contextWindow": 131072,
                             "maxTokens": 8192,
                         }

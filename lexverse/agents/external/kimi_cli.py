@@ -59,7 +59,7 @@ _PROVIDER_CONFIG: dict[str, dict[str, Any]] = {
         "env_keys": ["KIMI_API_KEY", "MOONSHOT_API_KEY"],
     },
     "openai": {
-        "type": "openai_legacy",
+        "type": "openai_responses",
         "base_url": "https://api.openai.com/v1",
         "env_keys": ["OPENAI_API_KEY"],
     },

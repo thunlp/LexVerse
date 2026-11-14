@@ -29,6 +29,7 @@ from lexverse.agents.external.base import (
     CliFlag,
     with_prompt_template,
 )
+from lexverse.agents.external.node_install import nvm_node_install_snippet
 from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
@@ -251,9 +252,9 @@ def _openclaw_decode_last_json_dict_suffix(raw: str):
             continue
         if not isinstance(obj, dict):
             continue
-        if text[start + consumed :].strip():
-            continue
-        return obj
+        trailing = text[start + consumed :].strip()
+        if not trailing or all(line.startswith("[") for line in trailing.splitlines() if line.strip()):
+            return obj
     return None
 
 
@@ -287,10 +288,10 @@ def _openclaw_container_copy_session_transcript() -> None:
             continue
         if not isinstance(obj, dict):
             continue
-        if text[start + consumed :].strip():
-            continue
-        envelope = obj
-        break
+        trailing = text[start + consumed :].strip()
+        if not trailing or all(line.startswith("[") for line in trailing.splitlines() if line.strip()):
+            envelope = obj
+            break
     if not envelope:
         sys.exit(0)
     meta = envelope.get("meta")
@@ -310,7 +311,12 @@ def _openclaw_container_copy_session_transcript() -> None:
 
 
 def _nvm22(cmd: str) -> str:
-    return f". ~/.nvm/nvm.sh && nvm use 24 && {cmd}"
+    return (
+        'unset NPM_CONFIG_PREFIX npm_config_prefix && '
+        'export NVM_DIR="${NVM_DIR:-$HOME/.nvm}" && '
+        'if [ -s "$NVM_DIR/nvm.sh" ]; then . "$NVM_DIR/nvm.sh" && nvm use 24 >/dev/null 2>&1 || true; fi && '
+        f"{cmd}"
+    )
 
 
 class OpenClaw(BaseInstalledAgent):
@@ -505,43 +511,21 @@ class OpenClaw(BaseInstalledAgent):
             env={"DEBIAN_FRONTEND": "noninteractive"},
         )
         timeout = self._install_exec_timeout_sec
-        await self.exec_as_agent(
-            environment,
-            command=(
-                "set -o pipefail; "
-                "retry_all=$(curl --help all 2>/dev/null | grep -q -- '--retry-all-errors' && echo '--retry-all-errors'); "
-                "curl -fsSL --retry 5 --retry-delay 2 $retry_all "
-                "https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh "
-                "| bash"
-            ),
-            timeout_sec=timeout,
-        )
-        await self.exec_as_agent(
-            environment,
-            command=(
-                'export NVM_DIR="${NVM_DIR:-$HOME/.nvm}" && . "$NVM_DIR/nvm.sh" && nvm install 24'
-            ),
-            timeout_sec=timeout,
-        )
-        await self.exec_as_agent(
-            environment,
-            command=_nvm22("node -v && npm -v"),
-            timeout_sec=timeout,
-        )
         version_spec = f"@{self._version}" if self._version else "@latest"
         oc_pkg = shlex.quote(f"openclaw{version_spec}")
         await self.exec_as_agent(
             environment,
-            command=_nvm22(
+            command=(
+                "set -euo pipefail; "
+                "unset NPM_CONFIG_PREFIX npm_config_prefix; "
+                'export NVM_DIR="$HOME/.nvm" && mkdir -p "$NVM_DIR" && '
+                "curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | PROFILE=/dev/null bash && "
+                '. "$NVM_DIR/nvm.sh" && nvm install 24 && '
                 f"npm install -g {oc_pkg} "
                 "--fetch-retries=5 --fetch-retry-mintimeout=20000 "
-                "--fetch-retry-maxtimeout=120000"
+                "--fetch-retry-maxtimeout=120000 && "
+                "openclaw --version"
             ),
-            timeout_sec=timeout,
-        )
-        await self.exec_as_agent(
-            environment,
-            command=_nvm22("openclaw --version"),
             timeout_sec=timeout,
         )
 
@@ -856,6 +840,25 @@ class OpenClaw(BaseInstalledAgent):
             trajectory = None
             if self._use_openclaw_session_jsonl_for_steps:
                 session_path = self.logs_dir / "openclaw.session.jsonl"
+                if not session_path.is_file():
+                    agent_db = (
+                        self.logs_dir.parent
+                        / "home/.openclaw/agents/main/agent/openclaw-agent.sqlite"
+                    )
+                    if agent_db.is_file():
+                        try:
+                            import sqlite3
+                            conn = sqlite3.connect(str(agent_db))
+                            rows = conn.execute(
+                                "SELECT event_json FROM transcript_events WHERE event_json IS NOT NULL ORDER BY seq ASC"
+                            ).fetchall()
+                            conn.close()
+                            if rows:
+                                session_path.write_text(
+                                    "\n".join(r[0] for r in rows), encoding="utf-8"
+                                )
+                        except Exception:
+                            pass
                 session_steps = openclaw_session_jsonl_to_atif_steps(
                     session_path,
                     instruction=instruction,
@@ -964,8 +967,7 @@ class OpenClaw(BaseInstalledAgent):
 
         cli_flags = self.build_cli_flags()
         cli_flags_arg = (cli_flags + " ") if cli_flags else ""
-        command = (
-            ". ~/.nvm/nvm.sh && nvm use 24 && "
+        command = _nvm22(
             f"openclaw agent --local --json {cli_flags_arg}"
             f"--model {shlex.quote(self.model_name)} "
             f"--message {escaped_instruction} "

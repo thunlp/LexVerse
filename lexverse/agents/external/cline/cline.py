@@ -975,14 +975,24 @@ class ClineCli(BaseInstalledAgent):
             "CLINE_WRITE_PROMPT_ARTIFACTS": "1",
             "CLINE_PROMPT_ARTIFACT_DIR": "/logs/agent",
         }
+        for key in ("OPENAI_BASE_URL", "OPENAI_API_BASE", "ANTHROPIC_BASE_URL"):
+            if self._has_env(key):
+                env[key] = self._get_env(key)
 
-        global_state_json = shlex.quote(
-            '{"welcomeViewCompleted": true, "isNewUser": false}'
-        )
+        global_state: dict[str, Any] = {"welcomeViewCompleted": True, "isNewUser": False}
+        if provider in ("openai", "openai-compatible") and self._get_env("OPENAI_BASE_URL"):
+            global_state["openAiBaseUrl"] = self._get_env("OPENAI_BASE_URL")
+        global_state_json = shlex.quote(json.dumps(global_state))
         setup_command = (
             "mkdir -p /logs/agent ~/.cline/data && "
             f"echo {global_state_json} > ~/.cline/data/globalState.json"
         )
+        base_url = self._get_env("OPENAI_BASE_URL") or self._get_env("OPENAI_API_BASE") or self._get_env("ANTHROPIC_BASE_URL")
+        if base_url:
+            setup_command += (
+                ' && { export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" || true; } '
+                f"&& cline auth -p {shlex.quote(cline_provider)} -k \"$API_KEY\" -m \"$MODELID\" -b {shlex.quote(base_url)}"
+            )
 
         skills_command = self._build_register_skills_command()
         if skills_command:

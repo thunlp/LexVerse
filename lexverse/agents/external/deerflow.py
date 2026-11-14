@@ -97,6 +97,7 @@ class DeerFlow(BaseInstalledAgent):
     SWE-bench, ...) edit files where the verifier looks for them.
     """
     MODEL_CONNECTION = ModelConnectionSpec()
+    SUPPORTS_ATIF: bool = True
 
     _REMOTE_REPO_DIR = PurePosixPath("/installed-agent/deer-flow")
     _REMOTE_VENV_DIR = PurePosixPath("/opt/harbor-deerflow-venv")
@@ -297,6 +298,8 @@ class DeerFlow(BaseInstalledAgent):
         entry["api_key"] = f"${key_var}"
         entry["request_timeout"] = 600.0
         entry["max_retries"] = 2
+        if use == "langchain_openai:ChatOpenAI":
+            entry["use_responses_api"] = True
         return entry
 
     def _default_tools(self) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
@@ -373,7 +376,7 @@ class DeerFlow(BaseInstalledAgent):
                 "read_only": False,
             }
         )
-        for extra_mount, ro in (("/inputs", True), ("/artifacts", False), ("/skills", True)):
+        for extra_mount, ro in (("/inputs", True), ("/documents", True), ("/artifacts", False), ("/skills", True)):
             if not any(m.get("container_path") == extra_mount for m in mounts):
                 mounts.append({"host_path": extra_mount, "container_path": extra_mount, "read_only": ro})
         sandbox["mounts"] = mounts
@@ -697,6 +700,44 @@ class DeerFlow(BaseInstalledAgent):
             return
         context.n_input_tokens = input_tokens
         context.n_output_tokens = output_tokens
+
+    @override
+    def populate_context_post_run(self, context: AgentContext) -> None:
+        jsonl_path = self.logs_dir / self._OUTPUT_FILENAME
+        if not jsonl_path.is_file():
+            return
+        messages = None
+        for line in reversed(jsonl_path.read_text(encoding="utf-8", errors="replace").splitlines()):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") == "values" and isinstance(event.get("data"), dict):
+                cand = event["data"].get("messages")
+                if isinstance(cand, list) and cand:
+                    messages = cand
+                    break
+        if not messages:
+            return
+        from lexverse.agents.atif_converter import (
+            convert_langchain_messages_to_atif,
+            write_atif_trajectory,
+        )
+        trajectory = convert_langchain_messages_to_atif(
+            messages,
+            agent_name=self.name(),
+            agent_version=self.version() or "unknown",
+            model_name=self.model_name,
+            usage={
+                "input_tokens": context.n_input_tokens or 0,
+                "output_tokens": context.n_output_tokens or 0,
+            },
+        )
+        if trajectory is not None:
+            write_atif_trajectory(trajectory, self.logs_dir / "trajectory.json")
 
 
 def _coerce_bool(value: Any, default: bool) -> bool:
