@@ -242,6 +242,10 @@ class SweAgent(BaseInstalledAgent):
     def name() -> str:
         return AgentName.SWE_AGENT.value
 
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
+
     @override
     def get_version_command(self) -> str | None:
         return "/opt/sweagent-venv/bin/pip show swe-agent | grep ^Version:"
@@ -305,7 +309,9 @@ class SweAgent(BaseInstalledAgent):
                 "mkdir -p /opt/sweagent-configs && "
                 "cp /opt/sweagent-repo/config/default.yaml /opt/sweagent-configs/default.yaml && "
                 "cp /opt/sweagent-repo/config/default_backticks.yaml /opt/sweagent-configs/default_backticks.yaml 2>/dev/null || true && "
-                'mkdir -p "$SITE_PACKAGES/trajectories"'
+                'mkdir -p "$SITE_PACKAGES/trajectories" /root/tools && '
+                'chmod -R a+rX /opt/sweagent-venv /opt/sweagent-repo /opt/sweagent-configs && '
+                'chmod -R a+rwX "$SITE_PACKAGES/trajectories" /root /root/tools'
             ),
         )
         # Create wrapper script and conda init
@@ -315,7 +321,11 @@ class SweAgent(BaseInstalledAgent):
                 "cat > /usr/local/bin/sweagent << 'WRAPPER'\n"
                 "#!/bin/bash\n"
                 "source /opt/sweagent-venv/bin/activate\n"
-                'exec python -m sweagent.run.run "$@"\n'
+                "export LITELLM_DROP_PARAMS=True\n"
+                "exec python -c \"import sys, litellm; litellm.drop_params = True; "
+                "orig = litellm.completion; "
+                "litellm.completion = lambda *a, **kw: orig(*a, **{**{'reasoning_effort': 'none'}, **kw}); "
+                "from sweagent.run.run import main; sys.exit(main())\" \"$@\"\n"
                 "WRAPPER\n"
                 "chmod +x /usr/local/bin/sweagent && "
                 "cat > /etc/profile.d/testbed-conda.sh << 'EOF'\n"
@@ -417,11 +427,30 @@ class SweAgent(BaseInstalledAgent):
         is_hosted_vllm = self.model_name.startswith("hosted_vllm/") or "OPENAI_BASE_URL" in env
 
         instruction_path = "/logs/agent/problem_statement.md"
+        if self.skills_dir:
+            instruction += f"\n\nSkills:\nDomain and tool skills are mounted read-only at {self.skills_dir} (each subdirectory contains a SKILL.md).\n"
+        if self.mcp_servers:
+            instruction += "\nMCP Servers:\n"
+            for s in self.mcp_servers:
+                if s.transport == "stdio":
+                    instruction += f"- {s.name}: stdio command `{s.command} {' '.join(s.args)}`\n"
+                else:
+                    instruction += f"- {s.name}: {s.transport} url `{s.url}`\n"
 
         heredoc = f"HARBOR_INSTRUCTION_{uuid.uuid4().hex}"
 
         write_instruction_cmd = (
             "mkdir -p /logs/agent\n"
+            'if [ ! -d /testbed ] && ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then\n'
+            '  git config --global --add safe.directory "$(pwd)" >/dev/null 2>&1 || true\n'
+            "  git init -q >/dev/null 2>&1\n"
+            "  git config user.email 'agent@local'\n"
+            "  git config user.name 'agent'\n"
+            "  echo '__init__' > .swe_placeholder && git add .swe_placeholder\n"
+            "  git commit -m init -q >/dev/null 2>&1\n"
+            '  git remote add origin "$(pwd)" >/dev/null 2>&1 || true\n'
+            "  git fetch -q origin >/dev/null 2>&1 || true\n"
+            "fi\n"
             f"cat > '{instruction_path}' << '{heredoc}'\n"
             f"{instruction}\n"
             f"{heredoc}\n"
@@ -434,7 +463,7 @@ class SweAgent(BaseInstalledAgent):
             "--env.deployment.type=local",
             "--output_dir=/logs/agent/swe-agent-output",
             "$(if [ -d /testbed ]; then echo '--env.repo.type=preexisting --env.repo.repo_name=/testbed'; "
-            "else echo '--env.repo.path=$(pwd)'; fi)",
+            "else echo \"--env.repo.type=preexisting --env.repo.repo_name=$(basename \"$(pwd)\")\"; fi)",
         ]
 
         download_config_cmd = ""

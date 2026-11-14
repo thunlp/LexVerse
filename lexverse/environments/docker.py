@@ -207,6 +207,14 @@ class DockerEnvironment(ExecutionEnvironment):
         if bge_dir.is_dir():
             run_args.extend(["-v", f"{bge_dir.resolve()}:{bge_dir.resolve()}:ro"])
 
+        # Mount host Python prefix read-only when running on Linux so the stdio
+        # knowledge MCP server inside the container can run with the exact Python
+        # interpreter and libraries that built `.lexverse/runtime/agent`.
+        if sys.platform == "linux":
+            py_prefix = Path(sys.prefix).resolve()
+            if py_prefix.is_dir() and not str(py_prefix).startswith("/usr"):
+                run_args.extend(["-v", f"{py_prefix}:{py_prefix}:ro"])
+
         # Mount host toolchains (.nvm, .local, .codex) at their host paths read-only
         # so host symlinks work, without shadowing container /root/.local or /root/.nvm.
         host_home = Path.home()
@@ -444,8 +452,12 @@ class DockerEnvironment(ExecutionEnvironment):
         args.extend(["-w", workdir])
         args.extend(["-e", "PYTHONPATH=/lexverse-repo", "-e", "HOME=/runtime/home",
                      "-e", "TMPDIR=/runtime/tmp", "-e", "XDG_CACHE_HOME=/runtime/cache",
+                     "-e", "NPM_CONFIG_PREFIX=/runtime/home/.npm-global",
                      "-e", "PYTHONDONTWRITEBYTECODE=1"])
         extra_paths = ["/runtime/home/.local/bin", "/runtime/home/.npm-global/bin", "/root/.local/bin"]
+        host_bin = Path.home() / ".local/bin"
+        if host_bin.is_dir():
+            extra_paths.append(str(host_bin.resolve()))
         fnm_dir = Path.home() / ".local/share/fnm/node-versions"
         if fnm_dir.is_dir():
             for vdir in sorted(fnm_dir.glob("*/installation/bin"), reverse=True):

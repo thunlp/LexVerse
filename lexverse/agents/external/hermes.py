@@ -60,6 +60,8 @@ class Hermes(BaseInstalledAgent):
     """The Hermes agent installs NousResearch's hermes-agent and runs it via CLI to solve tasks."""
     MODEL_CONNECTION = ModelConnectionSpec()
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF: bool = True
 
@@ -147,12 +149,12 @@ class Hermes(BaseInstalledAgent):
             if server.transport == "stdio":
                 entry["command"] = server.command
                 entry["args"] = server.args
-                entry["env"] = {"PYTHONPATH": "/lexverse-repo"}
+                entry["env"] = dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"}
             else:
                 entry["url"] = server.url
             mcp_config[server.name] = entry
         yaml_str = yaml.dump({"mcp_servers": mcp_config}, default_flow_style=False)
-        return f"cat >> /root/.hermes/config.yaml << 'MCPEOF'\n{yaml_str}MCPEOF"
+        return f'cat >> "$HOME/.hermes/config.yaml" << \'MCPEOF\'\n{yaml_str}MCPEOF'
 
     # ------------------------------------------------------------------
     # Skills support (native directory)
@@ -315,11 +317,39 @@ class Hermes(BaseInstalledAgent):
     @override
     def populate_context_post_run(self, context: AgentContext) -> None:
         session_path = self.logs_dir / "hermes-session.jsonl"
-        if not session_path.exists():
+        jsonl_text = session_path.read_text() if session_path.exists() else ""
+        if not jsonl_text.strip():
+            # Newer hermes versions record chat -q sessions with source="oneshot" in state.db
+            state_db = self.logs_dir.parent / "home" / ".hermes" / "state.db"
+            if state_db.is_file():
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect(str(state_db))
+                    cur = conn.cursor()
+                    rows = cur.execute(
+                        "SELECT role, content, tool_call_id, tool_calls FROM messages ORDER BY id ASC"
+                    ).fetchall()
+                    exported = []
+                    for role, content, tool_call_id, tool_calls_raw in rows:
+                        item: dict[str, Any] = {"role": role, "content": content or ""}
+                        if tool_call_id:
+                            item["tool_call_id"] = tool_call_id
+                        if tool_calls_raw:
+                            try:
+                                item["tool_calls"] = json.loads(tool_calls_raw)
+                            except json.JSONDecodeError:
+                                pass
+                        exported.append(item)
+                    conn.close()
+                    if exported:
+                        jsonl_text = "\n".join(json.dumps(m, ensure_ascii=False) for m in exported)
+                        session_path.write_text(jsonl_text, encoding="utf-8")
+                except Exception as exc:
+                    self.logger.debug(f"Failed to read hermes state.db: {exc}")
+        if not jsonl_text.strip():
             return
 
         session_id = str(uuid.uuid4())
-        jsonl_text = session_path.read_text()
 
         try:
             trajectory = self._convert_hermes_session_to_atif(jsonl_text, session_id)
@@ -359,7 +389,7 @@ class Hermes(BaseInstalledAgent):
         provider, model = self.model_name.split("/", 1)
 
         env: dict[str, str] = {
-            "HERMES_HOME": "/root/.hermes",
+            "HERMES_HOME": "/runtime/home/.hermes",
             "TERMINAL_ENV": "local",
         }
 
@@ -407,8 +437,8 @@ class Hermes(BaseInstalledAgent):
         await self.exec_as_agent(
             environment,
             command=(
-                "mkdir -p /root/.hermes && "
-                f"cat > /root/.hermes/config.yaml << 'EOF'\n{config_yaml}EOF"
+                'mkdir -p "$HOME/.hermes" && '
+                f'cat > "$HOME/.hermes/config.yaml" << \'EOF\'\n{config_yaml}EOF'
             ),
             env=env,
             timeout_sec=10,
@@ -459,9 +489,11 @@ class Hermes(BaseInstalledAgent):
                     command=(
                         'export PATH="$HOME/.local/bin:$PATH" && '
                         "hermes sessions export /logs/agent/hermes-session.jsonl "
-                        "--source cli 2>/dev/null || true"
+                        "--source cli 2>/dev/null || true; "
+                        "if [ ! -s /logs/agent/hermes-session.jsonl ]; then "
+                        "hermes sessions export /logs/agent/hermes-session.jsonl 2>/dev/null || true; fi"
                     ),
-                    env={"HERMES_HOME": "/root/.hermes"},
+                    env={"HERMES_HOME": "/runtime/home/.hermes"},
                     timeout_sec=30,
                 )
             except Exception:

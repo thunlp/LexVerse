@@ -222,7 +222,7 @@ class NemoAgent(BaseInstalledAgent):
         ),
     ]
 
-    _CONTAINER_CONFIG_PATH = "/app/nemo-agent-config.yml"
+    _CONTAINER_CONFIG_PATH = "/runtime/tmp/nemo-agent-config.yml"
     _CONTAINER_WRAPPER_PATH = "/installed-agent/nemo_agent_run_wrapper.py"
 
     @staticmethod

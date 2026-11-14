@@ -49,6 +49,8 @@ class Goose(BaseInstalledAgent):
     """
     MODEL_CONNECTION = ModelConnectionSpec()
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF: bool = True
     SUPPORTS_RESUME: bool = True
@@ -153,7 +155,7 @@ class Goose(BaseInstalledAgent):
                         "name": server.name,
                         "cmd": server.command,
                         "args": server.args,
-                        "envs": {"PYTHONPATH": "/lexverse-repo"},
+                        "envs": dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"},
                     }
                 )
             elif server.transport == "sse":
@@ -444,9 +446,9 @@ class Goose(BaseInstalledAgent):
                 for item in msg.get("content", []):
                     item_type = item.get("type")
                     if item_type == "text":
-                        entry["text_parts"].append(item["text"])
+                        entry["text_parts"].append(item.get("text", ""))
                     elif item_type == "thinking":
-                        entry["reasoning_parts"].append(item["text"])
+                        entry["reasoning_parts"].append(item.get("text") or item.get("thinking") or "")
                     elif item_type == "toolRequest":
                         tc_data = item.get("toolCall", {})
                         tc_value = tc_data.get("value", {})

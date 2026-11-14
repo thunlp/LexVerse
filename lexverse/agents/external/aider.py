@@ -88,7 +88,7 @@ class Aider(BaseInstalledAgent):
 
     @override
     def get_version_command(self) -> str | None:
-        return ". $HOME/.local/bin/env; aider --version"
+        return 'if [ -f "$HOME/.local/bin/env" ]; then . "$HOME/.local/bin/env"; fi; aider --version'
 
     @override
     def parse_version(self, stdout: str) -> str:
@@ -163,8 +163,15 @@ class Aider(BaseInstalledAgent):
         await self.exec_as_agent(
             environment,
             command=(
-                ". $HOME/.local/bin/env; "
+                'if [ -f "$HOME/.local/bin/env" ]; then . "$HOME/.local/bin/env"; fi; '
+                "cat > /tmp/aider-model-settings.yml <<EOF\n"
+                f"- name: {model}\n"
+                "  use_temperature: false\n"
+                f"- name: {self.model_name}\n"
+                "  use_temperature: false\n"
+                "EOF\n"
                 "aider --yes "
+                "--model-settings-file=/tmp/aider-model-settings.yml "
                 "--chat-history-file=/logs/agent/aider.chat.history.md "
                 f"{restore_flag}{extra_flags}--model={model} "
                 f"--message={escaped_instruction} "

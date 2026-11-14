@@ -48,7 +48,9 @@ class OpenHands(BaseInstalledAgent):
     """
     MODEL_CONNECTION = ModelConnectionSpec(api_key_envs=('LLM_API_KEY',), base_url_envs=('LLM_BASE_URL',))
 
+    SUPPORTS_SKILLS = True
     MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF: bool = True
 
@@ -68,7 +70,7 @@ class OpenHands(BaseInstalledAgent):
             "reasoning_effort",
             env="LLM_REASONING_EFFORT",
             type="str",
-            default="high",
+            default="none",
         ),
         EnvVar(
             "temperature",
@@ -855,6 +857,10 @@ class OpenHands(BaseInstalledAgent):
                 "/opt/openhands-venv/bin/python -m openhands.core.main --version"
             ),
         )
+        await self.exec_as_root(
+            environment,
+            command="chmod -R a+rX /opt/openhands-venv",
+        )
 
     def _build_mcp_config_toml(self) -> str | None:
         """Build OpenHands config.toml content with MCP server configuration.
@@ -875,8 +881,10 @@ class OpenHands(BaseInstalledAgent):
                 shttp_entries.append(f'{{url = "{server.url}"}}')
             elif server.transport == "stdio":
                 args_str = ", ".join(f'"{a}"' for a in server.args)
+                env_items = dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"}
+                env_str = ", ".join(f'{k} = "{v}"' for k, v in env_items.items())
                 stdio_entries.append(
-                    f'{{name = "{server.name}", command = "{server.command}", args = [{args_str}], env = {{PYTHONPATH = "/lexverse-repo"}}}}'
+                    f'{{name = "{server.name}", command = "{server.command}", args = [{args_str}], env = {{{env_str}}}}}'
                 )
 
         lines = ["[mcp]"]
@@ -1037,9 +1045,13 @@ class OpenHands(BaseInstalledAgent):
         commands = [
             # Use current directory as workspace
             "SANDBOX_VOLUMES=${PWD}:/workspace:rw",
-            # Set user, in case agent runs as non-root
-            "USER=`id -un`",
-            "/opt/openhands-venv/bin/python -m openhands.core.main",
+            # Set user, in case agent runs as non-root (uid 1000 may lack a /etc/passwd entry)
+            "USER=$(id -un 2>/dev/null || echo agent)",
+            "LITELLM_DROP_PARAMS=True",
+            "/opt/openhands-venv/bin/python -c \"import sys, litellm; litellm.drop_params = True; "
+            "from openhands.llm import llm as _oh_llm; _c = _oh_llm.litellm_completion; "
+            "_oh_llm.litellm_completion = lambda *a, **kw: _c(*a, **{**kw, 'extra_body': {**(kw.get('extra_body') or {}), 'reasoning_effort': kw.get('reasoning_effort') or 'none'}}); "
+            "import runpy; sys.argv = ['openhands.core.main', *sys.argv[1:]]; runpy.run_module('openhands.core.main', run_name='__main__')\"",
             f"--task={escaped_instruction}",
         ]
 

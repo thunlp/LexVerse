@@ -50,7 +50,7 @@ class Pi(BaseInstalledAgent):
     MODEL_CONNECTION = ModelConnectionSpec()
     MCP_TRANSPORTS = frozenset(('stdio', 'streamable-http'))
     SUPPORTS_MCP_HEADERS = False
-    SUPPORTS_MCP_ENV = False
+    SUPPORTS_MCP_ENV = True
     SUPPORTS_SKILLS = True
     SUPPORTS_RESUME: bool = True
 
@@ -110,7 +110,7 @@ class Pi(BaseInstalledAgent):
                 entry: dict[str, Any] = {
                     "command": server.command,
                     "exposure": "direct",
-                    "env": {"PYTHONPATH": "/lexverse-repo"},
+                    "env": dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"},
                 }
                 if server.args:
                     entry["args"] = server.args
@@ -132,12 +132,14 @@ class Pi(BaseInstalledAgent):
             "providers": {
                 provider: {
                     "baseUrl": base_url,
-                    "api": "openai-completions",
-                    # Pi resolves model configuration values as environment variable names.
-                    "apiKey": self._CUSTOM_MODEL_KEY_ENV,
+                    "api": "openai-responses",
+                    # Pi interpolates $VAR in models.json; bare identifiers are sent as literal keys.
+                    "apiKey": f"${self._CUSTOM_MODEL_KEY_ENV}",
+                    "authHeader": True,
                     "models": [
                         {
                             "id": model_id,
+                            "api": "openai-responses",
                             "contextWindow": 131072,
                             "maxTokens": 8192,
                         }
