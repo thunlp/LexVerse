@@ -394,6 +394,17 @@ class GrokBuild(BaseInstalledAgent):
 
         if self._provider and self._model_slug:
             spec = self._PROVIDERS[self._provider]
+            base_url = spec["base_url"]
+            if self._provider == "openai":
+                base_url = (
+                    self._get_env("OPENAI_BASE_URL")
+                    or self._get_env("OPENAI_API_BASE")
+                    or base_url
+                )
+            elif self._provider == "anthropic":
+                base_url = self._get_env("ANTHROPIC_BASE_URL") or base_url
+            elif self._provider == "openrouter":
+                base_url = self._get_env("OPENROUTER_BASE_URL") or base_url
             # Pin the auxiliary models (session summary etc.) to the same
             # endpoint so the run needs no xAI credentials at all.
             config["models"] = {
@@ -406,7 +417,7 @@ class GrokBuild(BaseInstalledAgent):
                 self._model_slug: {
                     "name": self._model_slug,
                     "model": self._model_slug,
-                    "base_url": spec["base_url"],
+                    "base_url": base_url,
                     "env_key": spec["env_key"],
                     "api_backend": spec["api_backend"],
                 }
