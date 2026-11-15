@@ -52,6 +52,7 @@ class Pi(BaseInstalledAgent):
     SUPPORTS_MCP_HEADERS = False
     SUPPORTS_MCP_ENV = True
     SUPPORTS_SKILLS = True
+    SUPPORTS_ATIF: bool = True
     SUPPORTS_RESUME: bool = True
 
     _OUTPUT_FILENAME = "pi.txt"

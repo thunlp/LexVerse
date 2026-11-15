@@ -235,10 +235,14 @@ class Hermes(BaseInstalledAgent):
                                 args = json.loads(args)
                             except json.JSONDecodeError:
                                 args = {"raw": args}
+                        if not isinstance(args, dict):
+                            args = {"value": args}
+                        tc_id = tc.get("id") or tc.get("call_id") or str(uuid.uuid4())[:8]
+                        fn_name = func.get("name") or tc.get("name") or "unknown"
                         tool_calls.append(
                             ToolCall(
-                                tool_call_id=tc.get("id", str(uuid.uuid4())[:8]),
-                                function_name=func.get("name", "unknown"),
+                                tool_call_id=tc_id,
+                                function_name=fn_name,
                                 arguments=args,
                             )
                         )

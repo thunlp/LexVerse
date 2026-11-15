@@ -51,10 +51,12 @@ class LocalEnvironment(ExecutionEnvironment):
             "/skills": self.skills_root,
             # Agents list /inputs as a root; keep it present (empty unless a task supplies materials).
             "/inputs": self.trial_paths.runtime_dir / "inputs",
+            "/documents": self.trial_paths.runtime_dir / "documents",
             "/runtime": self.trial_paths.runtime_dir,
             "/tmp": self.trial_paths.runtime_dir / "tmp",
             "/var/tmp": self.trial_paths.runtime_dir / "tmp",
             "/workspace": self.trial_paths.workspace_dir,
+            "/work": self.trial_paths.workspace_dir,
             "/artifacts": self.trial_paths.artifacts_dir,
             "/tests": private_root / "tests",
             "/solution": private_root / "solution",
@@ -78,16 +80,26 @@ class LocalEnvironment(ExecutionEnvironment):
 
     def _rewrite_command_paths(self, command: str) -> str:
         """Rewrite standard root-anchored container paths in shell commands to local trial paths."""
-        rewritten = command
-        for prefix, host_dir in sorted(
-            self._virtual_mounts.items(), key=lambda kv: -len(kv[0])
-        ):
-            pattern = re.compile(
-                rf"(^|[\s\"'=<>\(:;]){re.escape(prefix)}(?=$|[/\s\"'\):;])"
-            )
-            replacement_path = str(host_dir.resolve())
-            rewritten = pattern.sub(lambda m, p=replacement_path: m.group(1) + p, rewritten)
-        return rewritten
+        mounts = {
+            prefix: str(host_dir.resolve())
+            for prefix, host_dir in self._virtual_mounts.items()
+        }
+        alt = "|".join(
+            re.escape(prefix)
+            for prefix in sorted(mounts, key=len, reverse=True)
+        )
+        trial_prefix = str(self.trial_paths.trial_dir.resolve())
+        pattern = re.compile(
+            rf"(^|[\s\"'=<>\(:;`])({alt})(?=$|[/\s\"'\):;`])"
+        )
+        def _replace(match: re.Match[str]) -> str:
+            lead, prefix = match.group(1), match.group(2)
+            rest = command[match.end() :]
+            # Do not rewrite /tmp when the token is already the trial's resolved host path under /tmp/...
+            if (prefix + rest).startswith(trial_prefix + "/") or (prefix + rest) == trial_prefix:
+                return match.group(0)
+            return lead + mounts[prefix]
+        return pattern.sub(_replace, command)
 
     def _validate_definition(self) -> None:
         return None
@@ -120,8 +132,9 @@ class LocalEnvironment(ExecutionEnvironment):
                 target = self.trial_paths.workspace_dir / item.name
                 if item.is_dir():
                     shutil.copytree(item, target, dirs_exist_ok=True)
-                    if item.name == "inputs":
+                    if item.name in ("inputs", "documents"):
                         shutil.copytree(item, self.map_virtual_path("/inputs"), dirs_exist_ok=True)
+                        shutil.copytree(item, self.map_virtual_path("/documents"), dirs_exist_ok=True)
                 elif item.is_file():
                     shutil.copy2(item, target)
 

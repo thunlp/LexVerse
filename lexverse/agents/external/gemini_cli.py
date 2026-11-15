@@ -844,6 +844,8 @@ class GeminiCli(BaseInstalledAgent):
                 "GOOGLE_CLOUD_LOCATION",
                 "GOOGLE_GENAI_USE_VERTEXAI",
                 "GOOGLE_API_KEY",
+                "GOOGLE_GEMINI_BASE_URL",
+                "GOOGLE_BASE_URL",
             ]
             for var in auth_vars:
                 if self._has_env(var):

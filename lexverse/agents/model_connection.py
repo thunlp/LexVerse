@@ -58,7 +58,7 @@ PROVIDERS = {
     'anyscale': ProviderAccess(('ANYSCALE_API_KEY',), (), None, ()),
     'deepinfra': ProviderAccess(('DEEPINFRA_API_KEY',), (), None, ()),
     'featherless_ai': ProviderAccess(('FEATHERLESS_AI_API_KEY',), (), None, ()),
-    'google': ProviderAccess(('GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY'), ('GOOGLE_BASE_URL',), 'https://generativelanguage.googleapis.com', ()),
+    'google': ProviderAccess(('GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY'), ('GOOGLE_BASE_URL', 'GOOGLE_GEMINI_BASE_URL'), 'https://generativelanguage.googleapis.com', ()),
     'groq': ProviderAccess(('GROQ_API_KEY',), (), None, ()),
     'cerebras': ProviderAccess(('CEREBRAS_API_KEY',), (), None, ()),
     'xai': ProviderAccess(('XAI_API_KEY',), (), None, ()),

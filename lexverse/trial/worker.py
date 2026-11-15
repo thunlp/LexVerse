@@ -324,6 +324,8 @@ async def execute_general_agent(
             await environment.start()
             from lexverse.capabilities.skills import prepare_task_skills
             await prepare_task_skills(environment, spec, resources, effective_cache)
+            if (spec.task_skills or resources["skills"]["skills"]) and not agent.skills_dir:
+                agent.skills_dir = "/skills"
             if env_type == "docker":
                 import shlex
                 for artifact in spec.artifacts:
@@ -341,13 +343,35 @@ async def execute_general_agent(
             agent_result = getattr(agent, "last_result", None)
             if agent_result is not None:
                 result = agent_result
-            # A rejected reply must retain the saved pause, without verification or result enrichment.
-            if result.get("resume_error"):
-                return result
-            result = await _collect_result(
-                spec, agent, environment, trial_paths, result,
-                agent_name=agent_name, env_type=env_type, tests_dir=resolved_tests_dir,
-            )
+                # A rejected reply must retain the saved pause, without verification or result enrichment.
+                if result.get("resume_error"):
+                    return result
+                result.setdefault("agent", agent_name)
+                result.setdefault("environment", env_type)
+                atomic_write_json(
+                    trial_paths.trial_dir / ".internal/artifacts.json",
+                    {
+                        "artifacts": [
+                            {
+                                "source": item["source"],
+                                "destination": item["destination"],
+                                "service": item.get("service", "main"),
+                                "status": "collected" if (trial_paths.artifacts_dir / item["destination"]).exists() else "missing",
+                                "kind": "directory" if (trial_paths.artifacts_dir / item["destination"]).is_dir() else "file",
+                            }
+                            for item in spec.artifacts
+                        ]
+                    },
+                )
+                if result.get("status") == "completed" and spec.verifier is not None:
+                    from lexverse.trial.verification import verify_trial
+                    records = json.loads((trial_paths.trial_dir / ".internal/artifacts.json").read_text())["artifacts"]
+                    result["verifier"] = await verify_trial(spec, environment, resolved_tests_dir, records)
+            else:
+                result = await _collect_result(
+                    spec, agent, environment, trial_paths, result,
+                    agent_name=agent_name, env_type=env_type, tests_dir=resolved_tests_dir,
+                )
         finally:
             if not result.get("resume_error"):
                 _publish_trajectory(agent, trial_paths, result)

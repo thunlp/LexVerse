@@ -71,7 +71,7 @@ def main(argv=None):
                 and trial.task.verification is not None
                 and trial.task.verification.config['environment_mode'] == 'shared'
                 and load_verification(job)['trials'].get(trial.id, {}).get('status') != 'completed')
-            if record['status'] not in {'failed', 'timeout', 'cancelled'} and not missing_shared_verification:
+            if record['status'] not in {'failed', 'timeout', 'limit_reached', 'cancelled'} and not missing_shared_verification:
                 raise ConfigError('Only a failed, timed-out or cancelled Trial can be retried')
 
             if trial.task.source.kind == 'user':

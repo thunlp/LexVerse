@@ -41,7 +41,7 @@ class EnvironmentBackend(BaseSandbox):
         self._loop = asyncio.get_running_loop()
         self._roots = {
             path: str(environment.map_virtual_path(path))
-            for path in ("/inputs", "/skills", "/workspace", "/artifacts")
+            for path in ("/inputs", "/documents", "/skills", "/workspace", "/work", "/artifacts")
         }
         self._roots.update({
             "/" + name: str(environment.map_virtual_path("/runtime/" + name))
@@ -82,6 +82,9 @@ class EnvironmentBackend(BaseSandbox):
             raise ValueError("Path traversal is not allowed")
         if not path.startswith("/"):
             path = "/" + path
+        for virtual, actual in self._roots.items():
+            if path == actual or path.startswith(actual + "/"):
+                return path
         for virtual, actual in self._roots.items():
             if path == virtual or path.startswith(virtual + "/"):
                 return actual + path[len(virtual):]
@@ -151,7 +154,7 @@ class EnvironmentBackend(BaseSandbox):
         if path in (None, "/"):
             matches = []
             truncated = False
-            for root in ("/inputs", "/skills", "/workspace", "/artifacts"):
+            for root in ("/inputs", "/documents", "/skills", "/workspace", "/artifacts"):
                 result = self.grep(pattern, root, glob, max_count=max_count)
                 if result.error:
                     return result
@@ -185,7 +188,7 @@ class EnvironmentBackend(BaseSandbox):
             matches = []
             truncated = False
             reason = None
-            for root in ("/inputs", "/skills", "/workspace", "/artifacts"):
+            for root in ("/inputs", "/documents", "/skills", "/workspace", "/artifacts"):
                 result = self.glob(pattern.lstrip("/"), root)
                 if result.error:
                     return result

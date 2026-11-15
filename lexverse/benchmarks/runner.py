@@ -391,7 +391,11 @@ async def execute_agent(trial, config, plugin, runtime, resource_root, work, pro
                 logging.getLogger(__name__).warning("Could not publish trajectory: %s", exc)
 
     if result['status'] != 'completed':
-        raise ConfigError(f"Agent execution failed: {result['stop_reason']}: {result.get('error_message', '')}")
+        from lexverse.trial.errors import TrialError, TrialTimeoutError
+        msg = f"Agent execution {result['status']} ({result['stop_reason']}): {result.get('error_message', '')}"
+        if result.get('stop_reason') == 'active_timeout' or result.get('status') == 'timeout':
+            raise TrialTimeoutError(msg)
+        raise TrialError(msg)
 
     messages.append({'role': 'assistant', 'content': result['answer']})
 

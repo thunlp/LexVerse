@@ -40,6 +40,9 @@ from lexverse.models.trial.paths import EnvironmentPaths
 
 class RovodevCli(BaseInstalledAgent):
     MODEL_CONNECTION = None
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
     SUPPORTS_ATIF: bool = True
 
     # System message patterns to filter out internal agent messages
@@ -641,6 +644,15 @@ class RovodevCli(BaseInstalledAgent):
     async def run(
         self, instruction: str, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
+        if self.skills_dir:
+            instruction += f"\n\nSkills:\nDomain and tool skills are mounted read-only at {self.skills_dir} (each subdirectory contains a SKILL.md).\n"
+        if self.mcp_servers:
+            instruction += "\nMCP Servers:\n"
+            for s in self.mcp_servers:
+                if s.transport == "stdio":
+                    instruction += f"- {s.name}: stdio command `{s.command} {' '.join(s.args)}`\n"
+                else:
+                    instruction += f"- {s.name}: {s.transport} url `{s.url}`\n"
         escaped_instruction = shlex.quote(instruction)
 
         # Get authentication credentials from environment

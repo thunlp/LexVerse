@@ -221,6 +221,8 @@ class CursorCli(BaseInstalledAgent):
     """
     MODEL_CONNECTION = None
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF: bool = True
 
@@ -866,7 +868,7 @@ class CursorCli(BaseInstalledAgent):
                 servers[server.name] = {
                     "command": server.command,
                     "args": server.args,
-                    "env": {"PYTHONPATH": "/lexverse-repo"},
+                    "env": dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"},
                 }
             else:  # sse or streamable-http
                 servers[server.name] = {"url": server.url}

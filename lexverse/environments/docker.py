@@ -291,6 +291,15 @@ class DockerEnvironment(ExecutionEnvironment):
                                     or ":/logs/verifier:" in args[n + 1]
                                     or args[n + 1].startswith(str((Path(__file__).resolve().parents[2] / ".lexverse/capabilities").resolve()) + ":")):
                 del args[n:n + 2]
+        for path in self.knowledge_read_paths():
+            mount = f"{path.resolve()}:{path.resolve()}:ro"
+            if mount not in args:
+                args += ["-v", mount]
+        models = (Path(__file__).resolve().parents[2] / ".lexverse/capabilities/cache/models").resolve()
+        if models.is_dir():
+            mount = f"{models}:{models}:ro"
+            if mount not in args:
+                args += ["-v", mount]
         if self._network_policy.network_mode == "allowlist":
             args += ["-v", f"{hosts.resolve()}:/etc/hosts:ro"]
         args += ["--cap-drop=ALL", "--security-opt", "no-new-privileges", "--user", "1000:1000",

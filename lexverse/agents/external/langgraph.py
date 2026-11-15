@@ -71,6 +71,9 @@ _FORWARDED_ENV_VARS = (
 class LangGraph(BaseInstalledAgent):
     """Run a Python LangGraph graph declared by a langgraph.json file."""
     MODEL_CONNECTION = ModelConnectionSpec()
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     _REMOTE_PROJECT_DIR = PurePosixPath("/installed-agent/langgraph-project")
     _REMOTE_RUNNER_PATH = PurePosixPath("/installed-agent/langgraph_runner.py")
