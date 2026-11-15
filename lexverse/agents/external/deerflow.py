@@ -379,7 +379,7 @@ class DeerFlow(BaseInstalledAgent):
                 "read_only": False,
             }
         )
-        for extra_mount, ro in (("/inputs", True), ("/documents", True), ("/artifacts", False), ("/skills", True)):
+        for extra_mount, ro in (("/inputs", True), ("/artifacts", False), ("/skills", True)):
             if not any(m.get("container_path") == extra_mount for m in mounts):
                 mounts.append({"host_path": extra_mount, "container_path": extra_mount, "read_only": ro})
         sandbox["mounts"] = mounts

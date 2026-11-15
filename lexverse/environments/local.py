@@ -51,12 +51,10 @@ class LocalEnvironment(ExecutionEnvironment):
             "/skills": self.skills_root,
             # Agents list /inputs as a root; keep it present (empty unless a task supplies materials).
             "/inputs": self.trial_paths.runtime_dir / "inputs",
-            "/documents": self.trial_paths.runtime_dir / "documents",
             "/runtime": self.trial_paths.runtime_dir,
             "/tmp": self.trial_paths.runtime_dir / "tmp",
             "/var/tmp": self.trial_paths.runtime_dir / "tmp",
             "/workspace": self.trial_paths.workspace_dir,
-            "/work": self.trial_paths.workspace_dir,
             "/artifacts": self.trial_paths.artifacts_dir,
             "/tests": private_root / "tests",
             "/solution": private_root / "solution",
@@ -132,9 +130,8 @@ class LocalEnvironment(ExecutionEnvironment):
                 target = self.trial_paths.workspace_dir / item.name
                 if item.is_dir():
                     shutil.copytree(item, target, dirs_exist_ok=True)
-                    if item.name in ("inputs", "documents"):
+                    if item.name == "inputs":
                         shutil.copytree(item, self.map_virtual_path("/inputs"), dirs_exist_ok=True)
-                        shutil.copytree(item, self.map_virtual_path("/documents"), dirs_exist_ok=True)
                 elif item.is_file():
                     shutil.copy2(item, target)
 
