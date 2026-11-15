@@ -53,4 +53,4 @@ def build(path):
     doc.save(path)
 
 if __name__ == '__main__':
-    build(sys.argv[1] if len(sys.argv) > 1 else '/work/complaint_preparation.docx')
+    build(sys.argv[1] if len(sys.argv) > 1 else '/workspace/complaint_preparation.docx')

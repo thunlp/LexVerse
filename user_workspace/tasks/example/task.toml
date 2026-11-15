@@ -2,10 +2,10 @@ schema_version = "1.0"
 id = "example"
 
 [environment]
-workdir = "/work"
+workdir = "/workspace"
 
 [[artifacts]]
-source = "/work/complaint_preparation.docx"
+source = "/workspace/complaint_preparation.docx"
 destination = "complaint_preparation.docx"
 
 [verifier]

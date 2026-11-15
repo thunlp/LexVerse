@@ -1,7 +1,7 @@
 你受施某委托，为微信购表未交货纠纷准备起诉材料。
 
 本任务的工作时点固定为2020年6月1日，尚未起诉。请按该时点分析，不使用运行当天作为案件日期。
-阅读 `/documents/` 下两份 Word 材料（客户情况与委托说明、沟通情况整理）和一份 Excel 付款退款明细，生成中文 Word 文件 `/work/complaint_preparation.docx`。
+阅读 `/inputs/` 下两份 Word 材料（客户情况与委托说明、沟通情况整理）和一份 Excel 付款退款明细，生成中文 Word 文件 `/workspace/complaint_preparation.docx`。
 
 生成 Word 时必须满足以下字体要求：
 

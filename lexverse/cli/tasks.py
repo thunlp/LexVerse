@@ -23,7 +23,7 @@ def init_user_task(path: Path) -> dict:
 id = {json.dumps(path.name)}
 
 [[artifacts]]
-source = "/work/report.md"
+source = "/workspace/report.md"
 destination = "report.md"
 
 [environment]
@@ -31,14 +31,14 @@ destination = "report.md"
 [verifier]
 environment_mode = "separate"
 ''',
-        'instruction.md': 'Write a report to /work/report.md. Replace this instruction with your task.\n\nTask materials, if provided, are available in /inputs/.\n',
-        'environment/Dockerfile': 'FROM python:3.12-slim\nCOPY inputs/ /inputs/\nWORKDIR /work\n',
+        'instruction.md': 'Write a report to /workspace/report.md. Replace this instruction with your task.\n\nTask materials, if provided, are available in /inputs/.\n',
+        'environment/Dockerfile': 'FROM python:3.12-slim\nCOPY inputs/ /inputs/\nWORKDIR /workspace\n',
         'tests/Dockerfile': 'FROM python:3.12-slim\nCOPY . /tests/\n',
         'tests/test.sh': '#!/bin/sh\nset -eu\npython /tests/grade.py\n',
         'tests/grade.py': '''# Replace this smoke check with the task's scoring criteria.
 import json
 from pathlib import Path
-report = Path("/work/report.md")
+report = Path("/workspace/report.md")
 reward = float(report.is_file() and bool(report.read_text().strip()))
 output = Path("/logs/verifier")
 output.mkdir(parents=True, exist_ok=True)

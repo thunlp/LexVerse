@@ -25,9 +25,9 @@ lexverse run -p user_workspace/tasks/example --environment docker
 
 ## 文件与交付
 
-- `environment/inputs/`：两份 Word 材料和一份 Excel 明细，在 Agent 容器中位于 `/documents/`。
+- `environment/inputs/`：两份 Word 材料和一份 Excel 明细，在 Agent 容器中位于 `/inputs/`。
 - `instruction.md`：任务要求，标题使用黑体，正文和表格文字使用仿宋。
-- `/work/complaint_preparation.docx`：要求交付的文件，运行后收集至 Trial 的 `artifacts/` 目录。
+- `/workspace/complaint_preparation.docx`：要求交付的文件，运行后收集至 Trial 的 `artifacts/` 目录。
 - `tests/`：格式检查、Judge、评分规则及参考案例，执行结束后注入独立评分容器。
 - `solution/`：用于验证流程的示范生成脚本，不提供给 Agent，也不作为 Judge 的标准答案。
 
