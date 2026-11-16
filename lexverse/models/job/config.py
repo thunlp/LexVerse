@@ -10,7 +10,25 @@ class AgentSelection(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
     model: dict | None = None
+    kwargs: dict = Field(default_factory=dict)
     override_timeout_sec: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def validate_kwargs(self):
+        allowed = {"pi": {"model_api"}, "deerflow": {"config_path", "use_responses_api"},
+                   "openhands": {"reasoning_effort"}}.get(self.name, set())
+        if set(self.kwargs) - allowed:
+            raise ValueError(f"Unsupported Job Agent arguments for {self.name}: {sorted(set(self.kwargs) - allowed)}")
+        if "model_api" in self.kwargs and self.kwargs["model_api"] not in ("openai-completions", "openai-responses"):
+            raise ValueError("model_api must be openai-completions or openai-responses")
+        for key, value in self.kwargs.items():
+            if key == "use_responses_api":
+                if not isinstance(value, bool):
+                    raise ValueError("use_responses_api must be a boolean")
+                continue
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{key} must be a nonempty string")
+        return self
 
 
 class EnvironmentSelection(BaseModel):
@@ -97,6 +115,9 @@ class JobConfig(BaseModel):
         return self
 
     def resolve(self, base: Path):
+        for agent in self.agents:
+            if agent.name == "deerflow" and "config_path" in agent.kwargs:
+                agent.kwargs["config_path"] = resolve_path(agent.kwargs["config_path"], base)
         if self.benchmark:
             for name in ("few_shot_path", "data_dir", "case_database", "submission_path", "candidate_pool_path", "decomposed_query_path", "decomposed_doc_path"):
                 if self.benchmark.get(name):

@@ -77,6 +77,8 @@ class OracleAgent(BaseAgent):
         if self._solution_dir is None or not (self._solution_dir / "solve.sh").is_file():
             raise FileNotFoundError(f"Solution script not found: {self._solution_dir}")
         await environment.upload_dir(self._solution_dir, "/runtime/oracle/solution")
+        if environment.type().value == "docker":
+            await environment.exec("ln -sfn /runtime/oracle/solution /solution", user="root")
 
     @override
     async def run(

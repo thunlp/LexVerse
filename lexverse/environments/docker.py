@@ -283,6 +283,15 @@ class DockerEnvironment(ExecutionEnvironment):
                                     or ":/logs/verifier:" in args[n + 1]
                                     or args[n + 1].startswith(str((Path(__file__).resolve().parents[2] / ".lexverse/capabilities").resolve()) + ":")):
                 del args[n:n + 2]
+        for path in self.knowledge_read_paths():
+            mount = f"{path.resolve()}:{path.resolve()}:ro"
+            if mount not in args:
+                args += ["-v", mount]
+        models = (Path(__file__).resolve().parents[2] / ".lexverse/capabilities/cache/models").resolve()
+        if models.is_dir():
+            mount = f"{models}:{models}:ro"
+            if mount not in args:
+                args += ["-v", mount]
         if self._network_policy.network_mode == "allowlist":
             args += ["-v", f"{hosts.resolve()}:/etc/hosts:ro"]
         args += ["--cap-drop=ALL", "--security-opt", "no-new-privileges", "--user", "1000:1000",
@@ -444,8 +453,12 @@ class DockerEnvironment(ExecutionEnvironment):
         args.extend(["-w", workdir])
         args.extend(["-e", "PYTHONPATH=/lexverse-repo", "-e", "HOME=/runtime/home",
                      "-e", "TMPDIR=/runtime/tmp", "-e", "XDG_CACHE_HOME=/runtime/cache",
+                     "-e", "NPM_CONFIG_PREFIX=/runtime/home/.npm-global",
                      "-e", "PYTHONDONTWRITEBYTECODE=1"])
         extra_paths = ["/runtime/home/.local/bin", "/runtime/home/.npm-global/bin", "/root/.local/bin"]
+        host_bin = Path.home() / ".local/bin"
+        if host_bin.is_dir():
+            extra_paths.append(str(host_bin.resolve()))
         fnm_dir = Path.home() / ".local/share/fnm/node-versions"
         if fnm_dir.is_dir():
             for vdir in sorted(fnm_dir.glob("*/installation/bin"), reverse=True):

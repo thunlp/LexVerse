@@ -55,6 +55,8 @@ class CopilotCli(BaseInstalledAgent):
     """
     MODEL_CONNECTION = None
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF: bool = True
     SUPPORTS_RESUME: bool = True
@@ -136,7 +138,7 @@ class CopilotCli(BaseInstalledAgent):
                     "type": "stdio",
                     "command": server.command,
                     "args": server.args,
-                    "env": {"PYTHONPATH": "/lexverse-repo"},
+                    "env": dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"},
                 }
             elif server.transport == "streamable-http":
                 # Copilot CLI uses "http" for the streamable-http transport

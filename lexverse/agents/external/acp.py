@@ -316,6 +316,9 @@ def _resolve_tool_name(update: dict[str, Any]) -> str:
 class AcpAgent(BaseInstalledAgent):
     """Generic ACP runner backed by a registry entry."""
     MODEL_CONNECTION = ModelConnectionSpec()
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF = True
     _OUTPUT_FILENAME = "acp.txt"
@@ -719,12 +722,13 @@ rm -f "$tmp_archive"
         payload: list[dict[str, Any]] = []
         for server in self.mcp_servers:
             if server.transport == "stdio":
+                env_map = dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"}
                 payload.append(
                     {
                         "name": server.name,
                         "command": server.command,
                         "args": server.args,
-                        "env": [],
+                        "env": [{"name": k, "value": v} for k, v in env_map.items()],
                     }
                 )
             elif server.transport == "sse":

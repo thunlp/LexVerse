@@ -324,6 +324,8 @@ async def execute_general_agent(
             await environment.start()
             from lexverse.capabilities.skills import prepare_task_skills
             await prepare_task_skills(environment, spec, resources, effective_cache)
+            if (spec.task_skills or resources["skills"]["skills"]) and not agent.skills_dir:
+                agent.skills_dir = "/skills"
             if env_type == "docker":
                 import shlex
                 for artifact in spec.artifacts:
@@ -335,19 +337,46 @@ async def execute_general_agent(
                         if prepared.return_code:
                             raise RuntimeError(f"Cannot prepare output directory: {parent}")
             await agent.setup(environment)
+            if env_type == "docker" and agent_name != "vanilla" and any(
+                server.name == "lexverse_knowledge" for server in mcp_servers
+            ):
+                from lexverse.capabilities.mcp_client import prepare_docker_knowledge_runtime
+                await prepare_docker_knowledge_runtime(environment, resources)
             async with environment.agent_execution():
                 await agent.run(instruction if agent_name == "vanilla" else environment.instruction_paths(instruction),
                                 environment, context)
             agent_result = getattr(agent, "last_result", None)
             if agent_result is not None:
                 result = agent_result
-            # A rejected reply must retain the saved pause, without verification or result enrichment.
-            if result.get("resume_error"):
-                return result
-            result = await _collect_result(
-                spec, agent, environment, trial_paths, result,
-                agent_name=agent_name, env_type=env_type, tests_dir=resolved_tests_dir,
-            )
+                # A rejected reply must retain the saved pause, without verification or result enrichment.
+                if result.get("resume_error"):
+                    return result
+                result.setdefault("agent", agent_name)
+                result.setdefault("environment", env_type)
+                atomic_write_json(
+                    trial_paths.trial_dir / ".internal/artifacts.json",
+                    {
+                        "artifacts": [
+                            {
+                                "source": item["source"],
+                                "destination": item["destination"],
+                                "service": item.get("service", "main"),
+                                "status": "collected" if (trial_paths.artifacts_dir / item["destination"]).exists() else "missing",
+                                "kind": "directory" if (trial_paths.artifacts_dir / item["destination"]).is_dir() else "file",
+                            }
+                            for item in spec.artifacts
+                        ]
+                    },
+                )
+                if result.get("status") == "completed" and spec.verifier is not None:
+                    from lexverse.trial.verification import verify_trial
+                    records = json.loads((trial_paths.trial_dir / ".internal/artifacts.json").read_text())["artifacts"]
+                    result["verifier"] = await verify_trial(spec, environment, resolved_tests_dir, records)
+            else:
+                result = await _collect_result(
+                    spec, agent, environment, trial_paths, result,
+                    agent_name=agent_name, env_type=env_type, tests_dir=resolved_tests_dir,
+                )
         finally:
             if not result.get("resume_error"):
                 _publish_trajectory(agent, trial_paths, result)
@@ -507,6 +536,7 @@ async def run_request(payload):
                   "trace_ref": str(internal / "events.jsonl")}
     else:
         result = await execute_general_agent(spec, resources=resources, agent_name=agent,
+                    agent_kwargs=payload.get("agent_kwargs"),
                     environment_dir=Path(payload["environment_dir"]) if payload.get("environment_dir") else None)
     if not preparing and result["status"] == "needs_input" and spec.interactive:
         result = await continue_interaction(spec, result=result)
@@ -516,7 +546,7 @@ async def run_request(payload):
 
 
 async def run_worker(spec, agent, *, prepare_only=False, template=None,
-                     environment_dir=None, task_id=None):
+                     environment_dir=None, task_id=None, agent_kwargs=None):
     """Run one Agent request in an isolated process and return its saved result."""
     import asyncio
     import sys
@@ -534,6 +564,7 @@ async def run_worker(spec, agent, *, prepare_only=False, template=None,
     atomic_write_json(request, {"spec": spec.to_dict(), "agent": agent,
         "prepare_only": prepare_only, "template": str(template) if template else None,
         "task_id": task_id,
+        **({"agent_kwargs": agent_kwargs} if agent_kwargs else {}),
         "environment_dir": str(environment_dir) if environment_dir else None,
         "reply_path": str(error),
         "dependencies_required": requires_agent_dependencies(agent, spec.selection.knowledge)})

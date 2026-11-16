@@ -83,6 +83,9 @@ class EnvironmentBackend(BaseSandbox):
         if not path.startswith("/"):
             path = "/" + path
         for virtual, actual in self._roots.items():
+            if path == actual or path.startswith(actual + "/"):
+                return path
+        for virtual, actual in self._roots.items():
             if path == virtual or path.startswith(virtual + "/"):
                 return actual + path[len(virtual):]
         return str(self.environment.map_virtual_path(path))

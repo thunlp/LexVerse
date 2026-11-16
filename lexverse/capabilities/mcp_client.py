@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import sys
 from tempfile import TemporaryDirectory
 
@@ -13,6 +14,51 @@ from lexverse.models.task.environment import MCPServerConfig
 from lexverse.utils.paths import AGENT_RUNTIME_ROOT, PROJECT_ROOT
 from lexverse.models.trial.paths import RunPaths
 from lexverse.utils.files import atomic_write_json
+
+
+KNOWLEDGE_PYTHON = "/opt/lexverse-knowledge/bin/python"
+
+
+async def prepare_docker_knowledge_runtime(environment, resources):
+    """Install knowledge dependencies without changing the task's Python environment."""
+    import tomllib
+
+    project = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())["project"]
+    packages = {"fastmcp", "jieba"}
+    for record in resources.get("knowledge", []):
+        retrieval = record.get("retrieval")
+        if retrieval is None:
+            manifest = json.loads((Path(record["path"]) / "manifest.json").read_text())
+            retrieval = manifest["identity"]["retrieval"]
+        if retrieval.get("mode", "hybrid") != "keyword":
+            packages.update({"sentence-transformers", "faiss-cpu", "numpy"})
+    requirements = project["dependencies"] + [
+        req for req in project["optional-dependencies"]["capability-task"]
+        if re.split(r"[<>=!~;\[]", req, maxsplit=1)[0].strip() in packages
+    ]
+    check = (
+        "import sys; assert sys.version_info >= (3, 12); "
+        "from importlib.metadata import version; from packaging.requirements import Requirement; "
+        f"requirements = [Requirement(r) for r in {requirements!r}]; "
+        "assert all(version(r.name) in r.specifier for r in requirements "
+        "if r.marker is None or r.marker.evaluate()); "
+        "import lexverse.capabilities.knowledge.mcp_server"
+    )
+    checked = await environment.exec(f"{KNOWLEDGE_PYTHON} -c {shlex.quote(check)}", user="root")
+    if checked.return_code == 0:
+        return
+    if not environment.task_env_config.allow_internet:
+        raise RuntimeError("Knowledge MCP requires a preinstalled /opt/lexverse-knowledge environment when networking is disabled")
+    command = (
+        "python3 -I -c 'import sys; assert sys.version_info >= (3, 12), \"Knowledge MCP requires Python 3.12+ in the task image\"' && "
+        "python3 -I -m venv --copies /opt/lexverse-knowledge && "
+        f"{KNOWLEDGE_PYTHON} -I -m pip install --disable-pip-version-check "
+        + shlex.join(requirements)
+        + f" && chmod -R a+rX /opt/lexverse-knowledge && {KNOWLEDGE_PYTHON} -c {shlex.quote(check)}"
+    )
+    result = await environment.exec(command, user="root", timeout_sec=environment.task_env_config.build_timeout_sec)
+    if result.return_code:
+        raise RuntimeError("Cannot prepare container knowledge MCP dependencies: " + (result.stderr or result.stdout or ""))
 
 
 def failure_category(error: Exception) -> str:
@@ -131,7 +177,7 @@ def build_knowledge_mcp_config(spec, manifest_path, resources, *, cache_dir=None
     pythonpath = ("/lexverse-repo" if env_type == "docker" else
                   os.pathsep.join([str(AGENT_RUNTIME_ROOT / "site-packages"), str(PROJECT_ROOT)]))
     return MCPServerConfig(name="lexverse_knowledge", transport="stdio",
-                           command="python3" if env_type == "docker" else sys.executable, args=args,
+                           command=KNOWLEDGE_PYTHON if env_type == "docker" else sys.executable, args=args,
                            env={"PYTHONPATH": pythonpath})
 
 

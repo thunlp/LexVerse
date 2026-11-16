@@ -78,16 +78,26 @@ class LocalEnvironment(ExecutionEnvironment):
 
     def _rewrite_command_paths(self, command: str) -> str:
         """Rewrite standard root-anchored container paths in shell commands to local trial paths."""
-        rewritten = command
-        for prefix, host_dir in sorted(
-            self._virtual_mounts.items(), key=lambda kv: -len(kv[0])
-        ):
-            pattern = re.compile(
-                rf"(^|[\s\"'=<>\(:;]){re.escape(prefix)}(?=$|[/\s\"'\):;])"
-            )
-            replacement_path = str(host_dir.resolve())
-            rewritten = pattern.sub(lambda m, p=replacement_path: m.group(1) + p, rewritten)
-        return rewritten
+        mounts = {
+            prefix: str(host_dir.resolve())
+            for prefix, host_dir in self._virtual_mounts.items()
+        }
+        alt = "|".join(
+            re.escape(prefix)
+            for prefix in sorted(mounts, key=len, reverse=True)
+        )
+        trial_prefix = str(self.trial_paths.trial_dir.resolve())
+        pattern = re.compile(
+            rf"(^|[\s\"'=<>\(:;`])({alt})(?=$|[/\s\"'\):;`])"
+        )
+        def _replace(match: re.Match[str]) -> str:
+            lead, prefix = match.group(1), match.group(2)
+            rest = command[match.end() :]
+            # Do not rewrite /tmp when the token is already the trial's resolved host path under /tmp/...
+            if (prefix + rest).startswith(trial_prefix + "/") or (prefix + rest) == trial_prefix:
+                return match.group(0)
+            return lead + mounts[prefix]
+        return pattern.sub(_replace, command)
 
     def _validate_definition(self) -> None:
         return None

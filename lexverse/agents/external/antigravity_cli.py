@@ -56,6 +56,8 @@ class AntigravityCli(BaseInstalledAgent):
     """
     MODEL_CONNECTION = ModelConnectionSpec()
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     @override
     def get_version_command(self) -> str | None:
@@ -738,7 +740,7 @@ class AntigravityCli(BaseInstalledAgent):
                     servers[server.name] = {
                         "command": server.command,
                         "args": server.args,
-                        "env": {"PYTHONPATH": "/lexverse-repo"},
+                        "env": dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"},
                     }
                 elif server.transport == "streamable-http":
                     servers[server.name] = {"httpUrl": server.url}
@@ -807,6 +809,8 @@ class AntigravityCli(BaseInstalledAgent):
             "GOOGLE_CLOUD_LOCATION",
             "GOOGLE_GENAI_USE_VERTEXAI",
             "GOOGLE_API_KEY",
+            "GOOGLE_GEMINI_BASE_URL",
+            "GOOGLE_BASE_URL",
         ]
         for var in auth_vars:
             if self._has_env(var):

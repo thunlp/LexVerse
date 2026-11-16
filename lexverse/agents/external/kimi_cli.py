@@ -59,7 +59,7 @@ _PROVIDER_CONFIG: dict[str, dict[str, Any]] = {
         "env_keys": ["KIMI_API_KEY", "MOONSHOT_API_KEY"],
     },
     "openai": {
-        "type": "openai_legacy",
+        "type": "openai_responses",
         "base_url": "https://api.openai.com/v1",
         "env_keys": ["OPENAI_API_KEY"],
     },
@@ -146,6 +146,8 @@ class _WireStep:
 class KimiCli(BaseInstalledAgent):
     MODEL_CONNECTION = ModelConnectionSpec()
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     @override
     def get_version_command(self) -> str | None:
@@ -269,7 +271,7 @@ class KimiCli(BaseInstalledAgent):
                 entry: dict[str, Any] = {
                     "command": server.command,
                     "args": server.args,
-                    "env": {"PYTHONPATH": "/lexverse-repo"},
+                    "env": dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"},
                 }
             else:
                 entry = {"url": server.url}

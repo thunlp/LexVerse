@@ -97,6 +97,10 @@ class DeerFlow(BaseInstalledAgent):
     SWE-bench, ...) edit files where the verifier looks for them.
     """
     MODEL_CONNECTION = ModelConnectionSpec()
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
+    SUPPORTS_ATIF: bool = True
 
     _REMOTE_REPO_DIR = PurePosixPath("/installed-agent/deer-flow")
     _REMOTE_VENV_DIR = PurePosixPath("/opt/harbor-deerflow-venv")
@@ -151,6 +155,7 @@ class DeerFlow(BaseInstalledAgent):
         plan_mode: bool = False,
         summarize: bool = False,
         recursion_limit: int = 1000,
+        use_responses_api: bool | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -165,6 +170,7 @@ class DeerFlow(BaseInstalledAgent):
         # bridge on top (see _build_config). Separate DeerFlow extension/MCP and
         # skill files are not transported by this adapter.
         self.config_path = config_path
+        self.use_responses_api = use_responses_api
         # DeerFlow runtime features the stock CLI cannot request; surfaced here
         # and threaded into the runner. Subagent delegation in particular is off by default in
         # DeerFlow but is core to its multi-agent value. Coerce because `--ak`
@@ -408,6 +414,8 @@ class DeerFlow(BaseInstalledAgent):
         ):
             harbor_model.pop(field, None)
         harbor_model.update(self._model_entry())
+        if self.use_responses_api is not None:
+            harbor_model["use_responses_api"] = self.use_responses_api
         return [*preserved, harbor_model]
 
     def _build_config(self) -> dict[str, Any]:
@@ -469,13 +477,25 @@ class DeerFlow(BaseInstalledAgent):
         ``/mnt/user-data`` workspace, which the task verifier never inspects.
         """
         workdir = self._effective_workdir()
+        extra = ""
+        if self.skills_dir:
+            extra += f"\nDomain and tool skills are mounted read-only at {self.skills_dir} (each subdirectory contains a SKILL.md).\n"
+        if self.mcp_servers:
+            extra += "\nMCP Servers available:\n"
+            for s in self.mcp_servers:
+                if s.transport == "stdio":
+                    args_str = " ".join(s.args)
+                    extra += f"- {s.name}: stdio command `{s.command} {args_str}`\n"
+                else:
+                    extra += f"- {s.name}: {s.transport} url `{s.url}`\n"
         return (
             "You are operating directly on a real Linux machine through the bash "
             "and file tools. Act on the actual filesystem at real absolute paths.\n"
             f"Your working directory is {workdir}. Create and modify the "
             f"task's files under {workdir} (e.g. {workdir}/<file>). Do "
             "NOT write deliverables into /mnt/user-data; the task is graded on the "
-            f"real files under {workdir}.\n\n"
+            f"real files under {workdir}."
+            f"{extra}\n\n"
             f"Task:\n{instruction}"
         )
 
@@ -697,6 +717,44 @@ class DeerFlow(BaseInstalledAgent):
             return
         context.n_input_tokens = input_tokens
         context.n_output_tokens = output_tokens
+
+    @override
+    def populate_context_post_run(self, context: AgentContext) -> None:
+        jsonl_path = self.logs_dir / self._OUTPUT_FILENAME
+        if not jsonl_path.is_file():
+            return
+        messages = None
+        for line in reversed(jsonl_path.read_text(encoding="utf-8", errors="replace").splitlines()):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") == "values" and isinstance(event.get("data"), dict):
+                cand = event["data"].get("messages")
+                if isinstance(cand, list) and cand:
+                    messages = cand
+                    break
+        if not messages:
+            return
+        from lexverse.agents.atif_converter import (
+            convert_langchain_messages_to_atif,
+            write_atif_trajectory,
+        )
+        trajectory = convert_langchain_messages_to_atif(
+            messages,
+            agent_name=self.name(),
+            agent_version=self.version() or "unknown",
+            model_name=self.model_name,
+            usage={
+                "input_tokens": context.n_input_tokens or 0,
+                "output_tokens": context.n_output_tokens or 0,
+            },
+        )
+        if trajectory is not None:
+            write_atif_trajectory(trajectory, self.logs_dir / "trajectory.json")
 
 
 def _coerce_bool(value: Any, default: bool) -> bool:

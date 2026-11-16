@@ -51,6 +51,7 @@ class Eve(BaseInstalledAgent):
     """Run a local Eve app through Eve's HTTP session API."""
     MODEL_CONNECTION = ModelConnectionSpec()
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"sse", "streamable-http"})
 
     SUPPORTS_ATIF: bool = True
 

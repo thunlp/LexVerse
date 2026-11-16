@@ -27,6 +27,8 @@ from lexverse.agents.external.base import (
 from lexverse.environments.base import ExecutionEnvironment
 from lexverse.models.agent.context import AgentContext
 from lexverse.models.agent.name import AgentName
+from lexverse.models.trajectories import Agent, Step, Trajectory
+from lexverse.utils.trajectory_utils import format_trajectory_json
 
 
 class Aider(BaseInstalledAgent):
@@ -36,6 +38,10 @@ class Aider(BaseInstalledAgent):
     """
     MODEL_CONNECTION = ModelConnectionSpec()
 
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
+    SUPPORTS_ATIF: bool = True
     SUPPORTS_RESUME: bool = True
 
     CLI_FLAGS = [
@@ -88,7 +94,7 @@ class Aider(BaseInstalledAgent):
 
     @override
     def get_version_command(self) -> str | None:
-        return ". $HOME/.local/bin/env; aider --version"
+        return 'if [ -f "$HOME/.local/bin/env" ]; then . "$HOME/.local/bin/env"; fi; aider --version'
 
     @override
     def parse_version(self, stdout: str) -> str:
@@ -118,7 +124,54 @@ class Aider(BaseInstalledAgent):
 
     @override
     def populate_context_post_run(self, context: AgentContext) -> None:
-        pass
+        from pathlib import Path
+        import re
+        root = Path(self.logs_dir)
+        path = root / "aider.chat.history.md"
+        if not path.is_file():
+            return
+        text = path.read_text(encoding="utf-8", errors="replace")
+        turns = list(re.finditer(r"(?m)^####[^\n]*(?:\n####[^\n]*)*\n", text))
+        if not turns:
+            return
+        steps: list[Step] = []
+        step_id = 0
+        for idx, m in enumerate(turns):
+            user_prompt = "\n".join(
+                line.removeprefix("####").strip()
+                for line in m.group(0).splitlines()
+                if line.startswith("####")
+            ).strip()
+            if user_prompt:
+                step_id += 1
+                steps.append(Step(step_id=step_id, source="user", message=user_prompt))
+            end_pos = turns[idx + 1].start() if idx + 1 < len(turns) else len(text)
+            body = text[m.end() : end_pos]
+            reply = re.split(r"(?m)^> Tokens:|^# aider chat started", body)[0].strip()
+            if reply:
+                step_id += 1
+                steps.append(
+                    Step(
+                        step_id=step_id,
+                        source="agent",
+                        model_name=self.model_name,
+                        message=reply,
+                    )
+                )
+        if steps:
+            traj = Trajectory(
+                schema_version="ATIF-v1.6",
+                session_id="aider-session",
+                agent=Agent(
+                    name=self.name(),
+                    version=self._version or "unknown",
+                    model_name=self.model_name,
+                ),
+                steps=steps,
+            )
+            (root / "trajectory.json").write_text(
+                format_trajectory_json(traj.to_json_dict()), encoding="utf-8"
+            )
 
     @override
     @with_prompt_template
@@ -128,7 +181,17 @@ class Aider(BaseInstalledAgent):
         environment: ExecutionEnvironment,
         context: AgentContext,
     ) -> None:
-        escaped_instruction = shlex.quote(instruction)
+        instruction_text = instruction
+        if self.skills_dir:
+            instruction_text += f"\n\nSkills:\nDomain and tool skills are mounted read-only at {self.skills_dir} (each subdirectory contains a SKILL.md).\n"
+        if self.mcp_servers:
+            instruction_text += "\nMCP Servers:\n"
+            for s in self.mcp_servers:
+                if s.transport == "stdio":
+                    instruction_text += f"- {s.name}: stdio command `{s.command} {' '.join(s.args)}`\n"
+                else:
+                    instruction_text += f"- {s.name}: {s.transport} url `{s.url}`\n"
+        escaped_instruction = shlex.quote(instruction_text)
 
         # Determine provider and API key from model name
         if not self.model_name or "/" not in self.model_name:
@@ -163,8 +226,15 @@ class Aider(BaseInstalledAgent):
         await self.exec_as_agent(
             environment,
             command=(
-                ". $HOME/.local/bin/env; "
+                'if [ -f "$HOME/.local/bin/env" ]; then . "$HOME/.local/bin/env"; fi; '
+                "cat > /tmp/aider-model-settings.yml <<EOF\n"
+                f"- name: {model}\n"
+                "  use_temperature: false\n"
+                f"- name: {self.model_name}\n"
+                "  use_temperature: false\n"
+                "EOF\n"
                 "aider --yes "
+                "--model-settings-file=/tmp/aider-model-settings.yml "
                 "--chat-history-file=/logs/agent/aider.chat.history.md "
                 f"{restore_flag}{extra_flags}--model={model} "
                 f"--message={escaped_instruction} "

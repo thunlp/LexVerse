@@ -487,6 +487,9 @@ class MiniSweAgent(BaseInstalledAgent):
 
     MODEL_CONNECTION = ModelConnectionSpec(api_key_envs=('MSWEA_API_KEY',))
 
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
     SUPPORTS_ATIF: bool = True
 
     CLI_FLAGS = [
@@ -587,7 +590,7 @@ class MiniSweAgent(BaseInstalledAgent):
                 " fi && "
                 'if [ -f "$HOME/.local/bin/env" ]; then source "$HOME/.local/bin/env"; fi && '
                 'export PATH="$HOME/.local/bin:$PATH" && '
-                f"uv tool install mini-swe-agent{version_spec} --with 'litellm[proxy]' && "
+                f"uv tool install --python 3.13 mini-swe-agent{version_spec} --with 'litellm[proxy]' && "
                 "mini-swe-agent --help"
             ),
         )
@@ -654,6 +657,11 @@ class MiniSweAgent(BaseInstalledAgent):
         self, instruction: str, environment: ExecutionEnvironment, context: AgentContext
     ) -> None:
         augmented_instruction = instruction
+        if self.skills_dir:
+            augmented_instruction += (
+                f"\n\nSkills:\nDomain and tool skills are mounted at {self.skills_dir} "
+                f"(each subdirectory contains a SKILL.md). You can inspect them via bash if helpful.\n"
+            )
         if self.mcp_servers:
             mcp_info = "\n\nMCP Servers:\nThe following MCP servers are available for this task.\n"
             for s in self.mcp_servers:
@@ -742,6 +750,8 @@ class MiniSweAgent(BaseInstalledAgent):
                 # thinking_level, etc.). Nesting under extra_body forwards a
                 # literal field that providers like Gemini reject.
                 config_flags += f"-c model.model_kwargs.reasoning_effort={eff} "
+        elif self.model_name.startswith("openai/"):
+            config_flags += "-c model.model_kwargs.reasoning_effort=none "
 
         if self._max_tokens is not None:
             token_key = (
@@ -785,5 +795,5 @@ class MiniSweAgent(BaseInstalledAgent):
             answer = info.get('submission')
             if not answer:
                 final = next((m for m in reversed(data.get('messages', [])) if m.get('role') == 'assistant'), {})
-                answer = re.sub(r'```(?:bash|sh)\n.*?```', '', final.get('content', ''), flags=re.S)
+                answer = re.sub(r'```(?:bash|sh)\n.*?```', '', final.get('content') or '', flags=re.S)
         return answer.strip() if isinstance(answer, str) and answer.strip() else None

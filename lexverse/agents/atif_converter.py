@@ -35,7 +35,7 @@ def convert_langchain_messages_to_atif(
 
     for msg in messages:
         msg_type = getattr(msg, "type", None) or (
-            msg.get("role") if isinstance(msg, dict) else None
+            (msg.get("type") or msg.get("role")) if isinstance(msg, dict) else None
         )
         raw_content = (
             getattr(msg, "content", None)
@@ -49,13 +49,19 @@ def convert_langchain_messages_to_atif(
             for block in raw_content:
                 if isinstance(block, dict):
                     btype = block.get("type")
-                    if btype == "text" and block.get("text"):
+                    if btype in ("text", "output_text") and block.get("text"):
                         text_parts.append(str(block["text"]))
                     elif btype in ("thinking", "reasoning") and (
                         block.get("thinking") or block.get("text")
                     ):
                         reasoning_parts.append(
                             str(block.get("thinking") or block.get("text"))
+                        )
+                    elif btype == "reasoning" and isinstance(block.get("summary"), list):
+                        reasoning_parts.extend(
+                            str(item["text"])
+                            for item in block["summary"]
+                            if isinstance(item, dict) and item.get("text")
                         )
                 elif isinstance(block, str):
                     text_parts.append(block)

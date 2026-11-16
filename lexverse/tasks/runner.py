@@ -175,6 +175,7 @@ async def _execute_job(config, task, *, verify=True, dry_run=False):
         **config.generation, "interactive": config.interactive, "environment": config.environment.type,
         "verify": verify,
         "resources": config.resources,
+        **({"agent_kwargs": agent.kwargs} if agent.kwargs else {}),
         "limits": {**config.generation.get('limits', {}),
                    **({'active_timeout_sec': agent.override_timeout_sec or task.agent.timeout_sec}
                       if agent.override_timeout_sec or task.agent.timeout_sec else {})},
@@ -249,7 +250,8 @@ async def execute_trial(job, trial, *, verify=True):
                      task_source=job.directory / ".internal/task/task.toml")
     spec = execution_spec(trial)
     spec.verifier = trial.task.verification.config if verify and trial.task.verification else None
-    result = await run_worker(spec, trial.execution.agent, task_id=trial.task.id)
+    result = await run_worker(spec, trial.execution.agent, task_id=trial.task.id,
+                              agent_kwargs=trial.execution.settings.get("agent_kwargs"))
 
     # Record output validation, verification results, and retry eligibility.
     annotate_result(trial.directory, result, ["artifacts/" + item["destination"] for item in spec.artifacts

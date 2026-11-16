@@ -49,6 +49,8 @@ class Goose(BaseInstalledAgent):
     """
     MODEL_CONNECTION = ModelConnectionSpec()
     SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     SUPPORTS_ATIF: bool = True
     SUPPORTS_RESUME: bool = True
@@ -153,7 +155,7 @@ class Goose(BaseInstalledAgent):
                         "name": server.name,
                         "cmd": server.command,
                         "args": server.args,
-                        "envs": {"PYTHONPATH": "/lexverse-repo"},
+                        "envs": dict(server.env) if server.env else {"PYTHONPATH": "/lexverse-repo"},
                     }
                 )
             elif server.transport == "sse":
@@ -444,29 +446,39 @@ class Goose(BaseInstalledAgent):
                 for item in msg.get("content", []):
                     item_type = item.get("type")
                     if item_type == "text":
-                        entry["text_parts"].append(item["text"])
+                        entry["text_parts"].append(item.get("text", ""))
                     elif item_type == "thinking":
-                        entry["reasoning_parts"].append(item["text"])
+                        entry["reasoning_parts"].append(item.get("text") or item.get("thinking") or "")
                     elif item_type == "toolRequest":
-                        tc_data = item.get("toolCall", {})
-                        tc_value = tc_data.get("value", {})
+                        tc_data = item.get("toolCall") or {}
+                        tc_value = tc_data.get("value") or {}
+                        raw_args = tc_value.get("arguments", {})
+                        if isinstance(raw_args, str):
+                            try:
+                                raw_args = json.loads(raw_args)
+                            except json.JSONDecodeError:
+                                raw_args = {"raw": raw_args}
+                        if not isinstance(raw_args, dict):
+                            raw_args = {"value": raw_args}
                         entry["tool_calls"].append(
                             ToolCall(
                                 tool_call_id=item.get("id", str(uuid.uuid4())[:8]),
-                                function_name=tc_value.get("name", "unknown"),
-                                arguments=tc_value.get("arguments", {}),
+                                function_name=tc_value.get("name") or "unknown",
+                                arguments=raw_args,
                             )
                         )
                     elif item_type == "toolResponse":
-                        tr_data = item.get("toolResult", {})
-                        tr_value = tr_data.get("value", {})
+                        tr_data = item.get("toolResult") or {}
+                        tr_value = tr_data.get("value") or {}
                         obs_text = ""
-                        if "content" in tr_value:
+                        if isinstance(tr_value.get("content"), list):
                             obs_text = "\n".join(
-                                c["text"]
+                                str(c.get("text") or "")
                                 for c in tr_value["content"]
-                                if c.get("type") == "text"
+                                if isinstance(c, dict) and c.get("type") == "text"
                             )
+                        elif tr_data.get("error"):
+                            obs_text = str(tr_data.get("error"))
                         entry["tool_responses"].append(
                             ObservationResult(
                                 source_call_id=item.get("id"),

@@ -173,6 +173,9 @@ class NemoAgent(BaseInstalledAgent):
     For custom agents, pass --ak config_file=<path> and --ak workflow_package=<pkg>.
     """
     MODEL_CONNECTION = ModelConnectionSpec()
+    SUPPORTS_SKILLS = True
+    MCP_TRANSPORTS = frozenset({"stdio", "sse", "streamable-http"})
+    SUPPORTS_MCP_ENV = True
 
     def __init__(self, *args, **kwargs):
         connection = kwargs.get("model_connection")
@@ -222,7 +225,7 @@ class NemoAgent(BaseInstalledAgent):
         ),
     ]
 
-    _CONTAINER_CONFIG_PATH = "/app/nemo-agent-config.yml"
+    _CONTAINER_CONFIG_PATH = "/runtime/tmp/nemo-agent-config.yml"
     _CONTAINER_WRAPPER_PATH = "/installed-agent/nemo_agent_run_wrapper.py"
 
     @staticmethod
@@ -292,7 +295,10 @@ class NemoAgent(BaseInstalledAgent):
                 " >> ~/.bashrc"
             ),
         )
-        await self.exec_as_root(environment, command="mkdir -p /app")
+        await self.exec_as_root(
+            environment,
+            command=f"mkdir -p /app /workspace && chown -R {agent_user}:{agent_user} /app /workspace || true",
+        )
         await self.exec_as_agent(
             environment, command="/opt/nvidia-nat-venv/bin/nat --version"
         )
@@ -387,6 +393,14 @@ class NemoAgent(BaseInstalledAgent):
             context.n_cache_tokens = final_metrics.get("total_cached_tokens") or 0
             context.cost_usd = final_metrics.get("total_cost_usd")
 
+    def read_final_answer(self) -> str | None:
+        output_path = Path(self.logs_dir) / "nemo-agent-output.txt"
+        if output_path.is_file():
+            text = output_path.read_text(encoding="utf-8", errors="replace").strip()
+            if text and not text.startswith("[ERROR]") and not text.startswith("[EMPTY]"):
+                return text
+        return None
+
     def _resolve_env_value(self, env_name: str) -> str:
         """Resolve an env var from --ae flags first, then os.environ."""
         return self._get_env(env_name) or ""
@@ -473,46 +487,42 @@ class NemoAgent(BaseInstalledAgent):
 
     def _build_run_command(self, instruction: str) -> str:
         """Build the shell command to run the NAT workflow."""
+        if self.skills_dir:
+            instruction += f"\n\nSkills:\nDomain and tool skills are mounted read-only at {self.skills_dir} (each subdirectory contains a SKILL.md).\n"
+        if self.mcp_servers:
+            instruction += "\nMCP Servers:\n"
+            for s in self.mcp_servers:
+                if s.transport == "stdio":
+                    instruction += f"- {s.name}: stdio command `{s.command} {' '.join(s.args)}`\n"
+                else:
+                    instruction += f"- {s.name}: {s.transport} url `{s.url}`\n"
         escaped_instruction = shlex.quote(instruction)
         config_path = self._CONTAINER_CONFIG_PATH
         path_prefix = 'export PATH="/opt/nvidia-nat-venv/bin:$HOME/.local/bin:$PATH"; '
 
         return (
             f"{path_prefix}"
-            f"mkdir -p /app /logs/agent /workspace && "
+            f"mkdir -p /logs/agent && "
             f"python3 {self._CONTAINER_WRAPPER_PATH}"
             f" {shlex.quote(config_path)}"
             f" {escaped_instruction}"
             f" --trajectory-output /logs/agent/trajectory.json"
-            f" > /app/answer.txt 2>/logs/agent/nemo-agent-stderr.txt; "
+            f" > /logs/agent/nemo-agent-output.txt 2>/logs/agent/nemo-agent-stderr.txt; "
             f"NEMO_EXIT=$?; "
             f"if [ $NEMO_EXIT -ne 0 ]; then "
             f"STDERR_SUMMARY=$(head -3 /logs/agent/nemo-agent-stderr.txt 2>/dev/null | tr '\\n' ' '); "
             f'SENTINEL="[ERROR] NAT workflow failed (code $NEMO_EXIT): $STDERR_SUMMARY"; '
-            f'echo "$SENTINEL" > /app/answer.txt; '
-            f'echo "$SENTINEL" > /app/result.json; '
-            f'echo "$SENTINEL" > /workspace/answer.txt; '
             f'echo "$SENTINEL" > /logs/agent/nemo-agent-output.txt; '
-            f'echo "$SENTINEL" > /workspace/solution.txt; '
-            f'echo "$SENTINEL" > /app/response.txt; '
             f"else "
-            f"if [ ! -s /app/answer.txt ]; then "
+            f"if [ ! -s /logs/agent/nemo-agent-output.txt ]; then "
             f'EMPTY_SENTINEL="[EMPTY] NAT workflow produced no output (exit code 0)"; '
-            f'echo "$EMPTY_SENTINEL" > /app/answer.txt; '
-            f'echo "$EMPTY_SENTINEL" > /app/result.json; '
-            f'echo "$EMPTY_SENTINEL" > /workspace/answer.txt; '
             f'echo "$EMPTY_SENTINEL" > /logs/agent/nemo-agent-output.txt; '
-            f'echo "$EMPTY_SENTINEL" > /workspace/solution.txt; '
-            f'echo "$EMPTY_SENTINEL" > /app/response.txt; '
-            f"else "
-            f"cp /app/answer.txt /app/result.json; "
-            f"cp /app/answer.txt /workspace/answer.txt; "
-            f"cp /app/answer.txt /logs/agent/nemo-agent-output.txt; "
-            f"cp /workspace/answer.txt /workspace/solution.txt; "
-            f"cp /app/answer.txt /app/response.txt; "
             f"fi; "
             f"fi; "
-            f"cat /app/answer.txt"
+            f"for dst in /app/answer.txt /app/result.json /app/response.txt /workspace/answer.txt /workspace/solution.txt; do "
+            f"cp /logs/agent/nemo-agent-output.txt \"$dst\" 2>/dev/null || true; "
+            f"done; "
+            f"cat /logs/agent/nemo-agent-output.txt"
         )
 
     @with_prompt_template
