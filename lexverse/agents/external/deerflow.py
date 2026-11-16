@@ -155,6 +155,7 @@ class DeerFlow(BaseInstalledAgent):
         plan_mode: bool = False,
         summarize: bool = False,
         recursion_limit: int = 1000,
+        use_responses_api: bool | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -169,6 +170,7 @@ class DeerFlow(BaseInstalledAgent):
         # bridge on top (see _build_config). Separate DeerFlow extension/MCP and
         # skill files are not transported by this adapter.
         self.config_path = config_path
+        self.use_responses_api = use_responses_api
         # DeerFlow runtime features the stock CLI cannot request; surfaced here
         # and threaded into the runner. Subagent delegation in particular is off by default in
         # DeerFlow but is core to its multi-agent value. Coerce because `--ak`
@@ -301,8 +303,6 @@ class DeerFlow(BaseInstalledAgent):
         entry["api_key"] = f"${key_var}"
         entry["request_timeout"] = 600.0
         entry["max_retries"] = 2
-        if use == "langchain_openai:ChatOpenAI":
-            entry["use_responses_api"] = True
         return entry
 
     def _default_tools(self) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
@@ -414,6 +414,8 @@ class DeerFlow(BaseInstalledAgent):
         ):
             harbor_model.pop(field, None)
         harbor_model.update(self._model_entry())
+        if self.use_responses_api is not None:
+            harbor_model["use_responses_api"] = self.use_responses_api
         return [*preserved, harbor_model]
 
     def _build_config(self) -> dict[str, Any]:

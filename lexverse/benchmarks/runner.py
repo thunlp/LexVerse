@@ -376,7 +376,8 @@ async def execute_agent(trial, config, plugin, runtime, resource_root, work, pro
                       instructions=agent_instructions(plugin, trial.task.source.task_type))
 
     try:
-        result = await run_worker(spec, config.agent, template=template, task_id=trial.task.id)
+        result = await run_worker(spec, config.agent, template=template, task_id=trial.task.id,
+                                  agent_kwargs=config.raw["agents"][0].get("kwargs"))
     finally:
         # The worker may have saved a partial trajectory before failing or being cancelled.
         source = run / 'trajectory.json'

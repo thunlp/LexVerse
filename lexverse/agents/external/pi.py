@@ -58,6 +58,12 @@ class Pi(BaseInstalledAgent):
     _OUTPUT_FILENAME = "pi.txt"
     _CUSTOM_MODEL_KEY_ENV = "LEXVERSE_PI_API_KEY"
 
+    def __init__(self, *args, model_api: str | None = None, **kwargs):
+        if model_api not in (None, "openai-completions", "openai-responses"):
+            raise ValueError("model_api must be openai-completions or openai-responses")
+        self.model_api = model_api
+        super().__init__(*args, **kwargs)
+
     CLI_FLAGS = [
         CliFlag(
             "thinking",
@@ -124,23 +130,27 @@ class Pi(BaseInstalledAgent):
 
     def _build_custom_models_command(self, provider: str, model_id: str, environment: ExecutionEnvironment | None = None) -> str | None:
         """Configure $HOME/.pi/agent/models.json when OPENAI_BASE_URL is provided for a custom OpenAI-compatible server."""
-        base_url = self._get_env("OPENAI_BASE_URL") or self._get_env("OPENAI_API_BASE") or self._get_env("LLM_BASE_URL")
+        base_url = self.model_connection.configured_base_url or self._get_env("LLM_BASE_URL")
         if not base_url:
+            if self.model_api is not None:
+                raise ValueError("model_api requires an explicitly configured base URL")
             return None
+        if self.model_api is None:
+            raise ValueError("Pi custom endpoints require the model_api agent argument")
         if environment is not None and getattr(environment.type(), "value", str(environment.type())) == "docker":
             base_url = base_url.replace("://127.0.0.1:", "://host.docker.internal:").replace("://localhost:", "://host.docker.internal:")
         models_cfg = {
             "providers": {
                 provider: {
                     "baseUrl": base_url,
-                    "api": "openai-responses",
-                    # Pi interpolates $VAR in models.json; bare identifiers are sent as literal keys.
-                    "apiKey": f"${self._CUSTOM_MODEL_KEY_ENV}",
+                    "api": self.model_api,
+                    # Pi resolves environment-variable names before literal keys.
+                    "apiKey": self._CUSTOM_MODEL_KEY_ENV,
                     "authHeader": True,
                     "models": [
                         {
                             "id": model_id,
-                            "api": "openai-responses",
+                            "api": self.model_api,
                             "contextWindow": 131072,
                             "maxTokens": 8192,
                         }

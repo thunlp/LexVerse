@@ -70,7 +70,6 @@ class OpenHands(BaseInstalledAgent):
             "reasoning_effort",
             env="LLM_REASONING_EFFORT",
             type="str",
-            default="none",
         ),
         EnvVar(
             "temperature",
@@ -1049,8 +1048,6 @@ class OpenHands(BaseInstalledAgent):
             "USER=$(id -un 2>/dev/null || echo agent)",
             "LITELLM_DROP_PARAMS=True",
             "/opt/openhands-venv/bin/python -c \"import sys, litellm; litellm.drop_params = True; "
-            "from openhands.llm import llm as _oh_llm; _c = _oh_llm.litellm_completion; "
-            "_oh_llm.litellm_completion = lambda *a, **kw: _c(*a, **{**kw, 'extra_body': {**(kw.get('extra_body') or {}), 'reasoning_effort': kw.get('reasoning_effort') or 'none'}}); "
             "import runpy; sys.argv = ['openhands.core.main', *sys.argv[1:]]; runpy.run_module('openhands.core.main', run_name='__main__')\"",
             f"--task={escaped_instruction}",
         ]
