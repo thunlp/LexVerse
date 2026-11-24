@@ -146,12 +146,12 @@ The table below compares the scores obtained directly by running `python -m lexv
 
 ---
 
-## 5. Sampled Capability Comparison (`deepseek-v4.1-flash`)
+## 5. Capability Comparison (`deepseek-v4.1-flash`)
 
-`deepseek-v4.1-flash` (`temperature: 0`, `max_tokens: 16384`, thinking disabled) is both the tested model and the judge. The sample has 100 case-analysis items (seed `20261107:plawbench:case_analysis:sample100`, excluding items examined during development) plus all 18 consultation and 12 drafting items. Vanilla runs allow 8 model calls, 16 tool calls, and 600 seconds per trial, without the built-in file tools. Vanilla + capability adds the LexVerse knowledge tools (`lexverse resources download indexes`) on case analysis and drafting.
+`deepseek-v4.1-flash` (`temperature: 0`, `max_tokens: 8192` for generation and `16384` for the judge, thinking disabled) is both the tested model and the judge across all 280 public items (250 case-analysis, 18 consultation, and 12 drafting items). Vanilla runs allow 8 model calls, 16 tool calls, and 600 seconds per trial, without the built-in file tools. Vanilla + capability adds the LexVerse knowledge tools (`lexverse resources download indexes`) across all tasks.
 
-| Scenario | Overall (item-weighted) | Case analysis | Consultation | Drafting |
+| Scenario | Overall | Case analysis | Consultation | Drafting |
 | :--- | ---: | ---: | ---: | ---: |
-| Static | 68.90 | 70.49 | 65.80 | 60.29 |
-| Vanilla w/o capability | 67.73 | 70.04 | 67.04 | 49.53 |
-| Vanilla + capability | 71.37 | 74.18 | 67.04 | 54.45 |
+| Static | 64.70 | 69.30 | 66.10 | 58.68 |
+| Vanilla w/o capability | 66.79 | 70.29 | 67.96 | 62.11 |
+| Vanilla + capability | 67.52 | 75.19 | 64.51 | 62.87 |
