@@ -14,19 +14,30 @@ LexVerse is **a unified framework** for legal language models and agents, spanni
 
 Researchers can use it to evaluate models and conduct controlled ablation studies, developers can use it to build and customize legal agents, and legal professionals can bring their own materials to test whether AI holds up in real workflows. **Whoever you are, LexVerse is a place to start.** We are continuing to integrate more benchmarks, expand our framework and runtime environments, and unlock multi-agent workflows and trajectory-based learning.
 
-## Supported benchmark
+[![LexVerse framework: execution modes, task and job orchestration, verification, and results](assets/framework-overview.jpg)](assets/framework-overview.jpg)
 
-| Benchmark                                                 | Coverage                                         | Execution                   |
-| :-------------------------------------------------------- | :----------------------------------------------- | :-------------------------- |
-| [LexEval](https://github.com/CSHaitao/LexEval)             | 23 task types                                    | Static / Vanilla / External |
-| [LawBench](https://github.com/open-compass/LawBench)       | 20 task types                                    | Static / Vanilla / External |
-| [PLawBench](https://github.com/SKYLENAGE-AI/PLawBench)     | Case analysis, consultation, document generation | Static / Vanilla / External |
-| [J1Bench](https://github.com/FudanDISC/J1Bench)            | CI, CR, KQ, LC, CD, DD                           | Native                      |
-| [DLawBench](https://github.com/SKYLENAGE-AI/DLawBench)     | 4 client personas                                | Native                      |
-| [Legal-world](https://github.com/sii-research/Legal-world) | 6 scenarios across the litigation lifecycle      | Native                      |
-| [SimuCourt](https://github.com/Zhitao-He/AgentsCourt)      | 6 task types                                     | Native                      |
-| [MASER](https://github.com/FudanDISC/MASER)                | Complaint generation                             | Native                      |
-| [LeCaRDv2](https://github.com/THUIR/LeCaRDv2)              | Case retrieval                                   | Static                      |
+<details>
+<summary>Use cases for researchers, developers, and legal professionals</summary>
+
+[![LexVerse use cases for researchers, agent developers, and legal professionals](assets/use-cases.jpg)](assets/use-cases.jpg)
+
+</details>
+
+## Supported benchmarks
+
+| Benchmark                                              | Coverage                                                                                                     | Execution modes             |
+| :----------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- | :-------------------------- |
+| [LexEval](lexverse/benchmarks/lexeval/README.md)        | Memorization, Understanding, Logic Inference, Discrimination, Generation, Ethics                                   | Static / Vanilla / External |
+| [LawBench](lexverse/benchmarks/lawbench/README.md)      | Legal Knowledge Memorization, Legal Knowledge Understanding, Legal Knowledge Applying                              | Static / Vanilla / External |
+| [PLawBench](lexverse/benchmarks/plawbench/README.md)    | Legal Consultation, Case Analysis, Legal Document Drafting                                                         | Static / Vanilla / External |
+| [J1Bench](lexverse/benchmarks/j1bench/README.md)        | Knowledge Questioning, Legal Consultation; Complaint Drafting, Defence Drafting; Civil Court, Criminal Court         | Native                      |
+| [DLawBench](lexverse/benchmarks/dlawbench/README.md)    | Multi-Turn Legal Consultation (4 Client Personas)                                                                  | Native                      |
+| [Legal-world](lexverse/benchmarks/legalworld/README.md) | Consultation, Document Drafting, First-Instance Trial; Appeal Determination, Appeal Drafting, Second-Instance Trial | Native                      |
+| [SimuCourt](lexverse/benchmarks/simucourt/README.md)    | Judicial Decision-Making                                                                                           | Native                      |
+| [MASER](lexverse/benchmarks/maser/README.md)            | Complaint Generation | Native                      |
+| [LeCaRDv2](lexverse/benchmarks/lecardv2/README.md)      | Legal Case Retrieval                                                                                               | Static                      |
+
+**Execution modes:** **Static** runs tasks without an agent loop; **Native** uses the benchmark-specific execution workflow; **Vanilla** uses LexVerse's built-in agent; **External** uses an external agent.
 
 ## Quick start
 
@@ -71,6 +82,8 @@ lexverse setup
 #### Step 2. Prepare Skills and knowledge (optional)
 
 `setup` does not download Skills or knowledge. Downloads are saved under the project root's `.lexverse/capabilities/` by default.
+
+Our Skills, knowledge resources, and prebuilt indexes are available on Hugging Face: [TsinghuaNLP/LexVerse](https://huggingface.co/datasets/TsinghuaNLP/LexVerse).
 
 Declare Agent resources in Job `resources` or Task environment settings. Static and native executions do not accept Agent resources. For benchmark evaluation, keep reference answers out of knowledge sources.
 
