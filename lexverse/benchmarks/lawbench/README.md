@@ -203,12 +203,12 @@ The tables below report the full **10,000-sample (20 tasks × 500 samples)** zer
 
 ---
 
-## 5. Sampled Capability Comparison (`deepseek-v4.1-flash`)
+## 5. Capability Comparison (`deepseek-v4.1-flash`)
 
-`deepseek-v4.1-flash` (`temperature: 0`, `max_tokens: 4096`, thinking disabled) answers a random sample of 50 items per task (1,000 items, seed `20261107:lawbench:<task>:sample50`, excluding items examined during development). Vanilla runs allow 8 model calls, 16 tool calls, and 300 seconds per trial, without the built-in file tools. Vanilla + capability adds the LexVerse knowledge tools (`lexverse resources download indexes`) on `1-1`, `3-1`, and `3-2`.
+`deepseek-v4.1-flash` (`temperature: 0`, `max_tokens: 4096`, thinking disabled) is evaluated on all 10,000 items across the 20 tasks (500 items per task, zero-shot). Vanilla runs allow 8 model calls, 16 tool calls, and 300 seconds per trial, without the built-in file tools. Vanilla + capability adds the LexVerse knowledge tools (`lexverse resources download indexes`) across all tasks.
 
-| Scenario | Overall (item-weighted) | Δ vs Static |
+| Scenario | Overall | Δ vs Static |
 | :--- | ---: | ---: |
-| Static | 60.16 | +0.00 |
-| Vanilla w/o capability | 62.98 | +2.82 |
-| Vanilla + capability | 66.33 | +6.17 |
+| Static | 62.33 | +0.00 |
+| Vanilla w/o capability | 63.20 | +0.87 |
+| Vanilla + capability | 65.04 | +2.70 |
